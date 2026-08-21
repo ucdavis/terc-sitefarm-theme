@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  Standalone dev harness — served only by the Vite dev server (npm start),
+  never built or shipped. Visit https://terc.ddev.site:5273/vue/dev.html
+  (or the localhost URL Vite prints). Two placeholders prove multi-instance
+  mounting with a shared cache.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>TERC Vue dev harness</title>
+  </head>
+  <body>
+    <h1>TERC block dev harness</h1>
+    <div data-terc-block="hello-lake"></div>
+    <div data-terc-block="hello-lake" data-terc-props='{"title":"Second instance (same cache)"}'></div>
+    <script type="module" src="/vue/entries/current-conditions.ts"></script>
+  </body>
+</html>

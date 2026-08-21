@@ -326,3 +326,10 @@ Hooks to change variables and data that is eventually passed to a template. This
 is also where any theme suggestions would be located.
 
 [https://www.drupal.org/docs/8/theming-drupal-8/modifying-attributes-in-a-theme-file](https://www.drupal.org/docs/8/theming-drupal-8/modifying-attributes-in-a-theme-file)
+
+# Vue decoupled block bundles (TERC)
+
+This theme also carries the Vue 3 workspace for the Lake Tahoe Conditions
+progressively decoupled blocks. See [vue/README.md](vue/README.md) — the
+standard `npm start` / `npm run build` commands above build those bundles
+too; no extra tooling is required.

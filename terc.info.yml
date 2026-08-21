@@ -1,6 +1,6 @@
 name: TERC
 type: theme
-description: 'This is a subtheme of Sitefarm One'
+description: 'TERC subtheme of Sitefarm One'
 package: SiteFarm
 core_version_requirement: ^10
 version: 1.0.0
