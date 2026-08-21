@@ -15,5 +15,14 @@
     "file": "style.css",
     "src": "sass/style.scss",
     "isEntry": true
+  },
+  "vue/entries/current-conditions.ts": {
+    "file": "current-conditions.js",
+    "name": "current-conditions",
+    "src": "vue/entries/current-conditions.ts",
+    "isEntry": true,
+    "css": [
+      "current-conditions.css"
+    ]
   }
 }
