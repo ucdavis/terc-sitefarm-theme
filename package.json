@@ -1,0 +1,25 @@
+{
+  "name": "terc",
+  "version": "1.0.0",
+  "description": "SiteFarm One subtheme for Drupal",
+  "dependencies": {},
+  "main": "vite.config.mjs",
+  "private": true,
+  "scripts": {
+    "start": "npm run dev",
+    "dev": "ucd-theme-tasks dev",
+    "build": "ucd-theme-tasks build",
+    "lint": "ucd-theme-tasks lint",
+    "lint:css": "ucd-theme-tasks lint --css",
+    "lint:css-fix": "ucd-theme-tasks lint --css --fix",
+    "lint:js": "ucd-theme-tasks lint --js",
+    "lint:js-fix": "ucd-theme-tasks lint --js --fix",
+    "postinstall": "npm run build"
+  },
+  "devDependencies": {
+    "ucd-theme-tasks": "^5.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,27 @@
+// This is an example of a component that will be autoloaded
+
+// Import variables and mixins from the SiteFarm One theme. Edit the location below.
+// ⚠️ Importing files from sitefarm_one can be brittle due to the possiblity of future
+// updates causing your build to break. If you choose to do this you are responsible
+// to ensure the future compatibility of your sub theme. You have been warned.
+//@use "../../../../profiles/sitefarm/themes/sitefarm_one/sass/1_pattern_lab/0_tools" as *;
+
+.block {
+  // Add any .block styles here
+  content: "BEM block";
+
+  @media (width >= 1000px) {
+    // Styles for the .block that will change above 1000px
+    content: "BEM block above 1000px";
+  }
+
+  &__element {
+    // Add any elements styles here
+    // Will become .block__element
+  }
+
+  &--modifier {
+    // Add modifiers here
+    // Will become .block--modifier
+  }
+}

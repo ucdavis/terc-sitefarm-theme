@@ -1,0 +1,5 @@
+extends: ucd-theme-tasks/.stylelintrc.default.yml
+
+rules:
+  # Drupal often requires qualifying selectors.
+  selector-no-qualifying-type: null

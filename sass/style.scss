@@ -1,0 +1,7 @@
+// This file will compile to the /dist/style.css file
+
+// Import Component partials
+@use "component/example";
+
+// Custom styles can go below, although it is preferable to put them into
+// individual component files.

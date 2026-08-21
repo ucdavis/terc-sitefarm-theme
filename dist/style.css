@@ -1,0 +1,1 @@
+.block{content:"BEM block"}@media (width >= 1000px){.block{content:"BEM block above 1000px"}}

@@ -1,0 +1,10 @@
+global-styles:
+  # Instruct Vite to compile the assets in this library
+  vite: true
+  css:
+    theme:
+      # Use the source path sass/style.scss rather than the compiled path
+      # dist/style.css.
+      sass/style.scss: { minified: true }
+  js:
+    js/main.js: { attributes: { type: 'module'}}

@@ -1,0 +1,17 @@
+# Dependency directories
+node_modules
+
+# Ignore map files since they only work locally anyway
+*.map
+
+# Node will sometimes create a log file on failures
+*.log
+
+# Sass partials that don't need to be in the build directory
+dist/_*.scss
+
+# Custom Local config
+*.local.js
+
+# Ignore Mac OS Files
+.DS_Store

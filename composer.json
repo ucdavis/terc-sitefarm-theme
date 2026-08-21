@@ -1,0 +1,12 @@
+{
+  "name": "ucdavis/terc",
+  "type": "drupal-theme",
+  "description": "Advanced Starterkit theme for building a subtheme based on the sitefarm_one.",
+  "homepage": "https://bitbucket.org/ietwebdev/sitefarm-theme-one-subtheme-starterkits/src/terc",
+  "authors": [
+    {
+      "name": "Mark Miller",
+      "email": "mrkmiller@ucdavis.edu"
+    }
+  ]
+}

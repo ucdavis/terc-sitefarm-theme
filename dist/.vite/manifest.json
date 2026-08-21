@@ -1,0 +1,19 @@
+{
+  "js/main.js": {
+    "file": "main.js",
+    "name": "main",
+    "src": "js/main.js",
+    "isEntry": true
+  },
+  "sass/ckeditor.scss": {
+    "file": "ckeditor.js",
+    "name": "ckeditor",
+    "src": "sass/ckeditor.scss",
+    "isEntry": true
+  },
+  "sass/style.scss": {
+    "file": "style.css",
+    "src": "sass/style.scss",
+    "isEntry": true
+  }
+}

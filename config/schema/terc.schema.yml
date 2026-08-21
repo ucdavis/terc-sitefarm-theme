@@ -1,0 +1,5 @@
+# Schema for the configuration files of the SiteFarm One subtheme.
+
+terc.settings:
+  type: theme_settings
+  label: 'SiteFarm One subtheme settings'

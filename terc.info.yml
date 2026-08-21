@@ -1,0 +1,36 @@
+name: TERC
+type: theme
+description: 'This is a subtheme of Sitefarm One'
+package: SiteFarm
+core_version_requirement: ^10
+version: 1.0.0
+'base theme': sitefarm_one
+libraries:
+  - terc/global-styles
+regions:
+  header: Header
+  navigation: Navigation
+  quick_links: 'Quick Links'
+  search: Search
+  pre_title: 'Pre Title'
+  page_title: 'Page Title'
+  pre_content: 'Pre Content'
+  link_grid: 'Link Grid'
+  top_content_first: 'Top Content 1'
+  top_content_second: 'Top Content 2'
+  top_content_third: 'Top Content 3'
+  top_content_fourth: 'Top Content 4'
+  content: Content
+  sidebar_first: 'First Sidebar'
+  sidebar_second: 'Second Sidebar'
+  bottom_content_first: 'Bottom Content 1'
+  bottom_content_second: 'Bottom Content 2'
+  bottom_content_third: 'Bottom Content 3'
+  bottom_content_fourth: 'Bottom Content 4'
+  footer: Footer
+  footer_credits: 'Footer Credits'
+generator: 'sf1_advanced:1.0.0'
+
+# Uncomment the following lines to include the CKEditor 5 stylesheet.
+#ckeditor5-stylesheets:
+#  - dist/ckeditor.css
