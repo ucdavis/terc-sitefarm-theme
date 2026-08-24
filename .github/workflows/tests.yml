@@ -1,0 +1,30 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  vue-tests:
+    name: Vue unit tests, typecheck, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the theme's pinned Node version.
+          node-version-file: .nvmrc
+          cache: npm
+
+      # postinstall runs the production Vite build, so a broken build fails here.
+      - name: Install dependencies (runs Vite build via postinstall)
+        run: npm ci
+
+      - name: Vitest
+        run: npm test
+
+      - name: Type check
+        run: npm run typecheck
