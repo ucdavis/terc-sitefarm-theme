@@ -44,7 +44,13 @@ function parseProps(el: Element): Record<string, unknown> {
 export function mountAll(context: Element | Document = document): void {
   for (const [name, component] of registry) {
     const selector = `[data-terc-block="${name}"]:not([${MOUNTED_ATTR}])`
-    for (const el of context.querySelectorAll(selector)) {
+    // Drupal AJAX passes the inserted element itself as the behavior context;
+    // querySelectorAll only scans descendants, so check the context too.
+    const elements =
+      context instanceof Element && context.matches(selector)
+        ? [context, ...context.querySelectorAll(selector)]
+        : [...context.querySelectorAll(selector)]
+    for (const el of elements) {
       el.setAttribute(MOUNTED_ATTR, '')
       createApp(component, parseProps(el)).mount(el)
     }
