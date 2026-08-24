@@ -103,3 +103,26 @@ Three integration rules, all learned the careful way:
 After adding a component: `drush cr` (block plugins and libraries are
 cached). Place the block via the block UI or layout builder — it appears
 under the "TERC Lake Conditions" category.
+
+## Station data module (TERC-16)
+
+`data/stationData.ts` is the one normalized interface for the TERC report
+API (`config/endpoints.ts` REPORT_BASE): near-shore stations
+(`fetchNearshoreRange`), the USCG met station (`fetchMetStation`), NASA
+buoys (`fetchNasaBuoy`), and tc-homewood. Components never touch raw API
+fields — records arrive unit-converted (°F/ft/mph), sentinel-cleaned, and
+sorted ascending regardless of endpoint order.
+
+**⚠ Timestamp correction vs the prototype:** API TmStamps are **UTC**, not
+Pacific (verified 2026-08-24 against the clock — see `core/time.ts`). The
+prototype displayed every reading 7–8 h in the future. Date params
+(rptdate/rptend) are UTC calendar days too. Use `LAKE_TZ` from
+`core/time.ts` when *formatting* times for display so every viewer sees
+lake time.
+
+## Cache diagnostics overlay (TERC-36)
+
+`components/CacheDiagnostics.vue` renders the live hit/miss/join/prefetch
+panel from the prototype. It is enabled per block instance via the "Show
+cache diagnostics" checkbox on the PDB block settings form (`debug` prop);
+only one overlay renders no matter how many blocks enable it.

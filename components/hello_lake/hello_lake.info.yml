@@ -23,3 +23,13 @@ configuration:
     title: 'Title'
     description: 'Heading shown above the demo block. Leave empty for the component default.'
     default_value: ''
+  stationId:
+    type: textfield
+    title: 'Station id'
+    description: 'Near-shore station id (1-12). Reporting stations as of Aug 2026: 2 Dollar Point, 4 Homewood, 6 Rubicon, 8 Tahoe Vista.'
+    default_value: '2'
+  debug:
+    type: checkbox
+    title: 'Show cache diagnostics'
+    description: 'Overlay live cache hit/miss/join statistics in the corner of the page — for debugging only.'
+    default_value: 0
