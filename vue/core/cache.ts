@@ -82,6 +82,8 @@ export class DataCache {
       refreshCounts()
       return undefined
     }
+    this.entries.delete(key)
+    this.entries.set(key, e)
     return e.value as T
   }
 
