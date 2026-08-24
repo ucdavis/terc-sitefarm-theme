@@ -8,3 +8,13 @@ global-styles:
       sass/style.scss: { minified: true }
   js:
     js/main.js: { attributes: { type: 'module'}}
+
+# Vue block-group bundles (TERC-14). One library per entry in vue/entries/.
+# The drupal/vite module rewrites these source paths through the build
+# manifest (dist/.vite/manifest.json) in production and proxies to the Vite
+# dev server during development. Attach via PDB component info.yml
+# dependencies or any block's #attached.
+vue-current-conditions:
+  vite: true
+  js:
+    vue/entries/current-conditions.ts: { attributes: { type: 'module' } }
