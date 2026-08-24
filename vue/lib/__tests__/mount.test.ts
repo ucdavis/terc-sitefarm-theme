@@ -52,3 +52,29 @@ describe('mountAll', () => {
     expect(document.querySelector('.probe')?.textContent).toBe('default-title')
   })
 })
+
+describe('PDB block settings integration', () => {
+  it('merges drupalSettings.pdb.configuration from the enclosing wrapper, editor value winning', () => {
+    ;(window as any).drupalSettings = {
+      pdb: { configuration: { 'uuid-123': { title: 'From editor' } } },
+    }
+    document.body.innerHTML = `
+      <div class="hello-lake" id="uuid-123">
+        <div data-terc-block="test-probe" data-terc-props='{"title":"from template"}'></div>
+      </div>`
+    mountAll(document)
+    expect(document.querySelector('.probe')?.textContent).toBe('From editor')
+    delete (window as any).drupalSettings
+  })
+
+  it('drops empty-string editor values so component defaults apply', () => {
+    ;(window as any).drupalSettings = {
+      pdb: { configuration: { 'uuid-456': { title: '' } } },
+    }
+    document.body.innerHTML = `
+      <div id="uuid-456"><div data-terc-block="test-probe"></div></div>`
+    mountAll(document)
+    expect(document.querySelector('.probe')?.textContent).toBe('default-title')
+    delete (window as any).drupalSettings
+  })
+})

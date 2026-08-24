@@ -70,3 +70,36 @@ Production asset resolution is handled by the drupal/vite module (enabled on
 this site): libraries flagged `vite: true` in terc.libraries.yml are
 rewritten through `dist/.vite/manifest.json`, including entry CSS. After
 adding a new entry/library, run `drush cr` (library definitions are cached).
+
+## Exposing a component as a Drupal block (TERC-15)
+
+Block exposure uses the contrib **pdb** (Progressively Decoupled Blocks) +
+**pdb_vue** modules (enable both: `drush en pdb pdb_vue`). Each block gets a
+PDB component directory in the theme:
+
+```
+components/<file_name>/
+  <file_name>.info.yml   type: pdb, presentation: vue — makes it a placeable
+                         block ("vue_component:<file_name>" derivative)
+  template.html          <div data-terc-block="<machine-name>"></div>
+```
+
+Three integration rules, all learned the careful way:
+
+1. **Never declare assets in the component info.yml.** A `libraries:` key
+   there makes pdb_vue force-attach its CDN global Vue next to our bundled
+   one, and `add_js:` paths bypass the drupal/vite manifest. Instead, map
+   the block's derivative id to its entry library in
+   `terc_preprocess_block()` (terc.theme).
+2. **Derivative ids use the component FILE basename** (`hello_lake`), while
+   markup classes use the yaml `machine_name` (`hello-lake`). Keep the
+   data-terc-block value equal to machine_name.
+3. **Editor-configurable props**: declare a `configuration:` map in the
+   info.yml (Form API elements). Saved values arrive as
+   `drupalSettings.pdb.configuration[<uuid>]`, the uuid matching the PDB
+   wrapper div id; `lib/mount.ts` merges them over `data-terc-props`
+   (empty strings are dropped so component defaults apply).
+
+After adding a component: `drush cr` (block plugins and libraries are
+cached). Place the block via the block UI or layout builder — it appears
+under the "TERC Lake Conditions" category.

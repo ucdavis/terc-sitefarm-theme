@@ -1,0 +1,25 @@
+# Progressively Decoupled Block (PDB) component definition.
+#
+# Discovered by the pdb module (any *.info.yml with "type: pdb" under the
+# Drupal root); pdb_vue's "vue_component" block deriver picks it up because
+# presentation is "vue", making it placeable in any block UI.
+#
+# Note: no add_js/add_css/libraries keys, deliberately. Declaring
+# "libraries:" here makes pdb_vue force-attach its CDN global Vue build,
+# which would double-load Vue next to the theme's bundled ESM entry.
+# The entry library (terc/vue-current-conditions) is attached instead in
+# terc_preprocess_block() — see terc.theme.
+name: 'TERC Hello Lake (scaffolding demo)'
+machine_name: hello-lake
+type: pdb
+description: 'Demo block proving the Vue decoupled-block pipeline (TERC-15). Replaced by real Current Conditions blocks.'
+core_version_requirement: ^9 || ^10 || ^11
+presentation: vue
+category: 'TERC Lake Conditions'
+template: template.html
+configuration:
+  title:
+    type: textfield
+    title: 'Title'
+    description: 'Heading shown above the demo block. Leave empty for the component default.'
+    default_value: ''
