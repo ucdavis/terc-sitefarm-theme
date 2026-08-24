@@ -125,6 +125,7 @@ export class DataCache {
 
     const p = fetcher()
       .then((value) => {
+        this.entries.delete(key)
         this.entries.set(key, {
           value,
           expiresAt: ttl === TTL.FOREVER ? Number.POSITIVE_INFINITY : Date.now() + ttl,
