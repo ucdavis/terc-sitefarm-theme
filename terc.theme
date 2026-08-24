@@ -27,8 +27,21 @@ function terc_preprocess_page(array &$variables) {
  * Implements hook_preprocess_block() for block.html.twig.
  */
 function terc_preprocess_block(array &$variables) {
-  // Add a custom class to a block.
-  /* $variables['attributes']['class'][] = 'my-custom-class'; */
+  // Attach the theme's Vue entry bundle to PDB "vue_component" blocks.
+  //
+  // The entry libraries are Vite-built (see terc.libraries.yml, vite: true)
+  // so they must be attached as registered theme libraries — the component
+  // info.yml deliberately declares no assets, because a "libraries:" key
+  // there makes pdb_vue force-attach its CDN global Vue alongside our
+  // bundled one. Map each PDB component (derivative id) to the entry that
+  // registers its block.
+  $pdb_component_libraries = [
+    'vue_component:hello_lake' => 'terc/vue-current-conditions',
+  ];
+  $plugin_id = $variables['plugin_id'] ?? '';
+  if (isset($pdb_component_libraries[$plugin_id])) {
+    $variables['#attached']['library'][] = $pdb_component_libraries[$plugin_id];
+  }
 }
 
 /**

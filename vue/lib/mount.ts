@@ -30,6 +30,26 @@ export function registerBlocks(blocks: Record<string, Component>): void {
   }
 }
 
+/**
+ * Per-instance props saved on a PDB block's settings form. PdbBlock::build()
+ * attaches them as drupalSettings.pdb.configuration[uuid] and renders the
+ * component wrapper <div id="{uuid}"> around our placeholder, so walk up
+ * from the placeholder to the nearest ancestor whose id has a config entry.
+ * Empty-string values (cleared form fields) are dropped so component prop
+ * defaults apply.
+ */
+function pdbProps(el: Element): Record<string, unknown> {
+  const conf = (window as unknown as { drupalSettings?: { pdb?: { configuration?: Record<string, Record<string, unknown>> } } })
+    .drupalSettings?.pdb?.configuration
+  if (!conf) return {}
+  for (let node: Element | null = el; node; node = node.parentElement) {
+    if (node.id && conf[node.id]) {
+      return Object.fromEntries(Object.entries(conf[node.id]).filter(([, v]) => v !== ''))
+    }
+  }
+  return {}
+}
+
 function parseProps(el: Element): Record<string, unknown> {
   const raw = el.getAttribute('data-terc-props')
   if (!raw) return {}
@@ -52,7 +72,8 @@ export function mountAll(context: Element | Document = document): void {
         : [...context.querySelectorAll(selector)]
     for (const el of elements) {
       el.setAttribute(MOUNTED_ATTR, '')
-      createApp(component, parseProps(el)).mount(el)
+      // Static template props first, per-instance editor settings win.
+      createApp(component, { ...parseProps(el), ...pdbProps(el) }).mount(el)
     }
   }
 }
