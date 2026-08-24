@@ -1,4 +1,9 @@
-name: Tests
+# CI for the Vue decoupled-block components ONLY (vue/ workspace).
+# It deliberately does NOT build or exercise any of the general SiteFarm
+# theme assets (sass/js from the starterkit) — --ignore-scripts skips the
+# postinstall Vite build, and both vitest.config.mts and vue/tsconfig.json
+# are scoped to vue/**.
+name: Vue component tests
 
 on:
   pull_request:
@@ -8,7 +13,7 @@ on:
 
 jobs:
   vue-tests:
-    name: Vue unit tests, typecheck, build
+    name: Vue component tests + typecheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,12 +24,18 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      # postinstall runs the production Vite build, so a broken build fails here.
-      - name: Install dependencies (runs Vite build via postinstall)
-        run: npm ci
+      # --ignore-scripts skips the theme's postinstall build; the esbuild/
+      # rollup native binaries still arrive via platform optional deps.
+      #
+      # NOTE: this lockfile must be generated with npm 10 (Node 20/22 on
+      # the host), NOT inside the ddev container (Node 24 / npm 11) — the
+      # two npm majors disagree on vitest's nested vite peer resolution
+      # and an npm-11 lock fails npm ci here.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
 
-      - name: Vitest
+      - name: Vitest (vue/ unit tests)
         run: npm test
 
-      - name: Type check
+      - name: Type check (vue/ only)
         run: npm run typecheck
