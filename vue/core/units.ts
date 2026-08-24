@@ -2,9 +2,15 @@
  * Unit conversion and value validation. This is the ONLY place raw API
  * strings become numbers — components never convert units.
  *
- * Sentinels: the REST API uses -9.0 for "no reading" (Tahoe Vista returns it
- * for turbidity and chlorophyll). Any value <= -9 is rejected to null during
- * normalization and never charted or averaged.
+ * Sentinels: the REST API uses -9.0 for "no reading" (observed at Tahoe
+ * Vista on turbidity and chlorophyll). For fields whose plausible floor is
+ * above -9 the whole "<= -9" zone is physically impossible and rejected
+ * outright. Fields that can legitimately drop below -9 (air temperature at
+ * Tahoe in winter) reject only the exact sentinel value and anything below
+ * their plausible floor — pass the field's rangeKey to opt in. A genuine
+ * reading of exactly -9.0 °C is lost to the sentinel; that single-value
+ * ambiguity is unavoidable until TERC confirms the met API's actual
+ * missing-value convention.
  *
  * Range validation: some readings are implausible (dissolved oxygen came
  * back as 118 at one station and 45 at another — physically impossible as
@@ -30,12 +36,31 @@ export function kmhToMs(kmh: number): number {
   return kmh / 3.6
 }
 
-/** Parse a raw API string; reject NaN and sentinel values (<= -9). */
-export function parseReading(raw: string | number | null | undefined): number | null {
+/**
+ * Parse a raw API string; reject NaN and sentinel values.
+ *
+ * Without a rangeKey, anything <= -9 is treated as the sentinel (safe for
+ * every field whose plausible floor is >= 0). With a rangeKey whose plausible
+ * floor is below -9 (airTempC), only the exact -9.0 sentinel and values
+ * below the plausible floor are rejected, so real cold-weather readings
+ * survive normalization.
+ */
+export function parseReading(
+  raw: string | number | null | undefined,
+  rangeKey?: keyof typeof PLAUSIBLE_RANGES,
+): number | null {
   if (raw === null || raw === undefined) return null
   const n = typeof raw === 'number' ? raw : Number.parseFloat(raw)
   if (!Number.isFinite(n)) return null
-  if (n <= SENTINEL_THRESHOLD) return null
+  const min = rangeKey && rangeKey in PLAUSIBLE_RANGES ? PLAUSIBLE_RANGES[rangeKey].min : 0
+  if (min > SENTINEL_THRESHOLD) {
+    // The sentinel zone is physically impossible for this field.
+    if (n <= SENTINEL_THRESHOLD) return null
+  } else {
+    // The field has a real range below -9: reject only the exact sentinel
+    // and values below the plausible floor.
+    if (n === SENTINEL_THRESHOLD || n < min) return null
+  }
   return n
 }
 

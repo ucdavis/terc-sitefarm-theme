@@ -73,7 +73,10 @@ export class DataCache {
   }
 
   /** Synchronous lookup. Returns the cached value without counting a hit —
-   *  used by views to render instantly (no loading flash) on revisit. */
+   *  used by views to render instantly (no loading flash) on revisit.
+   *  Refreshes the entry's LRU recency (so peek-only access can't be
+   *  evicted out from under a hot view), but never touches hit/miss stats.
+   *  Note has() delegates here, so existence probes also refresh recency. */
   peek<T>(key: string): T | undefined {
     const e = this.entries.get(key)
     if (!e) return undefined
