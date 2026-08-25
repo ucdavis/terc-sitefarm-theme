@@ -68,9 +68,17 @@ export interface MetRecord {
 
 async function fetchJsonArray(url: string): Promise<Record<string, string>[]> {
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`)
+  if (!res.ok) {
+    // Error messages surface in the UI via RequestState — keep the endpoint
+    // URL out of them and log it here for diagnostics instead.
+    console.error(`[terc] station request failed: HTTP ${res.status}`, url)
+    throw new Error(`Station data request failed (HTTP ${res.status})`)
+  }
   const body = await res.json()
-  if (!Array.isArray(body)) throw new Error(`Expected JSON array from ${url}`)
+  if (!Array.isArray(body)) {
+    console.error('[terc] unexpected station response shape', url)
+    throw new Error('Station data response had an unexpected shape')
+  }
   return body
 }
 
@@ -216,7 +224,9 @@ export async function fetchHomewood(start: Date, end: Date): Promise<NearshoreSe
     const rows = await fetchJsonArray(url)
     return {
       stationId: -1,
-      stationName: rows[0]?.Station_Name ?? 'Homewood',
+      // Null when empty, like every other fetcher — the UI supplies the
+      // display-name fallback for non-reporting stations.
+      stationName: rows[0]?.Station_Name ?? null,
       records: parseNearshoreRows(rows),
     }
   })

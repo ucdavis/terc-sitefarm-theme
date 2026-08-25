@@ -86,7 +86,7 @@ describe('fetchNearshoreRange', () => {
     expect(series.stationName).toBeNull()
   })
 
-  it('builds lake-time YYYYMMDD request params', async () => {
+  it('builds UTC YYYYMMDD request params (matching the API day boundaries)', async () => {
     const spy = mockFetch([])
     const [start, end] = win()
     await fetchNearshoreRange(5, start, end)
@@ -105,7 +105,7 @@ describe('fetchNearshoreRange', () => {
   it('throws on HTTP errors', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}) })))
     const [start, end] = win()
-    await expect(fetchNearshoreRange(7, start, end)).rejects.toThrow('HTTP 502')
+    await expect(fetchNearshoreRange(7, start, end)).rejects.toThrow('Station data request failed (HTTP 502)')
   })
 })
 

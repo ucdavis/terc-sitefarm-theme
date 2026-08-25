@@ -1,11 +1,15 @@
 <script lang="ts">
-// Only one overlay should exist no matter how many blocks enable debug —
-// module scope makes this a page-wide claim.
-let overlayClaimed = false
+// Only one overlay should render no matter how many blocks enable debug.
+// Module scope makes the claim page-wide; a reactive owner id plus a
+// mounted-instance roster lets the next instance take over automatically
+// if the owning block unmounts (e.g. an AJAX region swap).
+import { ref as moduleRef } from 'vue'
+const roster: symbol[] = []
+const ownerId = moduleRef<symbol | null>(null)
 </script>
 
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { cacheStats } from '../core/cache'
 
 /**
@@ -15,10 +19,13 @@ import { cacheStats } from '../core/cache'
  * can watch hits/misses/joins on any page, then switch it back off.
  */
 const collapsed = ref(false)
-const owner = ref(!overlayClaimed)
-if (!overlayClaimed) overlayClaimed = true
+const me = Symbol('cache-overlay')
+roster.push(me)
+if (ownerId.value === null) ownerId.value = me
+const owner = computed(() => ownerId.value === me)
 onBeforeUnmount(() => {
-  if (owner.value) overlayClaimed = false
+  roster.splice(roster.indexOf(me), 1)
+  if (ownerId.value === me) ownerId.value = roster[0] ?? null
 })
 </script>
 
