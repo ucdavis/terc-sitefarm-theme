@@ -1,0 +1,37 @@
+# CI for the Vue decoupled-block components ONLY (vue/ workspace).
+# It deliberately does NOT build or exercise any of the general SiteFarm
+# theme assets (sass/js from the starterkit) — --ignore-scripts skips the
+# postinstall Vite build, and both vitest.config.mts and vue/tsconfig.json
+# are scoped to vue/**.
+name: Vue component tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  vue-tests:
+    name: Vue component tests + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # .nvmrc pins Node 24 to match the ddev web container, so CI,
+          # local dev, and the container all run the same Node/npm majors.
+          node-version-file: .nvmrc
+          cache: npm
+
+      # --ignore-scripts skips the theme's postinstall build; the esbuild/
+      # rollup native binaries still arrive via platform optional deps.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Vitest (vue/ unit tests)
+        run: npm test
+
+      - name: Type check (vue/ only)
+        run: npm run typecheck
