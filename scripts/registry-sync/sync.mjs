@@ -47,6 +47,12 @@ if (!BASE || !USER || !PASS) {
 }
 const AUTH = 'Basic ' + Buffer.from(`${USER}:${PASS}`).toString('base64')
 const JSONAPI = { 'Content-Type': 'application/vnd.api+json', Accept: 'application/vnd.api+json', Authorization: AUTH }
+// Optional extra header (e.g. a WAF bypass token: SYNC_HEADER="X-Registry-Sync: <secret>").
+// Needed where a CDN/WAF (Cloudflare on *.sf.ucdavis.edu) challenges non-browser clients.
+if (process.env.SYNC_HEADER) {
+  const idx = process.env.SYNC_HEADER.indexOf(':')
+  if (idx > 0) JSONAPI[process.env.SYNC_HEADER.slice(0, idx).trim()] = process.env.SYNC_HEADER.slice(idx + 1).trim()
+}
 
 const data = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'registry.data.json'), 'utf8'),

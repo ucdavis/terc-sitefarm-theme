@@ -47,6 +47,18 @@ field exists.
 - Never-observed stations are still created (per product rule: stations
   stay on the map), noted in the data file.
 
+## Cloudflare / WAF note
+
+`*.sf.ucdavis.edu` sits behind Cloudflare with a managed challenge that
+blocks all non-browser clients (the script gets an HTML 403 "Attention
+Required" before Drupal is ever reached). The sync needs a WAF exception —
+ask whoever administers Cloudflare for the SiteFarm domains for a skip
+rule, ideally scoped tight: hostname + path starts-with `/jsonapi/` +
+a shared-secret request header. Put that header in `.env` as
+`SYNC_HEADER=X-Registry-Sync: <secret>` and the script sends it on every
+request. An IP-allowlist rule works too (also what a future Lambda's
+egress IP would need).
+
 ## Lambda later
 
 `discoverActivity`/`upsertStation` are plain async functions with env-based
