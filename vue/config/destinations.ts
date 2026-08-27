@@ -36,7 +36,10 @@ export const DESTINATIONS: DestinationDef[] = [
     zoom: 12,
     // ASSUMPTION: Dollar Point + Tahoe Vista are north-shore stations mapped
     // here so at least one destination demonstrably shows live data.
-    stationIds: [2, 8, 11],
+    // Sand Harbor (7, east shore, dormant) is nearest Incline Village of the
+    // wireframe destinations. id 11 removed 2026-08-27: it is Timber Cove,
+    // South Lake Tahoe (see docs/station-registry-discovery.md).
+    stationIds: [2, 8, 7],
   },
   {
     id: 'tahoe-keys',
@@ -44,7 +47,9 @@ export const DESTINATIONS: DestinationDef[] = [
     lat: 38.935,
     lng: -119.99,
     zoom: 13,
-    stationIds: [1, 3], // ASSUMPTION: placeholder assignment
+    // Timber Cove (11) verified active in South Lake Tahoe — the first
+    // Tahoe Keys-area station with live data. 1 and 3 remain never-seen ids.
+    stationIds: [1, 3, 11],
   },
   {
     id: 'homewood',
@@ -61,7 +66,10 @@ export const DESTINATIONS: DestinationDef[] = [
     lat: 39.088,
     lng: -119.94,
     zoom: 13,
-    stationIds: [7, 12], // ASSUMPTION: placeholder assignment
+    // ASSUMPTION: Cedar Point (12) location is unconfirmed; kept here from
+    // the old placeholder assignment pending TERC confirmation. Sand Harbor
+    // (7) moved to Incline Village (closer along the east shore).
+    stationIds: [12],
   },
   {
     id: 'rubicon-bay',
@@ -80,7 +88,9 @@ export const DESTINATIONS: DestinationDef[] = [
     lat: 39.185,
     lng: -120.02,
     zoom: 11.25,
-    stationIds: [2, 7, 8, 11, 12],
+    // 2026-08-27: 11 (Timber Cove) moved south; 9 (Tahoe City, 39.17) added
+    // north. 12 (Cedar Point) stays pending location confirmation.
+    stationIds: [2, 7, 8, 9, 12],
     // All four NASA buoys sit at or north of the midline (39.11–39.16).
     buoyIds: [1, 2, 3, 4],
   },
@@ -90,7 +100,8 @@ export const DESTINATIONS: DestinationDef[] = [
     lat: 38.99,
     lng: -120.04,
     zoom: 11.25,
-    stationIds: [1, 3, 4, 5, 6, 9, 10],
+    // 2026-08-27: 9 (Tahoe City) moved north; 11 (Timber Cove) added south.
+    stationIds: [1, 3, 4, 5, 6, 10, 11],
     includesHomewood: true,
   },
 ]
