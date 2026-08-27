@@ -46,7 +46,11 @@ if (!BASE || !USER || !PASS) {
   process.exit(1)
 }
 const AUTH = 'Basic ' + Buffer.from(`${USER}:${PASS}`).toString('base64')
-const JSONAPI = { 'Content-Type': 'application/vnd.api+json', Accept: 'application/vnd.api+json', Authorization: AUTH }
+// Distinctive, stable client identity (Node's default UA is just "node").
+// Referenced by the Cloudflare exception for *.sf.ucdavis.edu — keep in
+// sync with that rule if it ever changes.
+export const USER_AGENT = 'TERC-RegistrySync/1.0 (UC Davis IET; TERC-46)'
+const JSONAPI = { 'Content-Type': 'application/vnd.api+json', Accept: 'application/vnd.api+json', Authorization: AUTH, 'User-Agent': USER_AGENT }
 // Optional extra header (e.g. a WAF bypass token: SYNC_HEADER="X-Registry-Sync: <secret>").
 // Needed where a CDN/WAF (Cloudflare on *.sf.ucdavis.edu) challenges non-browser clients.
 if (process.env.SYNC_HEADER) {
@@ -77,7 +81,7 @@ async function discoverActivity(station) {
     const id = station.id === null ? '' : `id=${station.id}&`
     const url = `${REPORT_BASE}/${endpoint}?${id}rptdate=${dateParam(s)}&rptend=${dateParam(e)}`
     try {
-      const res = await fetch(url)
+      const res = await fetch(url, { headers: { 'User-Agent': 'TERC-RegistrySync/1.0 (UC Davis IET; TERC-46)' } })
       const body = res.ok ? await res.json() : []
       await sleep(120)
       if (Array.isArray(body) && body.length > 0) {

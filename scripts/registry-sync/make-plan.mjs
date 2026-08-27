@@ -42,7 +42,7 @@ async function discoverActivity(station) {
   for (const [status, s, e] of windows) {
     const id = station.id === null ? '' : `id=${station.id}&`
     try {
-      const res = await fetch(`${REPORT_BASE}/${endpoint}?${id}rptdate=${dateParam(s)}&rptend=${dateParam(e)}`)
+      const res = await fetch(`${REPORT_BASE}/${endpoint}?${id}rptdate=${dateParam(s)}&rptend=${dateParam(e)}`, { headers: { 'User-Agent': 'TERC-RegistrySync/1.0 (UC Davis IET; TERC-46)' } })
       const body = res.ok ? await res.json() : []
       await sleep(120)
       if (Array.isArray(body) && body.length > 0) return { status, apiName: body[0].Station_Name ?? null }
