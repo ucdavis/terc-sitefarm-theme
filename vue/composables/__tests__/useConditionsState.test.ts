@@ -56,11 +56,14 @@ describe('useConditionsState', () => {
     expect(state.focusedStation.value).toEqual({ kind: 'buoy', sourceId: 3, name: 'NASA Buoy TB3' })
   })
 
-  it('ignores unknown view and destination ids from the URL', () => {
+  it('falls back on unknown view ids; unknown destination slugs are kept but resolve null', () => {
     window.history.replaceState(null, '', '/x?cc-view=nope&cc-dest=atlantis')
     syncFromLocation()
     expect(state.view.value).toBe('plan-your-day')
-    expect(state.destinationId.value).toBeNull()
+    // The slug survives (it may belong to an editor-created destination the
+    // registry hasn't loaded yet) but resolves to no destination object.
+    expect(state.destinationId.value).toBe('atlantis')
+    expect(state.destination.value).toBeNull()
   })
 
   it('popstate re-syncs state from the URL', () => {

@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
-import { DESTINATIONS, destinationById, type DestinationDef } from '../config/destinations'
+import type { DestinationDef } from '../config/destinations'
+import { fetchRegistry, staticRegistry, type Registry } from '../data/locations'
 
 /**
  * Shared Current Conditions selection state (TERC-18).
@@ -36,6 +37,31 @@ const view = ref<ViewId>('plan-your-day')
 const destinationId = ref<string | null>(null)
 const focusedStation = ref<StationFocus | null>(null)
 
+/**
+ * The destination/station registry — starts as the static code registry and
+ * is replaced by site content (Lake Destinations via JSON:API, TERC-46)
+ * when loadRegistry() resolves. Module scope: one registry per page.
+ */
+const registry = ref<Registry>(staticRegistry())
+let registryLoadStarted = false
+
+/** Idempotent; called from shell mount. */
+export async function loadRegistry(): Promise<void> {
+  if (registryLoadStarted) return
+  registryLoadStarted = true
+  registry.value = await fetchRegistry()
+}
+
+/** Test hook: reset registry to the static fallback. */
+export function resetRegistryForTests(): void {
+  registry.value = staticRegistry()
+  registryLoadStarted = false
+}
+
+function registryDestinationById(id: string): DestinationDef | undefined {
+  return registry.value.destinations.find((d) => d.id === id)
+}
+
 function isViewId(v: string | null): v is ViewId {
   return VIEWS.some((x) => x.id === v)
 }
@@ -45,8 +71,9 @@ export function syncFromLocation(): void {
   const q = new URLSearchParams(window.location.search)
   const v = q.get(PARAM_VIEW)
   view.value = isViewId(v) ? v : 'plan-your-day'
-  const dest = q.get(PARAM_DEST)
-  destinationId.value = dest && destinationById(dest) ? dest : null
+  // Keep any slug: it resolves against the registry reactively, so deep
+  // links to editor-created destinations work regardless of load order.
+  destinationId.value = q.get(PARAM_DEST)
   const st = q.get(PARAM_STATION)
   if (st) {
     const m = st.match(/^(nearshore|buoy|homewood):(-?\d+)(?::(.*))?$/)
@@ -89,7 +116,7 @@ export function useConditionsState() {
 
   /** Destination and single-station focus are mutually exclusive. */
   function selectDestination(id: string) {
-    if (!destinationById(id)) return
+    if (!registryDestinationById(id)) return
     destinationId.value = id
     focusedStation.value = null
     writeUrl(false)
@@ -109,7 +136,7 @@ export function useConditionsState() {
   }
 
   const destination = computed<DestinationDef | null>(() =>
-    destinationId.value ? (destinationById(destinationId.value) ?? null) : null,
+    destinationId.value ? (registryDestinationById(destinationId.value) ?? null) : null,
   )
   const hasSelection = computed(
     () => destinationId.value !== null || focusedStation.value !== null,
@@ -125,7 +152,8 @@ export function useConditionsState() {
     focusStation,
     clearSelection,
     hasSelection,
-    destinations: DESTINATIONS,
+    destinations: computed(() => registry.value.destinations),
+    registry,
     views: VIEWS,
   }
 }
