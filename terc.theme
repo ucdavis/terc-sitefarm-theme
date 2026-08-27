@@ -37,6 +37,7 @@ function terc_preprocess_block(array &$variables) {
   // registers its block.
   $pdb_component_libraries = [
     'vue_component:hello_lake' => 'terc/vue-current-conditions',
+    'vue_component:current_conditions' => 'terc/vue-current-conditions',
   ];
   $plugin_id = $variables['plugin_id'] ?? '';
   if (isset($pdb_component_libraries[$plugin_id])) {

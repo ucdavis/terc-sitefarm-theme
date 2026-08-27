@@ -10,9 +10,11 @@
  */
 import { registerBlocks, mountRegistered } from '../lib/mount'
 import HelloLake from '../components/HelloLake.vue'
+import CurrentConditionsShell from '../components/CurrentConditionsShell.vue'
 
 registerBlocks({
   'hello-lake': HelloLake,
+  'current-conditions': CurrentConditionsShell,
 })
 
 mountRegistered('tercCurrentConditions')
