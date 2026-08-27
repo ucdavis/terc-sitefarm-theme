@@ -15,3 +15,5 @@ dist/_*.scss
 
 # Ignore Mac OS Files
 .DS_Store
+# Registry sync credentials
+scripts/registry-sync/.env
