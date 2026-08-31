@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import LakeMap from './LakeMap.vue'
 import SourceBadge from './SourceBadge.vue'
 import { loadRegistry, syncFromLocation, useConditionsState } from '../composables/useConditionsState'
+import { markerKey, useLakeOverview } from '../composables/useLakeOverview'
 
 /**
  * Current Conditions shell (TERC-18): shared navigation, destination
  * selector, selection state, layout, source badge, and disclaimer for the
  * Phase 1 views. The views themselves are stubs filled by their own
- * stories (Plan Your Day, Water Quality TERC-21, extended view), and the
- * map region is the mount slot for the shared lake map (TERC-17).
+ * stories (Plan Your Day, Water Quality TERC-21, extended view). The map
+ * region hosts the shared lake map (TERC-17).
  */
 const {
   view,
@@ -18,10 +20,23 @@ const {
   destinationId,
   selectDestination,
   focusedStation,
+  focusStation,
   clearSelection,
   hasSelection,
   destinations,
 } = useConditionsState()
+
+const { markers } = useLakeOverview()
+
+const focusedStationKey = computed(() =>
+  focusedStation.value ? markerKey(focusedStation.value.kind, focusedStation.value.sourceId) : null,
+)
+
+/** A station badge click on the map becomes a single-station focus. */
+function onSelectStation(key: string) {
+  const m = markers.value.find((x) => x.key === key)
+  if (m) focusStation({ kind: m.kind, sourceId: m.sourceId, name: m.name })
+}
 
 onMounted(() => {
   // Restore view + selection from the URL (deep links, page reloads).
@@ -84,13 +99,14 @@ const VIEW_STUB_NOTES: Record<string, string> = {
     </div>
 
     <div class="cc-map-region" data-terc-map-slot>
-      <!-- Shared lake map mounts here (TERC-17). -->
-      <p class="cc-map-placeholder">
-        Interactive lake map coming here.
-        <template v-if="destination"> Selected destination: <strong>{{ destination.name }}</strong>.</template>
-        <template v-else-if="focusedStation"> Focused station: <strong>{{ focusedStation.name || `${focusedStation.kind} ${focusedStation.sourceId}` }}</strong>.</template>
-        <template v-else> Showing the whole lake.</template>
-      </p>
+      <LakeMap
+        :destinations="destinations"
+        :selected-destination-id="destinationId"
+        :overview-markers="markers"
+        :focused-station-key="focusedStationKey"
+        @select-destination="selectDestination"
+        @select-station="onSelectStation"
+      />
     </div>
 
     <div class="cc-view" role="region" :aria-label="views.find((v) => v.id === view)?.label">
@@ -178,15 +194,6 @@ const VIEW_STUB_NOTES: Record<string, string> = {
 .cc-reset {
   border-style: dashed;
 }
-.cc-map-region {
-  min-height: 120px;
-  background: #eef4f7;
-  border: 1px dashed #b9c6cd;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-}
-.cc-map-placeholder,
 .cc-view-stub {
   color: #4a5a64;
   font-style: italic;
