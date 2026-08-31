@@ -83,7 +83,7 @@ describe('CurrentConditionsShell', () => {
 
   it('names the story that fills the Plan Your Day stub', () => {
     const w = mount(CurrentConditionsShell)
-    expect(w.find('.cc-view-stub').text()).toContain('(TERC-57)')
+    expect(w.find('.cc-view-stub').text()).toContain('(TERC-58)')
   })
 
   it('names the current selection in the block heading', async () => {

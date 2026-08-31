@@ -100,7 +100,7 @@ onMounted(() => {
 /** Views still awaiting their own stories render a stub note instead. */
 const VIEW_STUB_NOTES: Record<string, string> = {
   'plan-your-day':
-    "Station cards with a 'show more data' toggle arrive with the Plan Your Day story (TERC-57).",
+    "Station cards with a 'show more data' toggle arrive with the Plan Your Day story (TERC-58).",
 }
 </script>
 
