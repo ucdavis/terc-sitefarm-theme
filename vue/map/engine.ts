@@ -32,11 +32,23 @@ export interface EngineInitOpts {
 
 /** An HTML badge pinned to a point (station value chips, offline "!"). */
 export interface BadgeMarkerOpts {
+  /**
+   * Stable identity across redraws. Engines use it to give keyboard focus
+   * back to the same badge after a group is cleared and redrawn — redraws
+   * happen on every data refresh and must not strand a keyboard user.
+   */
+  id: string
   lat: number
   lng: number
   /** Badge markup; the engine anchors its center on the point. */
   html: string
   tooltipHtml: string
+  /**
+   * Accessible name for the badge — REQUIRED. Badges are keyboard-focusable
+   * interactive controls (WCAG 2.1.1); the visual chip is just a number, so
+   * this label is what assistive technology announces.
+   */
+  ariaLabel: string
   onClick?: () => void
 }
 

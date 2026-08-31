@@ -44,6 +44,17 @@ describe('CurrentConditionsShell', () => {
     expect(w.find('.cc-view-selection').text()).toContain('For Homewood')
   })
 
+  it('exposes destination selection state and announces changes to assistive technology', async () => {
+    const w = mount(CurrentConditionsShell)
+    const live = w.find('[aria-live="polite"]')
+    expect(live.text()).toBe('Showing the whole lake.')
+    const homewood = w.findAll('.cc-dest').find((b) => b.text() === 'Homewood')!
+    expect(homewood.attributes('aria-pressed')).toBe('false')
+    await homewood.trigger('click')
+    expect(homewood.attributes('aria-pressed')).toBe('true')
+    expect(live.text()).toBe('Showing Homewood.')
+  })
+
   it('renders the Water Quality view on its tab (TERC-21)', async () => {
     const w = mount(CurrentConditionsShell)
     await w.findAll('.cc-tab')[1].trigger('click')

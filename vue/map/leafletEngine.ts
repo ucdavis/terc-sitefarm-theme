@@ -28,8 +28,21 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
     return g
   }
 
+  // Badge elements by group, for focus preservation: when a redraw clears
+  // the badge that currently holds keyboard focus, the recreated badge with
+  // the same id gets focus back instead of dropping the user to <body>.
+  const badgeEls = new Map<string, Map<string, HTMLElement>>()
+  let refocusId: string | null = null
+
   return {
     clearGroup(name: string) {
+      const els = badgeEls.get(name)
+      if (els) {
+        for (const [id, badgeEl] of els) {
+          if (badgeEl === document.activeElement) refocusId = id
+        }
+        els.clear()
+      }
       group(name).clearLayers()
     },
 
@@ -37,10 +50,35 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
       // iconSize [0,0] + the badge's own translate(-50%,-50%) centers the
       // HTML chip on the coordinate regardless of its rendered size.
       const icon = L.divIcon({ className: 'terc-badge-anchor', html: o.html, iconSize: [0, 0] })
-      const marker = L.marker([o.lat, o.lng], { icon, keyboard: false })
+      // keyboard: true (Leaflet default) makes the badge tab-focusable and
+      // fires click on Enter — station focus must not be mouse-only
+      // (WCAG 2.1.1). Focus also shows the tooltip in Leaflet 1.9.
+      const marker = L.marker([o.lat, o.lng], { icon, keyboard: true })
       if (o.onClick) marker.on('click', o.onClick)
       marker.bindTooltip(o.tooltipHtml, { direction: 'top', offset: [0, -14] })
       group(name).addLayer(marker)
+      const el = marker.getElement()
+      if (el) {
+        el.setAttribute('role', 'button')
+        el.setAttribute('aria-label', o.ariaLabel)
+        let els = badgeEls.get(name)
+        if (!els) badgeEls.set(name, (els = new Map()))
+        els.set(o.id, el)
+        if (o.id === refocusId) {
+          refocusId = null
+          el.focus()
+        }
+        // role=button promises Enter AND Space activation. Handle both
+        // ourselves — Leaflet's own Enter handling proved unreliable for
+        // divIcon markers (verified live), and depending on it would tie
+        // keyboard access to a Leaflet implementation detail.
+        el.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault()
+            o.onClick?.()
+          }
+        })
+      }
     },
 
     addCircleMarker(name: string, o: CircleMarkerOpts) {

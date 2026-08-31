@@ -39,6 +39,18 @@ function onSelectStation(key: string) {
   if (m) focusStation({ kind: m.kind, sourceId: m.sourceId, name: m.name })
 }
 
+/**
+ * Polite live announcement of selection changes for screen-reader users —
+ * a map badge or destination click otherwise changes half the page
+ * silently.
+ */
+const selectionAnnouncement = computed(() => {
+  if (focusedStation.value)
+    return `Focused on station ${focusedStation.value.name || focusedStation.value.sourceId}.`
+  if (destination.value) return `Showing ${destination.value.name}.`
+  return 'Showing the whole lake.'
+})
+
 onMounted(() => {
   // Restore view + selection from the URL (deep links, page reloads).
   // popstate keeps it in sync with the back button afterwards.
@@ -84,6 +96,7 @@ const VIEW_STUB_NOTES: Record<string, string> = {
           type="button"
           class="cc-dest"
           :class="{ active: destinationId === d.id }"
+          :aria-pressed="destinationId === d.id"
           @click="selectDestination(d.id)"
         >
           {{ d.name }}
@@ -98,6 +111,8 @@ const VIEW_STUB_NOTES: Record<string, string> = {
         </button>
       </div>
     </div>
+
+    <p class="cc-sr-only" aria-live="polite">{{ selectionAnnouncement }}</p>
 
     <div class="cc-map-region" data-terc-map-slot>
       <LakeMap
@@ -197,6 +212,25 @@ const VIEW_STUB_NOTES: Record<string, string> = {
 }
 .cc-reset {
   border-style: dashed;
+}
+/* Keyboard focus must be clearly visible on every control (WCAG 2.4.7);
+   don't rely on the browser default surviving theme CSS. */
+.cc-dest:focus-visible,
+.cc-tab:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
+}
+/* Visually hidden, still announced (live region). */
+.cc-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 .cc-view-stub {
   color: #4a5a64;
