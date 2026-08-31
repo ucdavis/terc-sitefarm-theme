@@ -86,13 +86,15 @@ export async function fetchConditionBands(): Promise<Partial<Record<QualityMetri
 
 let loadStarted = false
 
-/** Idempotent; called from shell mount. Failure keeps the static bands. */
+/** Idempotent on success; called from shell mount. Failure keeps the
+ *  static bands AND re-arms the guard so a later mount can retry. */
 export async function loadConditionBands(): Promise<void> {
   if (loadStarted) return
   loadStarted = true
   try {
     applyConditionBands(await fetchConditionBands())
   } catch (err) {
+    loadStarted = false
     console.error('[terc] condition bands fetch failed, using static fallback', err)
   }
 }

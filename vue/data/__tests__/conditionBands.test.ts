@@ -94,6 +94,34 @@ describe('site bands wired into assessMetric', () => {
     expect(assessMetric('waterTemp', 70)?.label).toBe('Pleasant')
   })
 
+  it('a metric without an open-ended top band falls back to static bands', () => {
+    applyConditionBands({
+      // All finite maxes — an editor deleted the blank-max "Murky" term.
+      turbidity: [
+        { label: 'Crystal clear', sentence: 's', tone: 'good', max: 1 },
+        { label: 'Slightly cloudy', sentence: 's', tone: 'fair', max: 20 },
+      ],
+      // Valid set: terminal Infinity band present.
+      conductivity: [
+        { label: 'Site band', sentence: 's', tone: 'good', max: Number.POSITIVE_INFINITY },
+      ],
+    })
+    // 500 NTU must NOT be rated "Slightly cloudy" — static "Murky" answers.
+    expect(assessMetric('turbidity', 500)?.label).toBe('Murky')
+    expect(assessMetric('conductivity', 99)?.label).toBe('Site band')
+  })
+
+  it('a failed load re-arms the guard so a later call can retry', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+    await loadConditionBands()
+    expect(bandsFromSite.value).toBe(false)
+
+    miscCache.delete('condition-bands')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => fixture }))
+    await loadConditionBands() // must not be blocked by the failed first try
+    expect(bandsFromSite.value).toBe(true)
+  })
+
   it('loadConditionBands applies fetched bands once, and failure keeps the fallback', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => fixture }))
     await loadConditionBands()

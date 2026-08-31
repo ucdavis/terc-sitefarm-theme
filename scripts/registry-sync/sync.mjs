@@ -312,7 +312,7 @@ for (const station of BANDS_ONLY ? [] : data.stations) {
     stationUuids.set(`${station.family}:${station.id ?? ''}`, uuid)
   } catch (err) {
     failures++
-    report('skip', `${station.family}:${station.id ?? '-'}`, String(err.message).slice(0, 160))
+    report('skip', `${station.family}:${station.id ?? '-'}`, String(err?.message ?? err).slice(0, 160))
   }
 }
 
@@ -322,7 +322,7 @@ if (!STATIONS_ONLY && !BANDS_ONLY) {
       await upsertDestination(dest, stationUuids)
     } catch (err) {
       failures++
-      report('skip', dest.slug, String(err.message).slice(0, 160))
+      report('skip', dest.slug, String(err?.message ?? err).slice(0, 160))
     }
   }
 }
@@ -333,7 +333,7 @@ if (!STATIONS_ONLY) {
       await upsertBand(band)
     } catch (err) {
       failures++
-      report('skip', `${band.metric}/${band.label}`, String(err.message).slice(0, 160))
+      report('skip', `${band.metric}/${band.label}`, String(err?.message ?? err).slice(0, 160))
     }
   }
 }

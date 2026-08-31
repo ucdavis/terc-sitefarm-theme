@@ -289,15 +289,26 @@ export const bandsFromSite = ref(false)
  * Swap in site-owned bands (TERC-52). Per-metric fallback: a metric with no
  * usable site bands keeps its static ones, so a partially filled vocabulary
  * can never blank out part of the UI.
+ *
+ * "Usable" requires a terminal open-ended band (max = Infinity, i.e. a term
+ * with an empty max value). Without one, readings above the highest finite
+ * threshold would silently take the last finite band's label — 500 NTU
+ * rated "Slightly cloudy" because an editor deleted "Murky". Such a metric
+ * falls back to the static bands and logs a warning editors can act on.
  */
 export function applyConditionBands(site: Partial<Record<QualityMetric, Band[]>>): void {
   const merged: Record<string, Band[]> = { ...STATIC_BANDS }
   let any = false
   for (const [metric, bands] of Object.entries(site)) {
-    if (metric in STATIC_BANDS && bands && bands.length > 0) {
-      merged[metric] = bands
-      any = true
+    if (!(metric in STATIC_BANDS) || !bands || bands.length === 0) continue
+    if (bands[bands.length - 1].max !== Number.POSITIVE_INFINITY) {
+      console.warn(
+        `[terc] condition bands for "${metric}" have no open-ended top band (a term with an empty max); using the built-in bands for it instead`,
+      )
+      continue
     }
+    merged[metric] = bands
+    any = true
   }
   activeBands.value = merged
   bandsFromSite.value = any
