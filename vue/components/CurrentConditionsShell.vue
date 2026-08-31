@@ -52,6 +52,19 @@ const selectionAnnouncement = computed(() => {
   return 'Showing the whole lake.'
 })
 
+/**
+ * The block heading names the current selection, so the page says where
+ * you are without hunting for the highlighted pill. Names come from the
+ * registry (site content, TERC-46) — the heading follows editor renames.
+ */
+const heading = computed(() => {
+  const base = 'Lake Tahoe Current Conditions'
+  if (destination.value) return `${base} for ${destination.value.name}`
+  if (focusedStation.value)
+    return `${base} at ${focusedStation.value.name || `station ${focusedStation.value.sourceId}`}`
+  return base
+})
+
 onMounted(() => {
   // Restore view + selection from the URL (deep links, page reloads).
   // popstate keeps it in sync with the back button afterwards.
@@ -72,7 +85,7 @@ const VIEW_STUB_NOTES: Record<string, string> = {
 <template>
   <section class="cc-shell">
     <header class="cc-head">
-      <h2>Lake Tahoe Current Conditions</h2>
+      <h2>{{ heading }}</h2>
       <SourceBadge :phase="1" :sources="['tepfsail50 REST API']" />
     </header>
 
