@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
 import LakeMap from './LakeMap.vue'
+import PlanYourDayView from './PlanYourDayView.vue'
 import SourceBadge from './SourceBadge.vue'
 import WaterQualityView from './WaterQualityView.vue'
 import { loadRegistry, syncFromLocation, useConditionsState } from '../composables/useConditionsState'
@@ -11,9 +12,8 @@ import { markerKey, useLakeOverview } from '../composables/useLakeOverview'
 /**
  * Current Conditions shell (TERC-18): shared navigation, destination
  * selector, selection state, layout, source badge, and disclaimer for the
- * Phase 1 views. The views themselves are stubs filled by their own
- * stories (Plan Your Day, Water Quality TERC-21, extended view). The map
- * region hosts the shared lake map (TERC-17).
+ * Phase 1 views: Plan Your Day (TERC-58) and Water Quality (TERC-21). The
+ * map region hosts the shared lake map (TERC-17).
  */
 /**
  * Block-form toggles (PDB configuration -> props, same pattern as
@@ -97,11 +97,6 @@ onMounted(() => {
   void loadConditionBands()
 })
 
-/** Views still awaiting their own stories render a stub note instead. */
-const VIEW_STUB_NOTES: Record<string, string> = {
-  'plan-your-day':
-    "Station cards with a 'show more data' toggle arrive with the Plan Your Day story (TERC-57).",
-}
 </script>
 
 <template>
@@ -172,14 +167,10 @@ const VIEW_STUB_NOTES: Record<string, string> = {
     <div class="cc-view" role="region" :aria-label="views.find((v) => v.id === view)?.label">
       <h3>{{ views.find((v) => v.id === view)?.label }}</h3>
       <WaterQualityView v-if="view === 'water-quality'" />
-      <template v-else>
-        <p class="cc-view-selection">
-          <template v-if="destination">For {{ destination.name }}.</template>
-          <template v-else-if="focusedStation">For station {{ focusedStation.name || focusedStation.sourceId }}.</template>
-          <template v-else>For the whole lake — pick a destination above.</template>
-        </p>
-        <p class="cc-view-stub">{{ VIEW_STUB_NOTES[view] }}</p>
-      </template>
+      <PlanYourDayView v-else />
+      <!-- Both Phase 1 views are real now (TERC-21, TERC-58) — the stub
+           machinery from TERC-18 is gone. -->
+
     </div>
 
     <!-- Phase-related placeholder: follows the "Show phase indicator"
