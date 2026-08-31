@@ -46,6 +46,20 @@ describe('adaptConditionBands', () => {
     expect(bands.turbidity!.map((b) => b.label)).toEqual(['Low', 'High', 'Top'])
   })
 
+  it('handles decimal-field string values (tercdev serializes max as strings)', () => {
+    const bands = adaptConditionBands({
+      data: [
+        { attributes: { name: 'Top', field_metric_key: 'wind_speed', field_band_max_value: null, field_band_tone: 'caution', field_band_sentence: 's' } },
+        { attributes: { name: 'Windy', field_metric_key: 'wind_speed', field_band_max_value: '20.00', field_band_tone: 'caution', field_band_sentence: 's' } },
+        { attributes: { name: 'Breezy', field_metric_key: 'wind_speed', field_band_max_value: '12.00', field_band_tone: 'fair', field_band_sentence: 's' } },
+        { attributes: { name: 'Light air', field_metric_key: 'wind_speed', field_band_max_value: '5.00', field_band_tone: 'good', field_band_sentence: 's' } },
+      ],
+    })
+    // Lexicographic sorting would give '12' < '20' < '5' — numeric must win.
+    expect(bands.windSpeed!.map((b) => b.label)).toEqual(['Light air', 'Breezy', 'Windy', 'Top'])
+    expect(bands.windSpeed![1].max).toBe(12)
+  })
+
   it('skips terms with unknown metrics, bad tones, or missing sentences', () => {
     const bands = adaptConditionBands({
       data: [
