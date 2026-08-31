@@ -20,7 +20,14 @@ import { syncFromLocation } from '../../composables/useConditionsState'
 const mount = (component: typeof CurrentConditionsShell, props: Record<string, unknown> = {}) =>
   vtuMount(component, {
     props,
-    global: { stubs: { LakeMap: true, WaterQualityView: true, CacheDiagnostics: true } },
+    global: {
+      stubs: {
+        LakeMap: true,
+        WaterQualityView: true,
+        PlanYourDayView: true,
+        CacheDiagnostics: true,
+      },
+    },
   })
 
 beforeEach(() => {
@@ -47,7 +54,8 @@ describe('CurrentConditionsShell', () => {
     await w.findAll('.cc-tab')[1].trigger('click')
     await w.findAll('.cc-tab')[0].trigger('click')
     expect(w.find('.cc-view h3').text()).toBe('Plan Your Day')
-    expect(w.find('.cc-view-selection').text()).toContain('For Homewood')
+    expect(w.find('.cc-head h2').text()).toContain('for Homewood')
+    expect(w.find('plan-your-day-view-stub').exists()).toBe(true)
   })
 
   it('sends old Plan Your Day + deep links to Plan Your Day', () => {
@@ -81,9 +89,10 @@ describe('CurrentConditionsShell', () => {
     expect(mixed.find('.cc-forecast').exists()).toBe(false)
   })
 
-  it('names the story that fills the Plan Your Day stub', () => {
+  it('renders the Plan Your Day view on its tab (TERC-58)', () => {
     const w = mount(CurrentConditionsShell)
-    expect(w.find('.cc-view-stub').text()).toContain('(TERC-58)')
+    expect(w.find('plan-your-day-view-stub').exists()).toBe(true)
+    expect(w.find('.cc-view-stub').text()).toContain('Phase 2') // only remaining stub note
   })
 
   it('names the current selection in the block heading', async () => {
@@ -119,7 +128,7 @@ describe('CurrentConditionsShell', () => {
     await w.findAll('.cc-dest').find((b) => b.text() === 'Glenbrook')!.trigger('click')
     const reset = w.findAll('.cc-dest').find((b) => b.text() === 'Show whole lake')!
     await reset.trigger('click')
-    expect(w.find('.cc-view-selection').text()).toContain('whole lake')
+    expect(w.find('.cc-head h2').text()).toBe('Lake Tahoe Current Conditions')
     expect(w.text()).not.toContain('Show whole lake')
   })
 })
