@@ -126,6 +126,29 @@ describe('LakeMap', () => {
     expect(overview[1].opts.tooltipHtml).toContain('Not reporting')
   })
 
+  it('gives every badge an accessible name with reading, lake time, and instructions', () => {
+    const { fake } = mountMap({
+      overviewMarkers: [
+        marker({}),
+        marker({ key: 'nearshore:7', name: 'Sand Harbor', status: 'offline', waterTemp: null, time: null }),
+      ],
+    })
+    const labels = fake.state.badges.map((b) => b.opts.ariaLabel)
+    expect(labels[0]).toContain('Homewood')
+    expect(labels[0]).toContain('water 61.3 degrees Fahrenheit')
+    expect(labels[0]).toContain('lake time')
+    expect(labels[0]).toContain('press Enter')
+    expect(labels[1]).toContain('Sand Harbor')
+    expect(labels[1]).toContain('not reporting')
+  })
+
+  it('exposes the map as a labeled region', () => {
+    const { wrapper } = mountMap()
+    const region = wrapper.find('.lake-map-wrap')
+    expect(region.attributes('role')).toBe('region')
+    expect(region.attributes('aria-label')).toContain('Lake Tahoe station map')
+  })
+
   it('labels approximate coordinates in the tooltip', () => {
     const { fake } = mountMap({ overviewMarkers: [marker({})] })
     expect(fake.state.badges[0].opts.tooltipHtml).toContain('Location approximate')

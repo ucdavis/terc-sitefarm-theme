@@ -8,7 +8,7 @@ defineProps<{ lines?: number; height?: string }>()
 </script>
 
 <template>
-  <div class="skeleton" :style="height ? { height } : {}" aria-busy="true" aria-label="Loading">
+  <div class="skeleton" :style="height ? { height } : {}" role="status" aria-busy="true" aria-label="Loading">
     <div v-for="i in lines ?? 3" :key="i" class="skeleton-line" :style="{ width: 92 - i * 14 + '%' }" />
   </div>
 </template>

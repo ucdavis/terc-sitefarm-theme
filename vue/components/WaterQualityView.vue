@@ -283,7 +283,7 @@ const visibleCharts = computed(() =>
       >
         {{ r.label }}
       </button>
-      <span v-if="loading" class="wq-loading-tag">updating…</span>
+      <span v-if="loading" class="wq-loading-tag" role="status">updating…</span>
     </div>
 
     <p v-if="failedSources.length" class="wq-fetch-warn" role="alert">
@@ -406,6 +406,11 @@ const visibleCharts = computed(() =>
   color: #fff;
   font-weight: 600;
 }
+.wq-range-btn:focus-visible,
+.wq-clear:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
+}
 .wq-loading-tag {
   font-size: 12px;
   color: #1c6b45;
@@ -526,7 +531,8 @@ const visibleCharts = computed(() =>
 .wq-sentinel-note {
   margin: 4px 0 0;
   font-size: 12px;
-  color: #7a8a92;
+  /* #5f6e77 = 5.3:1 on white; the previous #7a8a92 failed WCAG AA (3.6:1). */
+  color: #5f6e77;
   border-top: 1px solid #d5dde2;
   padding-top: 10px;
 }
