@@ -68,7 +68,8 @@ Required" before Drupal is ever reached). The sync needs a WAF exception —
 ask whoever administers Cloudflare for the SiteFarm domains for a skip
 rule, ideally scoped tight: hostname + path starts-with `/jsonapi/` +
 a shared-secret request header. Put that header in `.env` as
-`SYNC_HEADER=X-Registry-Sync: <secret>` and the script sends it on every
+`SYNC_HEADER=<Header-Name>: <secret>` (the real header name lives only in
+`.env` and the Cloudflare rule, never in the repo) and the script sends it on every
 request. An IP-allowlist rule works too (also what a future Lambda's
 egress IP would need).
 

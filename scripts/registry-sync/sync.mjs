@@ -53,7 +53,8 @@ const AUTH = 'Basic ' + Buffer.from(`${USER}:${PASS}`).toString('base64')
 // sync with that rule if it ever changes.
 export const USER_AGENT = 'TERC-RegistrySync/1.0 (UC Davis IET; TERC-46)'
 const JSONAPI = { 'Content-Type': 'application/vnd.api+json', Accept: 'application/vnd.api+json', Authorization: AUTH, 'User-Agent': USER_AGENT }
-// Optional extra header (e.g. a WAF bypass token: SYNC_HEADER="X-Registry-Sync: <secret>").
+// Optional extra header (e.g. a WAF bypass token: SYNC_HEADER="X-Header-Name: <secret>";
+// the real name lives only in .env and the Cloudflare rule).
 // Needed where a CDN/WAF (Cloudflare on *.sf.ucdavis.edu) challenges non-browser clients.
 if (process.env.SYNC_HEADER) {
   const idx = process.env.SYNC_HEADER.indexOf(':')
