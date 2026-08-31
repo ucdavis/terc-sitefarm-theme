@@ -13,7 +13,7 @@ configuration:
   showPhase:
     type: checkbox
     title: 'Show phase indicator'
-    description: 'The "Phase 1/2/3" chip next to the heading, marking which delivery phase this block belongs to.'
+    description: 'Phase-related markers: the "Phase 1/2/3" chip next to the heading AND the "Forecasted Conditions" Phase 2 placeholder section.'
     default_value: 1
   showSources:
     type: checkbox
