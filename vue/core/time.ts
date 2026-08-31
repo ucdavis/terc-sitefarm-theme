@@ -87,6 +87,32 @@ export function fmtDateParam(d: Date): string {
   return `${y}${mo}${day}`
 }
 
+/**
+ * Human display of an instant in LAKE time, e.g. "Aug 24, 3:40 PM" —
+ * every user-facing reading timestamp goes through these so visitors in
+ * any timezone see when it happened at the lake, not at their desk.
+ */
+const lakeTimeFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: LAKE_TZ,
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
+export function fmtLakeTime(d: Date): string {
+  return lakeTimeFmt.format(d)
+}
+
+/** Lake-time calendar day, e.g. "Aug 24" — chart axis ticks. */
+const lakeDayFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: LAKE_TZ,
+  month: 'short',
+  day: 'numeric',
+})
+export function fmtLakeDay(d: Date): string {
+  return lakeDayFmt.format(d)
+}
+
 /** The most recent UTC midnight — the API's "today" boundary. */
 export function startOfTodayUtc(now: Date = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))

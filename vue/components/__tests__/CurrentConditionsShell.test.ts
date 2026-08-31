@@ -15,7 +15,7 @@ import CurrentConditionsShell from '../CurrentConditionsShell.vue'
 import { syncFromLocation } from '../../composables/useConditionsState'
 
 const mount = (component: typeof CurrentConditionsShell) =>
-  vtuMount(component, { global: { stubs: { LakeMap: true } } })
+  vtuMount(component, { global: { stubs: { LakeMap: true, WaterQualityView: true } } })
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/lake-conditions')
@@ -39,9 +39,27 @@ describe('CurrentConditionsShell', () => {
   it('keeps the selected destination when switching views', async () => {
     const w = mount(CurrentConditionsShell)
     await w.findAll('.cc-dest').find((b) => b.text() === 'Homewood')!.trigger('click')
+    await w.findAll('.cc-tab')[2].trigger('click')
+    expect(w.find('.cc-view h3').text()).toBe('Plan Your Day +')
+    expect(w.find('.cc-view-selection').text()).toContain('For Homewood')
+  })
+
+  it('exposes destination selection state and announces changes to assistive technology', async () => {
+    const w = mount(CurrentConditionsShell)
+    const live = w.find('[aria-live="polite"]')
+    expect(live.text()).toBe('Showing the whole lake.')
+    const homewood = w.findAll('.cc-dest').find((b) => b.text() === 'Homewood')!
+    expect(homewood.attributes('aria-pressed')).toBe('false')
+    await homewood.trigger('click')
+    expect(homewood.attributes('aria-pressed')).toBe('true')
+    expect(live.text()).toBe('Showing Homewood.')
+  })
+
+  it('renders the Water Quality view on its tab (TERC-21)', async () => {
+    const w = mount(CurrentConditionsShell)
     await w.findAll('.cc-tab')[1].trigger('click')
     expect(w.find('.cc-view h3').text()).toBe('Water Quality')
-    expect(w.find('.cc-view-selection').text()).toContain('For Homewood')
+    expect(w.find('water-quality-view-stub').exists()).toBe(true)
   })
 
   it('"Show whole lake" appears with a selection and resets it', async () => {

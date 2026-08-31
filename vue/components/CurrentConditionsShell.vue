@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import LakeMap from './LakeMap.vue'
 import SourceBadge from './SourceBadge.vue'
+import WaterQualityView from './WaterQualityView.vue'
 import { loadRegistry, syncFromLocation, useConditionsState } from '../composables/useConditionsState'
 import { markerKey, useLakeOverview } from '../composables/useLakeOverview'
 
@@ -38,6 +39,18 @@ function onSelectStation(key: string) {
   if (m) focusStation({ kind: m.kind, sourceId: m.sourceId, name: m.name })
 }
 
+/**
+ * Polite live announcement of selection changes for screen-reader users —
+ * a map badge or destination click otherwise changes half the page
+ * silently.
+ */
+const selectionAnnouncement = computed(() => {
+  if (focusedStation.value)
+    return `Focused on station ${focusedStation.value.name || focusedStation.value.sourceId}.`
+  if (destination.value) return `Showing ${destination.value.name}.`
+  return 'Showing the whole lake.'
+})
+
 onMounted(() => {
   // Restore view + selection from the URL (deep links, page reloads).
   // popstate keeps it in sync with the back button afterwards.
@@ -46,9 +59,9 @@ onMounted(() => {
   void loadRegistry()
 })
 
+/** Views still awaiting their own stories render a stub note instead. */
 const VIEW_STUB_NOTES: Record<string, string> = {
   'plan-your-day': 'Station cards and lake overview arrive with the Plan Your Day story.',
-  'water-quality': 'Location-specific water quality readings arrive with TERC-21.',
   'plan-your-day-extended': 'All six water metrics per station arrive with the extended view story.',
 }
 </script>
@@ -83,6 +96,7 @@ const VIEW_STUB_NOTES: Record<string, string> = {
           type="button"
           class="cc-dest"
           :class="{ active: destinationId === d.id }"
+          :aria-pressed="destinationId === d.id"
           @click="selectDestination(d.id)"
         >
           {{ d.name }}
@@ -98,6 +112,8 @@ const VIEW_STUB_NOTES: Record<string, string> = {
       </div>
     </div>
 
+    <p class="cc-sr-only" aria-live="polite">{{ selectionAnnouncement }}</p>
+
     <div class="cc-map-region" data-terc-map-slot>
       <LakeMap
         :destinations="destinations"
@@ -111,12 +127,15 @@ const VIEW_STUB_NOTES: Record<string, string> = {
 
     <div class="cc-view" role="region" :aria-label="views.find((v) => v.id === view)?.label">
       <h3>{{ views.find((v) => v.id === view)?.label }}</h3>
-      <p class="cc-view-selection">
-        <template v-if="destination">For {{ destination.name }}.</template>
-        <template v-else-if="focusedStation">For station {{ focusedStation.name || focusedStation.sourceId }}.</template>
-        <template v-else>For the whole lake — pick a destination above.</template>
-      </p>
-      <p class="cc-view-stub">{{ VIEW_STUB_NOTES[view] }}</p>
+      <WaterQualityView v-if="view === 'water-quality'" />
+      <template v-else>
+        <p class="cc-view-selection">
+          <template v-if="destination">For {{ destination.name }}.</template>
+          <template v-else-if="focusedStation">For station {{ focusedStation.name || focusedStation.sourceId }}.</template>
+          <template v-else>For the whole lake — pick a destination above.</template>
+        </p>
+        <p class="cc-view-stub">{{ VIEW_STUB_NOTES[view] }}</p>
+      </template>
     </div>
 
     <div class="cc-forecast">
@@ -193,6 +212,25 @@ const VIEW_STUB_NOTES: Record<string, string> = {
 }
 .cc-reset {
   border-style: dashed;
+}
+/* Keyboard focus must be clearly visible on every control (WCAG 2.4.7);
+   don't rely on the browser default surviving theme CSS. */
+.cc-dest:focus-visible,
+.cc-tab:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
+}
+/* Visually hidden, still announced (live region). */
+.cc-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 .cc-view-stub {
   color: #4a5a64;

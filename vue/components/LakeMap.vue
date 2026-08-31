@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import type { DestinationDef } from '../config/destinations'
 import { LAKE_CENTER, LAKE_DEFAULT_ZOOM, STATION_FOCUS_ZOOM, TILE_LAYERS, type BasemapId } from '../config/lakeView'
+import { fmtLakeTime } from '../core/time'
 import { escapeHtml, type MapEngine, type MapEngineFactory } from '../map/engine'
 import { createLeafletEngine } from '../map/leafletEngine'
 import type { OverviewMarker } from '../composables/useLakeOverview'
@@ -59,9 +60,8 @@ function drawOverview() {
     const html = reporting
       ? `<div class="stn-badge${m.kind === 'buoy' ? ' stn-badge--buoy' : ''}${focused}">${m.waterTemp!.toFixed(1)}</div>`
       : `<div class="stn-badge stn-badge--offline${focused}">!</div>`
-    const when = m.time
-      ? m.time.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-      : null
+    // Lake time, not viewer-local (TERC-43 display rule).
+    const when = m.time ? `${fmtLakeTime(m.time)} lake time` : null
     const parts = [
       // Names come from site content / the live API — escape, never trust.
       `<strong>${escapeHtml(m.name)}</strong>${m.kind === 'buoy' ? ' (mid-lake buoy)' : ''}`,
@@ -70,10 +70,19 @@ function drawOverview() {
       "<em>Click for this station's readings</em>",
     ].filter(Boolean)
     eng.addBadgeMarker('overview', {
+      id: m.key,
       lat: m.lat,
       lng: m.lng,
       html,
       tooltipHtml: parts.join('<br>'),
+      // What a screen reader announces when the badge takes keyboard focus.
+      ariaLabel: [
+        `${m.name}${m.kind === 'buoy' ? ', mid-lake buoy' : ''}`,
+        reporting
+          ? `water ${m.waterTemp!.toFixed(1)} degrees Fahrenheit at ${when}`
+          : 'not reporting, station may be under maintenance',
+        "press Enter to focus this station's readings",
+      ].join('. '),
       onClick: () => emit('select-station', m.key),
     })
   }
@@ -82,6 +91,11 @@ function drawOverview() {
 function drawDestinations() {
   const eng = engine.value
   if (!eng) return
+  // Destination dots are mouse/touch conveniences: the SAME selections are
+  // fully keyboard/screen-reader operable via the shell's destination
+  // buttons (WCAG-conformant alternative), so the SVG circles stay
+  // pointer-only. Station badges have no off-map equivalent and therefore
+  // ARE keyboard-accessible (see drawOverview/addBadgeMarker).
   eng.clearGroup('destinations')
   for (const d of props.destinations) {
     const isSelected = d.id === props.selectedDestinationId
@@ -163,7 +177,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="lake-map-wrap">
+  <div
+    class="lake-map-wrap"
+    role="region"
+    aria-label="Interactive Lake Tahoe station map. Tab moves through station badges; the destination buttons above offer the same area selections."
+  >
     <div ref="container" class="lake-map" :style="{ height }" />
     <slot />
   </div>
@@ -186,6 +204,15 @@ onBeforeUnmount(() => {
 .terc-badge-anchor {
   background: none;
   border: none;
+}
+/* Keyboard focus must be visible (WCAG 2.4.7); the anchor is the tabbable
+   element, so paint the ring on its badge child. */
+.terc-badge-anchor:focus {
+  outline: none;
+}
+.terc-badge-anchor:focus .stn-badge {
+  outline: 3px solid #f0b323;
+  outline-offset: 1px;
 }
 .stn-badge {
   position: absolute;
