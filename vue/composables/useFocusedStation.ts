@@ -21,7 +21,13 @@ export function useFocusedStation(daysBack = 2) {
   const nearshoreState = ref<RequestState<NearshoreSeries>>(idle())
   const buoyState = ref<RequestState<NasaBuoyRecord[]>>(idle())
 
+  // Clicking two markers quickly must not let the first station's slower
+  // response overwrite the second's state — only the newest load commits
+  // (PR review finding, same guard as the Water Quality view).
+  let loadGen = 0
+
   async function load() {
+    const gen = ++loadGen
     const f = focusedStation.value
     nearshoreState.value = idle()
     buoyState.value = idle()
@@ -35,9 +41,10 @@ export function useFocusedStation(daysBack = 2) {
       buoyState.value = loading()
       try {
         const records = await fetchNasaBuoy(f.sourceId, start, end)
+        if (gen !== loadGen) return
         buoyState.value = records.length ? success(records) : empty()
       } catch (e) {
-        buoyState.value = failure(e)
+        if (gen === loadGen) buoyState.value = failure(e)
       }
       return
     }
@@ -48,9 +55,10 @@ export function useFocusedStation(daysBack = 2) {
         f.kind === 'homewood'
           ? await fetchHomewood(start, end)
           : await fetchNearshoreRange(f.sourceId, start, end)
+      if (gen !== loadGen) return
       nearshoreState.value = series.records.length ? success(series) : empty()
     } catch (e) {
-      nearshoreState.value = failure(e)
+      if (gen === loadGen) nearshoreState.value = failure(e)
     }
   }
 

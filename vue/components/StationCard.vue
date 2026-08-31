@@ -39,7 +39,9 @@ const timeLabel = computed(() =>
     <div class="card-label">{{ label }}</div>
     <div v-if="display !== null" class="card-value">
       {{ display }}<span class="card-unit">{{ unit }}</span>
-      <span v-if="suspect" class="suspect" :title="suspectNote ?? 'Outside expected physical range — possible sensor issue'">⚠</span>
+      <!-- Decorative: the full suspect note renders as text below the value,
+           so assistive tech gets the real message, not a title tooltip. -->
+      <span v-if="suspect" class="suspect" aria-hidden="true" :title="suspectNote ?? 'Outside expected physical range — possible sensor issue'">⚠</span>
     </div>
     <div v-else class="card-novalue">no data available</div>
     <div class="card-meta">

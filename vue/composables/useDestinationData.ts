@@ -93,7 +93,13 @@ export function useDestinationData(
     )
   }
 
+  // Fast destination switches must not let an older homewood response land
+  // on the newer selection — only the newest load commits (slot/buoy
+  // mutations are safe: each load replaces those arrays wholesale).
+  let loadGen = 0
+
   async function load() {
+    const gen = ++loadGen
     const dest = destination.value
     if (!dest) {
       slots.value = []
@@ -114,16 +120,20 @@ export function useDestinationData(
       homewoodState.value = loading()
       try {
         const series = await fetchHomewood(start, end)
+        if (gen !== loadGen) return
         homewoodState.value = series.records.length ? success(series) : empty()
       } catch (e) {
-        homewoodState.value = failure(e)
+        if (gen === loadGen) homewoodState.value = failure(e)
       }
     } else {
       homewoodState.value = empty()
     }
   }
 
-  watch([() => destination.value?.id, daysBack], load, { immediate: true })
+  // registry is a watch source so a reload re-derives display names when
+  // site content replaces the static fallback or editors rename stations —
+  // near-free, since the refetches hit the shared cache (PR review finding).
+  watch([() => destination.value?.id, daysBack, registry], load, { immediate: true })
 
   /** Slots that actually have data, for card rendering. */
   const slotsWithData = computed(() =>

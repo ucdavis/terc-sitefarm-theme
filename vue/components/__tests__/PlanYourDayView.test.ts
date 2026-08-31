@@ -155,8 +155,35 @@ describe('PlanYourDayView', () => {
     const w = mount(PlanYourDayView)
     await flushPromises()
     await w.find('.pyd-toggle').trigger('click')
-    expect(w.find('.suspect').exists()).toBe(true)
+    const icon = w.find('.suspect')
+    expect(icon.exists()).toBe(true)
+    // Decorative: the note text below carries the message for AT.
+    expect(icon.attributes('aria-hidden')).toBe('true')
+    expect(w.text()).toContain('possible sensor issue')
     expect(w.text()).not.toContain('Supersaturated')
+  })
+
+  it('reloads station data when the registry is replaced, so names follow editor renames', async () => {
+    // incline-village exists in BOTH the static registry and the site
+    // fixture, so the selection survives the registry swap.
+    const { selectDestination } = useConditionsState()
+    selectDestination('incline-village')
+    const w = mount(PlanYourDayView)
+    await flushPromises()
+    const callsBefore = nearshore.mock.calls.length
+    expect(callsBefore).toBeGreaterThan(0)
+
+    // Site registry arrives (fixture captured from tercdev) -> the data
+    // composable reloads, re-deriving slot/buoy display names from the new
+    // registry (near-free in production: the refetch hits the shared cache).
+    const fixture = await import('../../data/__tests__/lake-locations.fixture.json')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => fixture.default ?? fixture }))
+    const { loadRegistry } = await import('../../composables/useConditionsState')
+    await loadRegistry()
+    await flushPromises()
+    expect(nearshore.mock.calls.length).toBeGreaterThan(callsBefore)
+    vi.unstubAllGlobals()
+    w.unmount()
   })
 
   it('shows lake weather from the met station, flagged when the request fails', async () => {
