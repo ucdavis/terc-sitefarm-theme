@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount as vtuMount } from '@vue/test-utils'
 import type { NearshoreRecord } from '../../data/stationData'
 
 const nearshore = vi.fn()
@@ -14,21 +14,31 @@ vi.mock('../../data/stationData', async (importOriginal) => {
     fetchNearshoreRange: (...args: unknown[]) => nearshore(...args),
     fetchNasaBuoy: (...args: unknown[]) => buoy(...args),
     fetchHomewood: (...args: unknown[]) => homewood(...args),
-    peekNearshoreRange: () => undefined,
   }
 })
 
 import WaterQualityView from '../WaterQualityView.vue'
+import { COLD_WATER_SHOCK_NOTE } from '../../config/qualitative'
 import {
   resetRegistryForTests,
   syncFromLocation,
   useConditionsState,
 } from '../../composables/useConditionsState'
 
+/** Chart.js needs a real canvas; the stub exposes what the view feeds it. */
+const TimeSeriesChartStub = {
+  props: ['series', 'unit', 'title'],
+  template:
+    '<div class="tsc" :data-title="title" :data-series-count="series.length" :data-labels="series.map(s => s.label).join(\'|\')"><slot name="footer" /></div>',
+}
+
+const mount = () =>
+  vtuMount(WaterQualityView, { global: { stubs: { TimeSeriesChart: TimeSeriesChartStub } } })
+
 function rec(over: Partial<NearshoreRecord> = {}): NearshoreRecord {
   return {
     time: new Date('2026-08-30T18:00:00Z'),
-    waterTemp: 65,
+    waterTemp: 70, // 'Pleasant' band — the cold-shock note must appear anyway
     waveHeight: 0.3,
     turbidity: 0.8,
     conductivity: 0.09,
@@ -43,6 +53,12 @@ const series = (stationId: number, name: string | null, records: NearshoreRecord
   stationName: name,
   records,
 })
+const buoyRec = (waterTemp: number | null) => ({
+  time: new Date('2026-08-30T18:00:00Z'),
+  waterTemp,
+  airTemp: 71,
+  windSpeed: 4,
+})
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/lake-conditions?cc-view=water-quality')
@@ -53,78 +69,115 @@ beforeEach(() => {
   homewood.mockReset().mockResolvedValue(series(-1, null, []))
 })
 
-describe('WaterQualityView', () => {
-  it('prompts for a destination when nothing is selected', () => {
-    const w = mount(WaterQualityView)
-    expect(w.text()).toContain('No destination selected')
-  })
+const chartTitles = (w: ReturnType<typeof mount>) =>
+  w.findAll('.tsc').map((c) => c.attributes('data-title'))
 
-  it('renders the four water-quality cards with interpretation bands for a destination', async () => {
+describe('WaterQualityView (charts)', () => {
+  it('shows all six parameter charts for the whole lake when nothing is selected', async () => {
     nearshore.mockImplementation((id: number) =>
-      Promise.resolve(id === 4 ? series(4, 'Homewood (live)', [rec()]) : series(id, null, [])),
+      Promise.resolve(id === 2 || id === 4 ? series(id, `NS ${id}`, [rec()]) : series(id, null, [])),
     )
-    const { selectDestination } = useConditionsState()
-    selectDestination('homewood')
-    const w = mount(WaterQualityView)
+    const w = mount()
     await flushPromises()
+    expect(chartTitles(w)).toEqual([
+      'Water temperature',
+      'Wave height',
+      'Turbidity',
+      'Conductivity',
+      'Dissolved oxygen',
+      'Chlorophyll',
+    ])
+    expect(w.text()).toContain('Whole lake — all reporting stations')
+    // Two reporting stations overlaid per chart
+    expect(w.find('.tsc').attributes('data-series-count')).toBe('2')
+  })
 
-    expect(w.text()).toContain('Homewood (live)')
-    const labels = w.findAll('.card-label').map((n) => n.text())
-    expect(labels).toEqual(['Turbidity', 'Conductivity', 'Dissolved oxygen', 'Chlorophyll'])
-    // Values and plain-language bands
-    expect(w.text()).toContain('0.80') // turbidity, 2 digits
+  it('overlays reporting buoys on the water-temperature chart only', async () => {
+    nearshore.mockImplementation((id: number) =>
+      Promise.resolve(id === 2 ? series(2, 'Dollar Point', [rec()]) : series(id, null, [])),
+    )
+    buoy.mockImplementation((id: number) => Promise.resolve(id === 1 ? [buoyRec(67)] : []))
+    const w = mount()
+    await flushPromises()
+    const charts = w.findAll('.tsc')
+    expect(charts[0].attributes('data-labels')).toContain('(buoy)')
+    expect(charts[0].attributes('data-series-count')).toBe('2')
+    for (const c of charts.slice(1)) expect(c.attributes('data-labels')).not.toContain('(buoy)')
+  })
+
+  it('always shows the cold-water-shock note on the temperature chart, even at Pleasant', async () => {
+    nearshore.mockImplementation((id: number) =>
+      Promise.resolve(id === 4 ? series(4, 'Homewood', [rec({ waterTemp: 70 })]) : series(id, null, [])),
+    )
+    const w = mount()
+    await flushPromises()
+    expect(w.text()).toContain('Pleasant')
+    expect(w.find('.wq-cold-note').text()).toBe(COLD_WATER_SHOCK_NOTE)
+    expect(w.findAll('.wq-cold-note')).toHaveLength(1) // temperature chart only
+  })
+
+  it('filters charts to the selected destination in memory', async () => {
+    nearshore.mockImplementation((id: number) => Promise.resolve(series(id, `NS ${id}`, [rec()])))
+    homewood.mockResolvedValue(series(-1, 'Homewood TC', [rec()]))
+    const { selectDestination } = useConditionsState()
+    selectDestination('homewood') // static registry: stations [4, 5], includesHomewood
+    const w = mount()
+    await flushPromises()
+    const labels = w.find('.tsc').attributes('data-labels')
+    expect(labels).toBe('NS 4|NS 5|Homewood TC')
+    expect(w.text()).toContain('Homewood')
+  })
+
+  it('interprets each station via band chips with a conservative consensus', async () => {
+    nearshore.mockImplementation((id: number) =>
+      Promise.resolve(
+        id === 2
+          ? series(2, 'Dollar Point', [rec({ turbidity: 10 })]) // Slightly cloudy
+          : id === 4
+            ? series(4, 'Homewood', [rec({ turbidity: 0.5 })]) // Crystal clear
+            : series(id, null, []),
+      ),
+    )
+    const w = mount()
+    await flushPromises()
+    // Turbidity chart: differing bands -> no consensus sentence
+    expect(w.text()).toContain('Slightly cloudy')
     expect(w.text()).toContain('Crystal clear')
-    expect(w.text()).toContain('Healthy')
-    // Stations with no data are listed honestly
-    expect(w.text()).toContain('Not reporting:')
+    expect(w.text()).toContain('different bands by station')
+    // Conductivity chart: same band both stations -> consensus sentence
+    expect(w.text()).toContain("Dissolved-mineral levels are in the lake's normal range.")
   })
 
-  it('includes the tc-homewood series when the destination carries it', async () => {
-    homewood.mockResolvedValue(series(-1, 'Homewood TC', [rec({ turbidity: 30 })]))
-    const { selectDestination } = useConditionsState()
-    selectDestination('homewood') // static registry: includesHomewood
-    const w = mount(WaterQualityView)
+  it('gives implausible dissolved-oxygen readings no interpretation band', async () => {
+    nearshore.mockImplementation((id: number) =>
+      Promise.resolve(id === 2 ? series(2, 'Dollar Point', [rec({ dissolvedOxygen: 250 })]) : series(id, null, [])),
+    )
+    const w = mount()
     await flushPromises()
-
-    expect(w.text()).toContain('Homewood TC')
-    expect(w.text()).toContain('Murky')
+    const doChart = w.findAll('.tsc')[4]
+    expect(doChart.attributes('data-title')).toBe('Dissolved oxygen')
+    expect(doChart.find('.wq-chip').exists()).toBe(false)
   })
 
-  it('reports an all-empty destination as a normal state', async () => {
-    const { selectDestination } = useConditionsState()
-    selectDestination('glenbrook')
-    const w = mount(WaterQualityView)
-    await flushPromises()
-    expect(w.text()).toContain('No water-quality data for Glenbrook')
-  })
-
-  it('explains honestly that buoys do not measure water quality', async () => {
+  it('shows a focused buoy only its temperature chart, with an honest explanation', async () => {
+    buoy.mockImplementation((id: number) => Promise.resolve(id === 2 ? [buoyRec(67)] : []))
     const { focusStation } = useConditionsState()
     focusStation({ kind: 'buoy', sourceId: 2, name: 'NASA Buoy TB2' })
-    const w = mount(WaterQualityView)
+    const w = mount()
     await flushPromises()
-    expect(w.text()).toContain("Mid-lake buoys don't report water-quality parameters")
-    expect(w.findAll('.station-card')).toHaveLength(0)
+    expect(chartTitles(w)).toEqual(['Water temperature'])
+    expect(w.text()).toContain('Mid-lake buoys measure water temperature only')
   })
 
-  it('shows cards for a focused near-shore station, preferring the API station name', async () => {
-    nearshore.mockResolvedValue(series(2, 'Dollar Point (API)', [rec({ dissolvedOxygen: 250 })]))
-    const { focusStation } = useConditionsState()
-    focusStation({ kind: 'nearshore', sourceId: 2, name: 'Dollar Point' })
-    const w = mount(WaterQualityView)
+  it('refetches when the range changes and reports empty windows honestly', async () => {
+    const w = mount()
     await flushPromises()
-
-    expect(w.text()).toContain('Dollar Point (API)')
-    expect(w.findAll('.station-card')).toHaveLength(4)
-    // DO of 250% sat is implausible -> suspect flag, no assessment band
-    expect(w.find('.suspect').exists()).toBe(true)
-  })
-
-  it('tells the visitor when a focused station is not reporting', async () => {
-    const { focusStation } = useConditionsState()
-    focusStation({ kind: 'nearshore', sourceId: 7, name: 'Sand Harbor' })
-    const w = mount(WaterQualityView)
+    const callsAt7 = nearshore.mock.calls.length
+    await w.findAll('.wq-range-btn').find((b) => b.text() === '30 days')!.trigger('click')
     await flushPromises()
-    expect(w.text()).toContain("Sand Harbor isn't reporting right now")
+    expect(nearshore.mock.calls.length).toBeGreaterThan(callsAt7)
+    const [, start, end] = nearshore.mock.calls[nearshore.mock.calls.length - 1] as [number, Date, Date]
+    expect((end.getTime() - start.getTime()) / 86_400_000).toBeCloseTo(30, 1)
+    expect(w.text()).toContain('No data for Whole lake')
   })
 })

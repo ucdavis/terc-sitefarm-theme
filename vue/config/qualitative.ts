@@ -20,6 +20,15 @@
 
 export type QualityTone = 'good' | 'fair' | 'caution' | 'info'
 
+/**
+ * Standing safety note shown with EVERY water-temperature display,
+ * regardless of band — demo feedback: cold-water shock messaging must
+ * appear even when the reading is "Pleasant". Tahoe's deep water stays
+ * dangerously cold year-round no matter what the surface reads.
+ */
+export const COLD_WATER_SHOCK_NOTE =
+  "Even on warm days, water below the surface layer stays dangerously cold — sudden immersion can cause cold-water shock. Enter gradually, stay close to shore, and wear a life vest on any craft."
+
 export interface QualityAssessment {
   label: string
   sentence: string
