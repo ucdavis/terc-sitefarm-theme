@@ -110,13 +110,16 @@ async function load() {
 watch([days, registry], load, { immediate: true })
 const loading = computed(() => loadingCount.value > 0)
 
+/** Registry (editor-owned) name first; the API's Station_Name only covers
+ *  stations the registry doesn't know about yet. */
 function stationName(s: NearshoreSeries): string {
+  const kind = s.stationId === -1 ? 'homewood' : 'nearshore'
+  const registryName = registry.value.stations.find(
+    (r) => r.kind === kind && (kind === 'homewood' || r.sourceId === s.stationId),
+  )?.name
+  if (registryName) return registryName
   if (s.stationName) return s.stationName
-  if (s.stationId === -1) return 'Homewood TC'
-  return (
-    registry.value.stations.find((r) => r.kind === 'nearshore' && r.sourceId === s.stationId)
-      ?.name ?? `Station ${s.stationId}`
-  )
+  return s.stationId === -1 ? 'Homewood TC' : `Station ${s.stationId}`
 }
 
 interface MetricDef {

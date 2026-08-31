@@ -12,8 +12,9 @@
  * Design:
  *  - Upserts are keyed by (field_station_type, field_station_id) for
  *    stations and field_location_id slug for destinations — safe to re-run.
- *  - Names come from the API's Station_Name when a station reports
- *    (authoritative); coordinates only ever come from the curated file.
+ *  - Names and coordinates only ever come from the curated file (and after
+ *    handoff, from editors); the API's Station_Name is surfaced as a
+ *    mismatch note, never written.
  *  - Fields the site doesn't have yet (e.g. field_station_status) are
  *    detected and skipped with a warning, so the script works before and
  *    after the content-model additions land.

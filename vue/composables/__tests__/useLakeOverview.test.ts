@@ -59,7 +59,9 @@ describe('useLakeOverview', () => {
     const dollar = markers.value.find((m) => m.key === 'nearshore:2')!
     expect(dollar.status).toBe('reporting')
     expect(dollar.waterTemp).toBe(62.1)
-    expect(dollar.name).toBe('Dollar Point (live)') // API name is authoritative
+    // Registry (editor-owned) names are authoritative — the API's
+    // Station_Name ('Dollar Point (live)' in this mock) must NOT win.
+    expect(dollar.name).toBe('Dollar Point')
 
     expect(markers.value.find((m) => m.key === 'buoy:1')!.status).toBe('reporting')
     // Everything without data is offline — present, never removed.
