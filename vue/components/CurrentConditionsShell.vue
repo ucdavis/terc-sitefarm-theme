@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import LakeMap from './LakeMap.vue'
 import SourceBadge from './SourceBadge.vue'
+import WaterQualityView from './WaterQualityView.vue'
 import { loadRegistry, syncFromLocation, useConditionsState } from '../composables/useConditionsState'
 import { markerKey, useLakeOverview } from '../composables/useLakeOverview'
 
@@ -46,9 +47,9 @@ onMounted(() => {
   void loadRegistry()
 })
 
+/** Views still awaiting their own stories render a stub note instead. */
 const VIEW_STUB_NOTES: Record<string, string> = {
   'plan-your-day': 'Station cards and lake overview arrive with the Plan Your Day story.',
-  'water-quality': 'Location-specific water quality readings arrive with TERC-21.',
   'plan-your-day-extended': 'All six water metrics per station arrive with the extended view story.',
 }
 </script>
@@ -111,12 +112,15 @@ const VIEW_STUB_NOTES: Record<string, string> = {
 
     <div class="cc-view" role="region" :aria-label="views.find((v) => v.id === view)?.label">
       <h3>{{ views.find((v) => v.id === view)?.label }}</h3>
-      <p class="cc-view-selection">
-        <template v-if="destination">For {{ destination.name }}.</template>
-        <template v-else-if="focusedStation">For station {{ focusedStation.name || focusedStation.sourceId }}.</template>
-        <template v-else>For the whole lake — pick a destination above.</template>
-      </p>
-      <p class="cc-view-stub">{{ VIEW_STUB_NOTES[view] }}</p>
+      <WaterQualityView v-if="view === 'water-quality'" />
+      <template v-else>
+        <p class="cc-view-selection">
+          <template v-if="destination">For {{ destination.name }}.</template>
+          <template v-else-if="focusedStation">For station {{ focusedStation.name || focusedStation.sourceId }}.</template>
+          <template v-else>For the whole lake — pick a destination above.</template>
+        </p>
+        <p class="cc-view-stub">{{ VIEW_STUB_NOTES[view] }}</p>
+      </template>
     </div>
 
     <div class="cc-forecast">
