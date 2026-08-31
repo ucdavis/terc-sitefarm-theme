@@ -69,12 +69,21 @@ describe('CurrentConditionsShell', () => {
     expect(off.find('.phase-chip').exists()).toBe(false)
     expect(off.find('.source-chip').exists()).toBe(false)
     expect(off.find('.source-badge').exists()).toBe(false) // both off -> no badge row at all
+    // The phase toggle also hides the Phase 2 "Forecasted Conditions"
+    // placeholder (TERC-57).
+    expect(off.find('.cc-forecast').exists()).toBe(false)
     expect(off.find('cache-diagnostics-stub').exists()).toBe(true)
 
-    // Independent: sources without phase.
+    // Independent: sources without phase; forecast section follows phase.
     const mixed = mount(CurrentConditionsShell, { showPhase: '0', showSources: '1' })
     expect(mixed.find('.phase-chip').exists()).toBe(false)
     expect(mixed.find('.source-chip').exists()).toBe(true)
+    expect(mixed.find('.cc-forecast').exists()).toBe(false)
+  })
+
+  it('names the story that fills the Plan Your Day stub', () => {
+    const w = mount(CurrentConditionsShell)
+    expect(w.find('.cc-view-stub').text()).toContain('(TERC-57)')
   })
 
   it('names the current selection in the block heading', async () => {

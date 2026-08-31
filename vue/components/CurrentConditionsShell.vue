@@ -100,7 +100,7 @@ onMounted(() => {
 /** Views still awaiting their own stories render a stub note instead. */
 const VIEW_STUB_NOTES: Record<string, string> = {
   'plan-your-day':
-    "Station cards with a 'show more data' toggle arrive with the Plan Your Day story.",
+    "Station cards with a 'show more data' toggle arrive with the Plan Your Day story (TERC-57).",
 }
 </script>
 
@@ -182,7 +182,10 @@ const VIEW_STUB_NOTES: Record<string, string> = {
       </template>
     </div>
 
-    <div class="cc-forecast">
+    <!-- Phase-related placeholder: follows the "Show phase indicator"
+         block toggle, so a placement that hides phase chips also hides
+         the forward-looking Phase 2 note (TERC-57). -->
+    <div v-if="showPhase" class="cc-forecast">
       <h3>Forecasted Conditions</h3>
       <p class="cc-view-stub">Modeled conditions summaries arrive with Phase 2 (TERC-12).</p>
     </div>
