@@ -9,3 +9,19 @@ core_version_requirement: ^9 || ^10 || ^11
 presentation: vue
 category: 'TERC Lake Conditions'
 template: template.html
+configuration:
+  showPhase:
+    type: checkbox
+    title: 'Show phase indicator'
+    description: 'The "Phase 1/2/3" chip next to the heading, marking which delivery phase this block belongs to.'
+    default_value: 1
+  showSources:
+    type: checkbox
+    title: 'Show data-source chips'
+    description: 'The chips naming the API endpoints this block reads (e.g. the TERC report API).'
+    default_value: 1
+  debug:
+    type: checkbox
+    title: 'Show cache diagnostics'
+    description: 'Overlay live cache hit/miss/join statistics in the corner of the page — for debugging and demos only.'
+    default_value: 0

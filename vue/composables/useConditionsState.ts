@@ -14,10 +14,15 @@ import { fetchRegistry, staticRegistry, type Registry } from '../data/locations'
  * Prefixed params (cc-*) keep clear of Drupal's own query parameters.
  */
 
+/**
+ * The two Phase 1 views. The prototype's separate "Plan Your Day +" view
+ * was demonstration-only; its all-metrics content folds into Plan Your Day
+ * behind the "show more data" toggle (demo decision). Old
+ * ?cc-view=plan-your-day-extended links fall back to plan-your-day.
+ */
 export const VIEWS = [
   { id: 'plan-your-day', label: 'Plan Your Day' },
   { id: 'water-quality', label: 'Water Quality' },
-  { id: 'plan-your-day-extended', label: 'Plan Your Day +' },
 ] as const
 
 export type ViewId = (typeof VIEWS)[number]['id']

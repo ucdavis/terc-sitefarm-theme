@@ -7,13 +7,14 @@
  * Usage:
  *   DRUPAL_BASE_URL=https://terc.ddev.site \
  *   DRUPAL_USER=registry-sync DRUPAL_PASS=... \
- *   node sync.mjs [--dry-run] [--skip-discovery] [--stations-only]
+ *   node sync.mjs [--dry-run] [--skip-discovery] [--stations-only] [--bands-only]
  *
  * Design:
  *  - Upserts are keyed by (field_station_type, field_station_id) for
  *    stations and field_location_id slug for destinations — safe to re-run.
- *  - Names come from the API's Station_Name when a station reports
- *    (authoritative); coordinates only ever come from the curated file.
+ *  - Names and coordinates only ever come from the curated file (and after
+ *    handoff, from editors); the API's Station_Name is surfaced as a
+ *    mismatch note, never written.
  *  - Fields the site doesn't have yet (e.g. field_station_status) are
  *    detected and skipped with a warning, so the script works before and
  *    after the content-model additions land.
@@ -37,6 +38,7 @@ const args = new Set(process.argv.slice(2))
 const DRY = args.has('--dry-run')
 const SKIP_DISCOVERY = args.has('--skip-discovery')
 const STATIONS_ONLY = args.has('--stations-only')
+const BANDS_ONLY = args.has('--bands-only')
 
 const BASE = process.env.DRUPAL_BASE_URL
 const USER = process.env.DRUPAL_USER
@@ -51,16 +53,17 @@ const AUTH = 'Basic ' + Buffer.from(`${USER}:${PASS}`).toString('base64')
 // sync with that rule if it ever changes.
 export const USER_AGENT = 'TERC-RegistrySync/1.0 (UC Davis IET; TERC-46)'
 const JSONAPI = { 'Content-Type': 'application/vnd.api+json', Accept: 'application/vnd.api+json', Authorization: AUTH, 'User-Agent': USER_AGENT }
-// Optional extra header (e.g. a WAF bypass token: SYNC_HEADER="X-Registry-Sync: <secret>").
+// Optional extra header (e.g. a WAF bypass token: SYNC_HEADER="X-Header-Name: <secret>";
+// the real name lives only in .env and the Cloudflare rule).
 // Needed where a CDN/WAF (Cloudflare on *.sf.ucdavis.edu) challenges non-browser clients.
 if (process.env.SYNC_HEADER) {
   const idx = process.env.SYNC_HEADER.indexOf(':')
   if (idx > 0) JSONAPI[process.env.SYNC_HEADER.slice(0, idx).trim()] = process.env.SYNC_HEADER.slice(idx + 1).trim()
 }
 
-const data = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'registry.data.json'), 'utf8'),
-)
+const here = dirname(fileURLToPath(import.meta.url))
+const data = JSON.parse(readFileSync(join(here, 'registry.data.json'), 'utf8'))
+const bandsData = JSON.parse(readFileSync(join(here, 'bands.data.json'), 'utf8'))
 
 // ---------------------------------------------------------------- discovery
 function dateParam(d) {
@@ -238,10 +241,65 @@ async function upsertDestination(dest, stationUuids) {
   })
 }
 
+// ----------------------------------------------------------- condition bands
+/**
+ * Condition interpretation bands (TERC-52): taxonomy terms in the
+ * condition_bands vocabulary, upserted from bands.data.json keyed by
+ * (field_metric_key, name). Terms are published by default, so there is no
+ * status dance here. Needs 'create/edit terms in condition_bands' on the
+ * sync role.
+ *
+ * NOTE: after editors take ownership of the sentences in Drupal, re-running
+ * this OVERWRITES their edits with the curated file — the run reports every
+ * 'update' first in --dry-run, so check before syncing bands to a site with
+ * editorial changes (or use --stations-only).
+ */
+async function upsertBand(band) {
+  const vocab = bandsData.vocabulary
+  const path = `/jsonapi/taxonomy_term/${vocab}`
+  const filter = `filter[field_metric_key]=${encodeURIComponent(band.metric)}&filter[name]=${encodeURIComponent(band.label)}`
+  const existing = (await drupal('GET', `${path}?${filter}`)).data[0] ?? null
+
+  const attributes = {
+    name: band.label,
+    field_metric_key: band.metric,
+    field_band_max_value: band.max,
+    field_band_tone: band.tone,
+    field_band_sentence: band.sentence,
+  }
+  const key = `${band.metric}/${band.label}`
+
+  if (!existing) {
+    report('create', key, band.max === null ? 'open-ended top band' : `max ${band.max}`)
+    if (DRY) return
+    await drupal('POST', path, { data: { type: `taxonomy_term--${vocab}`, attributes } })
+    return
+  }
+
+  const cur = existing.attributes
+  const changed = {}
+  const curMax = cur.field_band_max_value ?? null
+  const sameMax =
+    (curMax === null && band.max === null) ||
+    (curMax !== null && band.max !== null && Math.abs(curMax - band.max) < 1e-9)
+  if (!sameMax) changed.field_band_max_value = band.max
+  if (cur.field_band_tone !== band.tone) changed.field_band_tone = band.tone
+  if ((cur.field_band_sentence ?? '') !== band.sentence) changed.field_band_sentence = band.sentence
+  if (Object.keys(changed).length === 0) {
+    report('ok', key)
+    return
+  }
+  report('update', key, Object.keys(changed).join(', '))
+  if (DRY) return
+  await drupal('PATCH', `${path}/${existing.id}`, {
+    data: { type: `taxonomy_term--${vocab}`, id: existing.id, attributes: changed },
+  })
+}
+
 // ---------------------------------------------------------------------- main
 const stationUuids = new Map()
 let failures = 0
-for (const station of data.stations) {
+for (const station of BANDS_ONLY ? [] : data.stations) {
   const activity = SKIP_DISCOVERY ? null : await discoverActivity(station)
   if (activity) {
     const key = `${station.family}:${station.id ?? '-'}`
@@ -255,17 +313,28 @@ for (const station of data.stations) {
     stationUuids.set(`${station.family}:${station.id ?? ''}`, uuid)
   } catch (err) {
     failures++
-    report('skip', `${station.family}:${station.id ?? '-'}`, String(err.message).slice(0, 160))
+    report('skip', `${station.family}:${station.id ?? '-'}`, String(err?.message ?? err).slice(0, 160))
   }
 }
 
-if (!STATIONS_ONLY) {
+if (!STATIONS_ONLY && !BANDS_ONLY) {
   for (const dest of data.destinations) {
     try {
       await upsertDestination(dest, stationUuids)
     } catch (err) {
       failures++
-      report('skip', dest.slug, String(err.message).slice(0, 160))
+      report('skip', dest.slug, String(err?.message ?? err).slice(0, 160))
+    }
+  }
+}
+
+if (!STATIONS_ONLY) {
+  for (const band of bandsData.bands) {
+    try {
+      await upsertBand(band)
+    } catch (err) {
+      failures++
+      report('skip', `${band.metric}/${band.label}`, String(err?.message ?? err).slice(0, 160))
     }
   }
 }

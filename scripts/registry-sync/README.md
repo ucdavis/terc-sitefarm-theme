@@ -1,9 +1,11 @@
-# Registry sync (TERC-46)
+# Registry sync (TERC-46, TERC-52)
 
 Seeds/updates **Lake Station** and **Lake Destinations** nodes over JSON:API
 from `registry.data.json` (the curated source of truth: coordinates, slugs,
 destination groupings) enriched with live activity observed on the TERC
-report API. Idempotent — safe to re-run; it PATCHes only what differs.
+report API, plus the **condition_bands** taxonomy terms from
+`bands.data.json` (TERC-52 interpretation bands: metric, threshold, tone,
+sentence). Idempotent — safe to re-run; it PATCHes only what differs.
 
 ## Site prerequisites (once per environment)
 
@@ -12,10 +14,12 @@ report API. Idempotent — safe to re-run; it PATCHes only what differs.
 3. A dedicated role + user with ONLY:
    - create/edit any `station` content
    - create/edit any `lake_locations` content
+   - create/edit terms in `condition_bands`
    - access content, view own unpublished content
 4. **Both content types must default to Published** — core only lets
    `administer nodes` accounts set status through the API, so the sync
-   relies on the bundle default.
+   relies on the bundle default. (Taxonomy terms are published by default;
+   no equivalent step needed for bands.)
 
 ## Running
 
@@ -28,8 +32,17 @@ node sync.mjs             # then write
 
 Flags: `--dry-run` (print the plan, write nothing), `--skip-discovery`
 (skip the report-API activity probe; faster, no status/name checks),
-`--stations-only` (leave destination nodes alone — use once editors own
-destination content).
+`--stations-only` (stations only — no destinations, no bands),
+`--bands-only` (condition_bands terms only — no stations/destinations,
+no discovery).
+
+**Bands and editor ownership:** band upserts are keyed by
+`(field_metric_key, name)`. Once editors start refining bands in Drupal,
+a re-run OVERWRITES their threshold/tone/sentence edits with the curated
+file, and a term an editor RENAMED no longer matches its curated row — the
+old name gets re-created alongside it as a duplicate. After editorial
+handoff, treat bands syncing as a deliberate reset: always `--dry-run`
+first and read the `update`/`create` lines, or stick to `--stations-only`.
 
 Exit code 2 means some items were skipped (see `skip`/`warn` lines) —
 currently expected for `tc_homewood` until that value is added to
@@ -55,7 +68,8 @@ Required" before Drupal is ever reached). The sync needs a WAF exception —
 ask whoever administers Cloudflare for the SiteFarm domains for a skip
 rule, ideally scoped tight: hostname + path starts-with `/jsonapi/` +
 a shared-secret request header. Put that header in `.env` as
-`SYNC_HEADER=X-Registry-Sync: <secret>` and the script sends it on every
+`SYNC_HEADER=<Header-Name>: <secret>` (the real header name lives only in
+`.env` and the Cloudflare rule, never in the repo) and the script sends it on every
 request. An IP-allowlist rule works too (also what a future Lambda's
 egress IP would need).
 

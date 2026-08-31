@@ -10,12 +10,18 @@ vi.mock('../../composables/useLakeOverview', () => ({
   useLakeOverview: () => ({ markers: ref([]), reload: () => {} }),
   markerKey: (kind: string, id: number) => `${kind}:${id}`,
 }))
+vi.mock('../../data/conditionBands', () => ({
+  loadConditionBands: async () => {},
+}))
 
 import CurrentConditionsShell from '../CurrentConditionsShell.vue'
 import { syncFromLocation } from '../../composables/useConditionsState'
 
-const mount = (component: typeof CurrentConditionsShell) =>
-  vtuMount(component, { global: { stubs: { LakeMap: true, WaterQualityView: true } } })
+const mount = (component: typeof CurrentConditionsShell, props: Record<string, unknown> = {}) =>
+  vtuMount(component, {
+    props,
+    global: { stubs: { LakeMap: true, WaterQualityView: true, CacheDiagnostics: true } },
+  })
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/lake-conditions')
@@ -23,12 +29,11 @@ beforeEach(() => {
 })
 
 describe('CurrentConditionsShell', () => {
-  it('renders the three view tabs, destination selector, badge, and disclaimer', () => {
+  it('renders the two view tabs, destination selector, badge, and disclaimer', () => {
     const w = mount(CurrentConditionsShell)
     expect(w.findAll('.cc-tab').map((t) => t.text())).toEqual([
       'Plan Your Day',
       'Water Quality',
-      'Plan Your Day +',
     ])
     expect(w.text()).toContain('Where are you going?')
     expect(w.find('.source-badge').text()).toContain('tepfsail50 REST API')
@@ -39,9 +44,46 @@ describe('CurrentConditionsShell', () => {
   it('keeps the selected destination when switching views', async () => {
     const w = mount(CurrentConditionsShell)
     await w.findAll('.cc-dest').find((b) => b.text() === 'Homewood')!.trigger('click')
-    await w.findAll('.cc-tab')[2].trigger('click')
-    expect(w.find('.cc-view h3').text()).toBe('Plan Your Day +')
+    await w.findAll('.cc-tab')[1].trigger('click')
+    await w.findAll('.cc-tab')[0].trigger('click')
+    expect(w.find('.cc-view h3').text()).toBe('Plan Your Day')
     expect(w.find('.cc-view-selection').text()).toContain('For Homewood')
+  })
+
+  it('sends old Plan Your Day + deep links to Plan Your Day', () => {
+    window.history.replaceState(null, '', '/lake-conditions?cc-view=plan-your-day-extended')
+    syncFromLocation()
+    const w = mount(CurrentConditionsShell)
+    expect(w.find('.cc-tab.active').text()).toBe('Plan Your Day')
+  })
+
+  it('block-form toggles control the phase chip, source chips, and cache diagnostics', () => {
+    // Defaults: badges on, diagnostics off (matches the block form defaults).
+    const def = mount(CurrentConditionsShell)
+    expect(def.find('.phase-chip').exists()).toBe(true)
+    expect(def.find('.source-chip').exists()).toBe(true)
+    expect(def.find('cache-diagnostics-stub').exists()).toBe(false)
+
+    // PDB checkbox values arrive as '0'/'1' strings.
+    const off = mount(CurrentConditionsShell, { showPhase: '0', showSources: '0', debug: '1' })
+    expect(off.find('.phase-chip').exists()).toBe(false)
+    expect(off.find('.source-chip').exists()).toBe(false)
+    expect(off.find('.source-badge').exists()).toBe(false) // both off -> no badge row at all
+    expect(off.find('cache-diagnostics-stub').exists()).toBe(true)
+
+    // Independent: sources without phase.
+    const mixed = mount(CurrentConditionsShell, { showPhase: '0', showSources: '1' })
+    expect(mixed.find('.phase-chip').exists()).toBe(false)
+    expect(mixed.find('.source-chip').exists()).toBe(true)
+  })
+
+  it('names the current selection in the block heading', async () => {
+    const w = mount(CurrentConditionsShell)
+    expect(w.find('.cc-head h2').text()).toBe('Lake Tahoe Current Conditions')
+    await w.findAll('.cc-dest').find((b) => b.text() === 'Incline Village')!.trigger('click')
+    expect(w.find('.cc-head h2').text()).toBe('Lake Tahoe Current Conditions for Incline Village')
+    await w.findAll('.cc-dest').find((b) => b.text() === 'Show whole lake')!.trigger('click')
+    expect(w.find('.cc-head h2').text()).toBe('Lake Tahoe Current Conditions')
   })
 
   it('exposes destination selection state and announces changes to assistive technology', async () => {

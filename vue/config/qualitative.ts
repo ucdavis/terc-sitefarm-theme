@@ -8,15 +8,19 @@
  * deliberate bands (not a continuum) so the message stays simple; sentences
  * are written for laypeople and kept to one line.
  *
- * TERC-52 moves these to editor-owned site content (condition scales via
- * JSON:API, same ownership pattern as the station registry); this file then
- * becomes the static fallback, exactly like config/stations.ts is for the
- * registry.
+ * TERC-52: these bands are editor-owned site content — the condition_bands
+ * taxonomy, fetched via JSON:API (data/conditionBands.ts) and applied here
+ * with applyConditionBands(). This file is the static fallback, exactly
+ * like config/stations.ts is for the registry: it renders immediately and
+ * whenever site content is unreachable. The bands live in a Vue ref, so
+ * every computed that calls assessMetric re-renders when site bands land.
  *
  * Units match the normalized data layer: temperatures in °F, wave height in
  * ft, wind in mph, DO in % saturation, turbidity in NTU, conductivity in
  * mS/cm, chlorophyll in µg/L.
  */
+
+import { ref } from 'vue'
 
 export type QualityTone = 'good' | 'fair' | 'caution' | 'info'
 
@@ -35,14 +39,14 @@ export interface QualityAssessment {
   tone: QualityTone
 }
 
-interface Band extends QualityAssessment {
+export interface Band extends QualityAssessment {
   /** Upper bound (exclusive); use Infinity for the last band. */
   max: number
 }
 
 // `satisfies` keeps the literal keys, so QualityMetric below is the real
 // 8-metric union instead of degrading to `string` (PR review finding).
-const BANDS = {
+export const STATIC_BANDS = {
   waterTemp: [
     {
       max: 50,
@@ -270,15 +274,58 @@ const BANDS = {
   ],
 } satisfies Record<string, Band[]>
 
-export type QualityMetric = keyof typeof BANDS
+export type QualityMetric = keyof typeof STATIC_BANDS
+
+/**
+ * The bands assessMetric consults — static until site content arrives.
+ * A ref so band swaps propagate through every computed using assessMetric.
+ */
+const activeBands = ref<Record<string, Band[]>>(STATIC_BANDS)
+
+/** True once editor-owned site bands replaced the static placeholders. */
+export const bandsFromSite = ref(false)
+
+/**
+ * Swap in site-owned bands (TERC-52). Per-metric fallback: a metric with no
+ * usable site bands keeps its static ones, so a partially filled vocabulary
+ * can never blank out part of the UI.
+ *
+ * "Usable" requires a terminal open-ended band (max = Infinity, i.e. a term
+ * with an empty max value). Without one, readings above the highest finite
+ * threshold would silently take the last finite band's label — 500 NTU
+ * rated "Slightly cloudy" because an editor deleted "Murky". Such a metric
+ * falls back to the static bands and logs a warning editors can act on.
+ */
+export function applyConditionBands(site: Partial<Record<QualityMetric, Band[]>>): void {
+  const merged: Record<string, Band[]> = { ...STATIC_BANDS }
+  let any = false
+  for (const [metric, bands] of Object.entries(site)) {
+    if (!(metric in STATIC_BANDS) || !bands || bands.length === 0) continue
+    if (bands[bands.length - 1].max !== Number.POSITIVE_INFINITY) {
+      console.warn(
+        `[terc] condition bands for "${metric}" have no open-ended top band (a term with an empty max); using the built-in bands for it instead`,
+      )
+      continue
+    }
+    merged[metric] = bands
+    any = true
+  }
+  activeBands.value = merged
+  bandsFromSite.value = any
+}
+
+/** Test hook: back to the static placeholder bands. */
+export function resetBandsForTests(): void {
+  activeBands.value = STATIC_BANDS
+  bandsFromSite.value = false
+}
 
 export function assessMetric(
   metric: QualityMetric,
   value: number | null | undefined,
 ): QualityAssessment | null {
   if (value === null || value === undefined || !Number.isFinite(value)) return null
-  // Defensive for untyped JS callers; typed callers can't miss.
-  const bands: Band[] | undefined = BANDS[metric]
+  const bands = activeBands.value[metric]
   if (!bands || bands.length === 0) return null
   const band = bands.find((b) => value < b.max) ?? bands[bands.length - 1]
   return { label: band.label, sentence: band.sentence, tone: band.tone }

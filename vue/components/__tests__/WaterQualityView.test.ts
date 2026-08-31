@@ -116,16 +116,17 @@ describe('WaterQualityView (charts)', () => {
     expect(w.findAll('.wq-cold-note')).toHaveLength(1) // temperature chart only
   })
 
-  it('filters charts to the selected destination in memory', async () => {
-    nearshore.mockImplementation((id: number) => Promise.resolve(series(id, `NS ${id}`, [rec()])))
+  it('filters charts to the selected destination in memory, naming stations from the registry', async () => {
+    nearshore.mockImplementation((id: number) => Promise.resolve(series(id, `API name ${id}`, [rec()])))
     homewood.mockResolvedValue(series(-1, 'Homewood TC', [rec()]))
     const { selectDestination } = useConditionsState()
     selectDestination('homewood') // static registry: stations [4, 5], includesHomewood
     const w = mount()
     await flushPromises()
+    // Registry names win over the API's Station_Name; homewood has no
+    // registry entry in the static fallback, so the API name covers it.
     const labels = w.find('.tsc').attributes('data-labels')
-    expect(labels).toBe('NS 4|NS 5|Homewood TC')
-    expect(w.text()).toContain('Homewood')
+    expect(labels).toBe('Homewood|NS Station 5|Homewood TC')
   })
 
   it('interprets each station via band chips with a conservative consensus', async () => {
@@ -159,6 +160,18 @@ describe('WaterQualityView (charts)', () => {
     expect(doChart.find('.wq-chip').exists()).toBe(false)
   })
 
+  it('a focused station displays its registry name, not the API Station_Name', async () => {
+    nearshore.mockImplementation((id: number) =>
+      Promise.resolve(id === 2 ? series(2, 'Dollar Point (API)', [rec()]) : series(id, null, [])),
+    )
+    const { focusStation } = useConditionsState()
+    focusStation({ kind: 'nearshore', sourceId: 2, name: 'Dollar Point' })
+    const w = mount()
+    await flushPromises()
+    expect(w.find('.wq-title').text()).toBe('Dollar Point')
+    expect(w.text()).not.toContain('(API)')
+  })
+
   it('shows a focused buoy only its temperature chart, with an honest explanation', async () => {
     buoy.mockImplementation((id: number) => Promise.resolve(id === 2 ? [buoyRec(67)] : []))
     const { focusStation } = useConditionsState()
@@ -185,19 +198,21 @@ describe('WaterQualityView (charts)', () => {
     const oldRequest = new Promise((r) => (resolveOld = r))
     nearshore.mockImplementation((id: number, start: Date, end: Date) => {
       const windowDays = Math.round((end.getTime() - start.getTime()) / 864e5)
-      if (id === 2 && windowDays === 7) return oldRequest // hangs until later
-      if (id === 2 && windowDays === 30) return Promise.resolve(series(2, 'NS-30', [rec()]))
+      // The abandoned 7-day sweep reports station 4; the newer 30-day
+      // sweep reports only station 2 — committing the stale result would
+      // add a Homewood series to the charts.
+      if (id === 4 && windowDays === 7) return oldRequest
+      if (id === 2 && windowDays === 30) return Promise.resolve(series(2, null, [rec()]))
       return Promise.resolve(series(id, null, []))
     })
     const w = mount()
     await w.findAll('.wq-range-btn').find((b) => b.text() === '30 days')!.trigger('click')
     await flushPromises()
-    expect(w.find('.tsc').attributes('data-labels')).toContain('NS-30')
+    expect(w.find('.tsc').attributes('data-labels')).toBe('Dollar Point')
     // The abandoned 7-day request finally resolves — it must be discarded.
-    resolveOld(series(2, 'NS-7-STALE', [rec()]))
+    resolveOld(series(4, null, [rec()]))
     await flushPromises()
-    expect(w.find('.tsc').attributes('data-labels')).toContain('NS-30')
-    expect(w.find('.tsc').attributes('data-labels')).not.toContain('NS-7-STALE')
+    expect(w.find('.tsc').attributes('data-labels')).toBe('Dollar Point')
   })
 
   it('reports failed fetches as a data problem, never as stations not reporting', async () => {

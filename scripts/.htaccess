@@ -1,0 +1,15 @@
+# Deny ALL web access to everything under scripts/ (TERC-52 security
+# hardening). These are operator-run sync tools, never web assets — but the
+# theme deploys into the public docroot, so without this the script source,
+# curated data files, and README would be fetchable from the live site.
+#
+# Takes effect on Apache (Site Factory production). Local ddev serves via
+# nginx and ignores .htaccess — the local 200 is expected; verify on an
+# Apache environment.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

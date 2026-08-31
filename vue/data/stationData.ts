@@ -43,7 +43,9 @@ export interface NearshoreRecord {
 
 export interface NearshoreSeries {
   stationId: number
-  /** Station_Name from the API when data exists (authoritative), else null. */
+  /** Station_Name from the API when data exists, else null. Display uses
+   *  the registry (editor-owned) name first; this is the fallback for
+   *  stations the registry doesn't know, and a diagnostic for mismatches. */
   stationName: string | null
   records: NearshoreRecord[]
 }

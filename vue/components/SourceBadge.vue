@@ -3,17 +3,23 @@
  * Badge naming the delivery phase and the exact hosts a view touches —
  * keeps the phased-delivery boundary legible at a glance. Ported from the
  * prototype; sources arrive as props here instead of vue-router route meta.
+ * Each chip group can be switched off independently (block-form toggles).
  */
-withDefaults(defineProps<{ phase?: number; sources?: string[] }>(), {
-  phase: 1,
-  sources: () => [],
-})
+withDefaults(
+  defineProps<{ phase?: number; sources?: string[]; showPhase?: boolean; showSources?: boolean }>(),
+  {
+    phase: 1,
+    sources: () => [],
+    showPhase: true,
+    showSources: true,
+  },
+)
 </script>
 
 <template>
   <div class="source-badge">
-    <span class="phase-chip" :class="`phase-${phase}`">Phase {{ phase }}</span>
-    <span class="sources">
+    <span v-if="showPhase" class="phase-chip" :class="`phase-${phase}`">Phase {{ phase }}</span>
+    <span v-if="showSources" class="sources">
       <span v-for="s in sources" :key="s" class="source-chip">{{ s }}</span>
     </span>
   </div>

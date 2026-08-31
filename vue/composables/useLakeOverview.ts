@@ -113,9 +113,12 @@ function load(): void {
   start.setDate(start.getDate() - 2) // same window as the destination views -> shared cache keys
 
   for (const m of markers.value) {
-    const done = (rec: { waterTemp: number | null; time: Date } | null, liveName?: string | null) =>
+    // Registry names are authoritative (editors own them, TERC-46) — the
+    // API's Station_Name is deliberately NOT copied over the seeded name.
+    // A prototype-era rule had the API win, which silently discarded
+    // editor renames for every reporting station.
+    const done = (rec: { waterTemp: number | null; time: Date } | null) =>
       update(m.key, {
-        ...(liveName ? { name: liveName } : {}),
         waterTemp: rec?.waterTemp ?? null,
         time: rec?.time ?? null,
         status: rec && rec.waterTemp !== null ? 'reporting' : 'offline',
@@ -126,7 +129,7 @@ function load(): void {
 
     if (m.kind === 'nearshore') {
       fetchNearshoreRange(m.sourceId, start, end)
-        .then((series) => done(latestRecord(series.records), series.stationName))
+        .then((series) => done(latestRecord(series.records)))
         .catch(offline)
     } else if (m.kind === 'buoy') {
       fetchNasaBuoy(m.sourceId, start, end)
@@ -134,7 +137,7 @@ function load(): void {
         .catch(offline)
     } else {
       fetchHomewood(start, end)
-        .then((series) => done(latestRecord(series.records), series.stationName))
+        .then((series) => done(latestRecord(series.records)))
         .catch(offline)
     }
   }
