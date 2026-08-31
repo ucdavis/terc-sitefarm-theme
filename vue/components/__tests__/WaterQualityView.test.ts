@@ -169,6 +169,60 @@ describe('WaterQualityView (charts)', () => {
     expect(w.text()).toContain('Mid-lake buoys measure water temperature only')
   })
 
+  it('marks the active range for assistive technology', async () => {
+    const w = mount()
+    await flushPromises()
+    const pressed = w.findAll('.wq-range-btn').map((b) => [b.text(), b.attributes('aria-pressed')])
+    expect(pressed).toEqual([
+      ['7 days', 'true'],
+      ['14 days', 'false'],
+      ['30 days', 'false'],
+    ])
+  })
+
+  it('a stale slower load cannot overwrite a newer one', async () => {
+    let resolveOld!: (v: unknown) => void
+    const oldRequest = new Promise((r) => (resolveOld = r))
+    nearshore.mockImplementation((id: number, start: Date, end: Date) => {
+      const windowDays = Math.round((end.getTime() - start.getTime()) / 864e5)
+      if (id === 2 && windowDays === 7) return oldRequest // hangs until later
+      if (id === 2 && windowDays === 30) return Promise.resolve(series(2, 'NS-30', [rec()]))
+      return Promise.resolve(series(id, null, []))
+    })
+    const w = mount()
+    await w.findAll('.wq-range-btn').find((b) => b.text() === '30 days')!.trigger('click')
+    await flushPromises()
+    expect(w.find('.tsc').attributes('data-labels')).toContain('NS-30')
+    // The abandoned 7-day request finally resolves — it must be discarded.
+    resolveOld(series(2, 'NS-7-STALE', [rec()]))
+    await flushPromises()
+    expect(w.find('.tsc').attributes('data-labels')).toContain('NS-30')
+    expect(w.find('.tsc').attributes('data-labels')).not.toContain('NS-7-STALE')
+  })
+
+  it('reports failed fetches as a data problem, never as stations not reporting', async () => {
+    nearshore.mockImplementation((id: number) =>
+      id === 2 ? Promise.reject(new Error('boom')) : Promise.resolve(series(id, null, [])),
+    )
+    const w = mount()
+    await flushPromises()
+    const warn = w.find('.wq-fetch-warn')
+    expect(warn.exists()).toBe(true)
+    expect(warn.text()).toContain('Dollar Point')
+    // With failures present, the empty state must not claim a normal state.
+    expect(w.text()).toContain('Some station requests failed')
+    expect(w.text()).not.toContain('a normal state')
+  })
+
+  it('tells the visitor when a focused buoy has no data in the window', async () => {
+    const { focusStation } = useConditionsState()
+    focusStation({ kind: 'buoy', sourceId: 2, name: 'NASA Buoy TB2' })
+    const w = mount()
+    await flushPromises()
+    expect(w.text()).toContain('Mid-lake buoys measure water temperature only')
+    expect(w.text()).toContain('No data for NASA Buoy TB2')
+  })
+
   it('refetches when the range changes and reports empty windows honestly', async () => {
     const w = mount()
     await flushPromises()

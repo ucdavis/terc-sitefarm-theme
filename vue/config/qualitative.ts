@@ -40,7 +40,9 @@ interface Band extends QualityAssessment {
   max: number
 }
 
-const BANDS: Record<string, Band[]> = {
+// `satisfies` keeps the literal keys, so QualityMetric below is the real
+// 8-metric union instead of degrading to `string` (PR review finding).
+const BANDS = {
   waterTemp: [
     {
       max: 50,
@@ -266,7 +268,7 @@ const BANDS: Record<string, Band[]> = {
       sentence: 'Algae at bloom levels — avoid swallowing water and rinse off after swimming.',
     },
   ],
-}
+} satisfies Record<string, Band[]>
 
 export type QualityMetric = keyof typeof BANDS
 
@@ -275,7 +277,9 @@ export function assessMetric(
   value: number | null | undefined,
 ): QualityAssessment | null {
   if (value === null || value === undefined || !Number.isFinite(value)) return null
-  const bands = BANDS[metric]
+  // Defensive for untyped JS callers; typed callers can't miss.
+  const bands: Band[] | undefined = BANDS[metric]
+  if (!bands || bands.length === 0) return null
   const band = bands.find((b) => value < b.max) ?? bands[bands.length - 1]
   return { label: band.label, sentence: band.sentence, tone: band.tone }
 }
