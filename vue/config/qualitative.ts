@@ -44,7 +44,9 @@ export interface Band extends QualityAssessment {
   max: number
 }
 
-export const STATIC_BANDS: Record<string, Band[]> = {
+// `satisfies` keeps the literal keys, so QualityMetric below is the real
+// 8-metric union instead of degrading to `string` (PR review finding).
+export const STATIC_BANDS = {
   waterTemp: [
     {
       max: 50,
@@ -270,7 +272,7 @@ export const STATIC_BANDS: Record<string, Band[]> = {
       sentence: 'Algae at bloom levels — avoid swallowing water and rinse off after swimming.',
     },
   ],
-}
+} satisfies Record<string, Band[]>
 
 export type QualityMetric = keyof typeof STATIC_BANDS
 

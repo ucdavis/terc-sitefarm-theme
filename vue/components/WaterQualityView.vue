@@ -46,48 +46,63 @@ const days = ref(7)
 const loadingCount = ref(0)
 const series = ref<NearshoreSeries[]>([]) // reporting near-shore + tc-homewood (-1)
 const buoySeries = ref<{ id: number; name: string; records: NasaBuoyRecord[] }[]>([])
+/** Stations whose fetch FAILED this load — an outage is not "not reporting". */
+const failedSources = ref<string[]>([])
 
 const { destination, focusedStation, clearSelection, registry } = useConditionsState()
 
 const SERIES_COLORS = ['#0e6ba8', '#1c8c62', '#c96a1f', '#7a4fa3', '#a8385f', '#4a6b7c']
 const BUOY_COLORS = ['#14475e', '#3b6f8a', '#6293ad', '#8ab6cf']
 
+/** Guards against overlapping loads: only the newest invocation commits. */
+let loadGen = 0
+
 async function load() {
+  const gen = ++loadGen
   const end = new Date()
   const start = new Date()
   start.setDate(start.getDate() - days.value)
   loadingCount.value++
+  const failed: string[] = []
   try {
-    const nearshoreIds = registry.value.stations
-      .filter((s) => s.kind === 'nearshore' && s.sourceId !== null)
-      .map((s) => s.sourceId as number)
+    const nearshore = registry.value.stations.filter(
+      (s) => s.kind === 'nearshore' && s.sourceId !== null,
+    )
     const buoys = registry.value.stations.filter((s) => s.kind === 'buoy' && s.sourceId !== null)
 
     const [nsResults, hwResult, buoyResults] = await Promise.all([
       Promise.all(
-        nearshoreIds.map(async (id) => {
+        nearshore.map(async (st) => {
+          const id = st.sourceId as number
           try {
             return await fetchNearshoreRange(id, start, end)
           } catch {
+            failed.push(st.name || `Station ${id}`)
             return { stationId: id, stationName: null, records: [] } as NearshoreSeries
           }
         }),
       ),
-      fetchHomewood(start, end).catch(
-        () => ({ stationId: -1, stationName: null, records: [] }) as NearshoreSeries,
-      ),
+      fetchHomewood(start, end).catch(() => {
+        failed.push('Homewood TC')
+        return { stationId: -1, stationName: null, records: [] } as NearshoreSeries
+      }),
       Promise.all(
         buoys.map(async (b) => {
           try {
             return { id: b.sourceId as number, name: b.name, records: await fetchNasaBuoy(b.sourceId as number, start, end) }
           } catch {
+            failed.push(b.name)
             return { id: b.sourceId as number, name: b.name, records: [] as NasaBuoyRecord[] }
           }
         }),
       ),
     ])
+    // A slower, older request must never overwrite a newer range/registry
+    // result that already landed (PR review finding).
+    if (gen !== loadGen) return
     series.value = [...nsResults, hwResult].filter((r) => r.records.length > 0)
     buoySeries.value = buoyResults.filter((b) => b.records.length > 0)
+    failedSources.value = failed
   } finally {
     loadingCount.value--
   }
@@ -263,12 +278,19 @@ const visibleCharts = computed(() =>
         type="button"
         class="wq-range-btn"
         :class="{ active: r.days === days }"
+        :aria-pressed="r.days === days"
         @click="days = r.days"
       >
         {{ r.label }}
       </button>
       <span v-if="loading" class="wq-loading-tag">updating…</span>
     </div>
+
+    <p v-if="failedSources.length" class="wq-fetch-warn" role="alert">
+      Live data could not be loaded for: {{ failedSources.join(', ') }} —
+      charts may be incomplete. This is a data-service problem, not a
+      station outage.
+    </p>
 
     <div class="wq-scope-head">
       <h4 class="wq-title">
@@ -332,13 +354,15 @@ const visibleCharts = computed(() =>
       </p>
     </template>
     <LoadingState v-else-if="loading" :lines="6" height="280px" />
-    <div v-else-if="!focusedIsBuoy" class="wq-panel">
+    <div v-else class="wq-panel">
       <strong>No data for {{ scopeTitle }} in this window.</strong>
       <p>
         {{
-          focusedStation
-            ? 'The station stays on the map and will chart data when it returns.'
-            : 'None of the assigned stations reported during the selected range (a normal state for some stations).'
+          failedSources.length
+            ? 'Some station requests failed (see the warning above) — try again shortly.'
+            : focusedStation
+              ? 'The station stays on the map and will chart data when it returns.'
+              : 'None of the assigned stations reported during the selected range (a normal state for some stations).'
         }}
       </p>
     </div>
@@ -385,6 +409,15 @@ const visibleCharts = computed(() =>
 .wq-loading-tag {
   font-size: 12px;
   color: #1c6b45;
+}
+.wq-fetch-warn {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #a03a22;
+  background: #fbe9e5;
+  border-radius: 6px;
+  padding: 8px 12px;
 }
 .wq-scope-head {
   display: flex;

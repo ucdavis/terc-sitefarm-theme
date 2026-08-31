@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import type { DestinationDef } from '../config/destinations'
 import { LAKE_CENTER, LAKE_DEFAULT_ZOOM, STATION_FOCUS_ZOOM, TILE_LAYERS, type BasemapId } from '../config/lakeView'
+import { fmtLakeTime } from '../core/time'
 import { escapeHtml, type MapEngine, type MapEngineFactory } from '../map/engine'
 import { createLeafletEngine } from '../map/leafletEngine'
 import type { OverviewMarker } from '../composables/useLakeOverview'
@@ -59,9 +60,8 @@ function drawOverview() {
     const html = reporting
       ? `<div class="stn-badge${m.kind === 'buoy' ? ' stn-badge--buoy' : ''}${focused}">${m.waterTemp!.toFixed(1)}</div>`
       : `<div class="stn-badge stn-badge--offline${focused}">!</div>`
-    const when = m.time
-      ? m.time.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-      : null
+    // Lake time, not viewer-local (TERC-43 display rule).
+    const when = m.time ? `${fmtLakeTime(m.time)} lake time` : null
     const parts = [
       // Names come from site content / the live API — escape, never trust.
       `<strong>${escapeHtml(m.name)}</strong>${m.kind === 'buoy' ? ' (mid-lake buoy)' : ''}`,

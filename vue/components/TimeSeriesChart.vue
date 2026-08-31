@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { fmtLakeDay, fmtLakeTime } from '../core/time'
 import {
   Chart,
   LineController,
@@ -67,6 +68,12 @@ function build() {
         },
         tooltip: {
           callbacks: {
+            // Lake time, not viewer-local (TERC-43 display rule): a visitor
+            // in New York must see when the reading happened at Tahoe.
+            title: (items) =>
+              items.length && items[0].parsed.x !== null
+                ? `${fmtLakeTime(new Date(items[0].parsed.x))} (lake time)`
+                : '',
             label: (ctx) =>
               ` ${ctx.dataset.label}: ${ctx.parsed.y === null ? 'no data' : ctx.parsed.y.toFixed(2)} ${props.unit}`,
           },
@@ -75,8 +82,13 @@ function build() {
       scales: {
         x: {
           type: 'time',
-          time: { tooltipFormat: 'MMM d, h:mm a' },
-          ticks: { maxTicksLimit: 8, font: { size: 11 } },
+          ticks: {
+            maxTicksLimit: 8,
+            font: { size: 11 },
+            // Axis labels in lake-time days too (the adapter's defaults
+            // would render the viewer's timezone).
+            callback: (value) => fmtLakeDay(new Date(Number(value))),
+          },
           grid: { display: false },
         },
         y: {
@@ -92,13 +104,35 @@ function build() {
 onMounted(build)
 watch(() => props.series, build, { deep: true })
 onBeforeUnmount(() => chart?.destroy())
+
+/**
+ * Screen-reader text for the canvas-only chart: each series' latest
+ * reading with its lake timestamp. Not the full table — thousands of
+ * points would drown a reader — but the same "what is it now" answer the
+ * visual latest-value chips give sighted visitors.
+ */
+const srSummary = computed(() => {
+  const parts = props.series.map((s) => {
+    let last: { x: Date; y: number | null } | undefined
+    for (let i = s.points.length - 1; i >= 0; i--) {
+      if (s.points[i].y !== null) {
+        last = s.points[i]
+        break
+      }
+    }
+    return last
+      ? `${s.label}: latest ${last.y!.toFixed(1)} ${props.unit} at ${fmtLakeTime(last.x)} lake time`
+      : `${s.label}: no data in this range`
+  })
+  return `${props.title} time-series chart. ${parts.join('. ')}.`
+})
 </script>
 
 <template>
   <figure class="chart-card">
     <figcaption class="chart-title">{{ title }}</figcaption>
-    <div class="chart-box" :style="{ height: (height ?? 220) + 'px' }">
-      <canvas ref="canvas" />
+    <div class="chart-box" role="img" :aria-label="srSummary" :style="{ height: (height ?? 220) + 'px' }">
+      <canvas ref="canvas" aria-hidden="true" />
     </div>
     <slot name="footer" />
   </figure>
