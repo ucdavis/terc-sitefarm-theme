@@ -1,8 +1,21 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mount as vtuMount } from '@vue/test-utils'
+import { ref } from 'vue'
+
+// The lake map has its own suite (LakeMap.test.ts) and the overview
+// composable fetches live station data — stub both so shell tests stay
+// network-free and focused on shell behavior.
+vi.mock('../../composables/useLakeOverview', () => ({
+  useLakeOverview: () => ({ markers: ref([]), reload: () => {} }),
+  markerKey: (kind: string, id: number) => `${kind}:${id}`,
+}))
+
 import CurrentConditionsShell from '../CurrentConditionsShell.vue'
 import { syncFromLocation } from '../../composables/useConditionsState'
+
+const mount = (component: typeof CurrentConditionsShell) =>
+  vtuMount(component, { global: { stubs: { LakeMap: true } } })
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/lake-conditions')
