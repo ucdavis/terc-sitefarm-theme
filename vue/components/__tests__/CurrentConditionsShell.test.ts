@@ -44,6 +44,15 @@ describe('CurrentConditionsShell', () => {
     expect(w.find('.cc-view-selection').text()).toContain('For Homewood')
   })
 
+  it('names the current selection in the block heading', async () => {
+    const w = mount(CurrentConditionsShell)
+    expect(w.find('.cc-head h2').text()).toBe('Lake Tahoe Current Conditions')
+    await w.findAll('.cc-dest').find((b) => b.text() === 'Incline Village')!.trigger('click')
+    expect(w.find('.cc-head h2').text()).toBe('Lake Tahoe Current Conditions for Incline Village')
+    await w.findAll('.cc-dest').find((b) => b.text() === 'Show whole lake')!.trigger('click')
+    expect(w.find('.cc-head h2').text()).toBe('Lake Tahoe Current Conditions')
+  })
+
   it('exposes destination selection state and announces changes to assistive technology', async () => {
     const w = mount(CurrentConditionsShell)
     const live = w.find('[aria-live="polite"]')
