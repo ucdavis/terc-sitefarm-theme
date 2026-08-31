@@ -1,0 +1,11 @@
+# Current Conditions shell block (TERC-18). Same integration rules as
+# hello_lake: no asset keys here — the entry library is attached in
+# terc_preprocess_block() so pdb_vue never adds its CDN Vue.
+name: 'TERC Current Conditions'
+machine_name: current-conditions
+type: pdb
+description: 'Lake Tahoe Current Conditions shell: view navigation, destination selector, shared map region, and disclaimer. Data views arrive in their own stories.'
+core_version_requirement: ^9 || ^10 || ^11
+presentation: vue
+category: 'TERC Lake Conditions'
+template: template.html
