@@ -415,7 +415,7 @@ const visibleCharts = computed(() =>
   outline-offset: 2px;
 }
 .wq-loading-tag {
-  font-size: 12px;
+  font-size: 13px;
   color: #1c6b45;
 }
 .wq-fetch-warn {
@@ -452,7 +452,7 @@ const visibleCharts = computed(() =>
 }
 .wq-clear {
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   padding: 5px 12px;
   border-radius: 99px;
   border: 1px solid #d5dde2;
@@ -495,7 +495,7 @@ const visibleCharts = computed(() =>
   flex-wrap: wrap;
 }
 .wq-chip {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   border-radius: 99px;
   padding: 3px 9px;
@@ -518,13 +518,13 @@ const visibleCharts = computed(() =>
 }
 .wq-sentence {
   margin: 7px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
   color: #4a5a64;
 }
 .wq-cold-note {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
   color: #8c4f17;
   background: #fdf3e0;
@@ -533,7 +533,7 @@ const visibleCharts = computed(() =>
 }
 .wq-sentinel-note {
   margin: 4px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   /* #5f6e77 = 5.3:1 on white; the previous #7a8a92 failed WCAG AA (3.6:1). */
   color: #5f6e77;
   border-top: 1px solid #d5dde2;

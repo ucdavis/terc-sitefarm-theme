@@ -55,7 +55,10 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
       // (WCAG 2.1.1). Focus also shows the tooltip in Leaflet 1.9.
       const marker = L.marker([o.lat, o.lng], { icon, keyboard: true })
       if (o.onClick) marker.on('click', o.onClick)
-      marker.bindTooltip(o.tooltipHtml, { direction: 'top', offset: [0, -14] })
+      // direction 'auto' places the tooltip on the side away from the map
+      // edge, so badges near the boundary don't get their tooltip clipped
+      // by the map container's overflow (fixed-'top' did).
+      marker.bindTooltip(o.tooltipHtml, { direction: 'auto', offset: [14, 0] })
       group(name).addLayer(marker)
       const el = marker.getElement()
       if (el) {
@@ -90,8 +93,8 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
         fillOpacity: o.fillOpacity,
       })
       // The contract says tooltip is plain text; Leaflet renders tooltip
-      // strings as HTML, so escape here.
-      marker.bindTooltip(escapeHtml(o.tooltip), { direction: 'top', offset: [0, -8] })
+      // strings as HTML, so escape here. 'auto' avoids edge clipping.
+      marker.bindTooltip(escapeHtml(o.tooltip), { direction: 'auto', offset: [10, 0] })
       if (o.onClick) marker.on('click', o.onClick)
       group(name).addLayer(marker)
     },

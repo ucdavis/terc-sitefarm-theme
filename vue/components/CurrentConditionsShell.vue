@@ -207,8 +207,18 @@ onMounted(() => {
   gap: 1rem;
   flex-wrap: wrap;
 }
+/* SiteFarm's content styles size h2/h3 for page prose (~38px/31px) —
+   proportionate caps for headings inside a data block, on the theme's
+   own type scale. */
 .cc-head h2 {
   margin: 0;
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+.cc-view h3,
+.cc-forecast h3 {
+  font-size: 1.375rem;
+  line-height: 1.25;
 }
 .cc-nav {
   display: flex;
@@ -281,7 +291,7 @@ onMounted(() => {
   margin: 0 0 0.3rem;
 }
 .cc-disclaimer {
-  font-size: 12px;
+  font-size: 13px;
   color: #4a5a64;
   border-top: 1px solid #d5dde2;
   padding-top: 0.6rem;

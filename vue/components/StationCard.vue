@@ -70,7 +70,7 @@ const timeLabel = computed(() =>
   background: #eef2f4;
 }
 .card-label {
-  font-size: 12px;
+  font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #4a5a64;
@@ -98,7 +98,7 @@ const timeLabel = computed(() =>
 }
 .card-meta {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 13px;
   color: #7a8a92;
 }
 .suspect {
@@ -108,7 +108,7 @@ const timeLabel = computed(() =>
 }
 .suspect-note {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 13px;
   color: #9a6b15;
   background: #fdf6e7;
   border-radius: 4px;
@@ -130,7 +130,7 @@ const timeLabel = computed(() =>
 }
 .assess-text {
   margin: 5px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
   color: #4a5a64;
 }

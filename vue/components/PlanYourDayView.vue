@@ -358,12 +358,12 @@ onMounted(async () => {
   outline-offset: 2px;
 }
 .pyd-toggle-hint {
-  font-size: 12px;
+  font-size: 13px;
   color: #4a5a64;
 }
 .pyd-cold-note {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
   color: #8c4f17;
   background: #fdf3e0;
@@ -383,7 +383,7 @@ onMounted(async () => {
 }
 .pyd-clear {
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   padding: 5px 12px;
   border-radius: 99px;
   border: 1px solid #d5dde2;
@@ -433,7 +433,7 @@ onMounted(async () => {
   color: #13322b;
 }
 .pyd-hint {
-  font-size: 12.5px;
+  font-size: 13px;
   color: #5f6e77;
 }
 .pyd-status-list {
@@ -445,7 +445,7 @@ onMounted(async () => {
 }
 .pyd-note {
   margin: 6px 0 0;
-  font-size: 12.5px;
+  font-size: 13px;
   color: #5f6e77;
 }
 .pyd-met {
