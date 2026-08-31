@@ -1,20 +1,23 @@
 /**
  * Near-shore station registry, seeded with ids 1–12 as instructed.
  *
- * Verified against live traffic (week of 2026-07-22 → 2026-07-29, sweep of
- * all 12 ids run 2026-07-29 during this build):
- *   id 2 = Dollar Point  (576 records)  ✅ has data
- *   id 4 = Homewood      (576 records)  ✅ has data
- *   id 6 = Rubicon       (576 records)  ✅ has data
- *   id 8 = Tahoe Vista   (576 records)  ✅ has data
- *   ids 1, 3, 5, 7, 9, 10, 11, 12 -> empty arrays (normal, expected state)
- *   tc-homewood -> empty array (distinct from ns id 4!)
+ * Names verified by seasonal/historical sweep of ids 1–24 run 2026-08-27
+ * (see docs/station-registry-discovery.md, TERC-46): EIGHT real stations —
+ *   active now:  2 Dollar Point, 4 Homewood, 6 Rubicon, 8 Tahoe Vista,
+ *                11 Timber Cove, 12 Cedar Point
+ *   dormant:     7 Sand Harbor (dark since Q4 2024),
+ *                9 Tahoe City (last seen Jan 2026)
+ *   never seen:  1, 3, 5, 10 (empty in every window probed 2024–2026);
+ *                ids 13+ are not in the API's id space.
+ * tc-homewood (separate endpoint, no id) last reported Apr 2026 — it is a
+ * real station, distinct from ns id 4 "Homewood".
  *
- * ASSUMPTION: only ids 2, 4, 6, 8 have verified names (from Station_Name in
- * live responses). Their coordinates are the named locations' shoreline
- * positions, still eyeballed. The other ids' names and coordinates are
- * placeholders — the UI prefers the API's Station_Name when a station
- * reports. All of this needs TERC confirmation.
+ * The API returns no coordinates, so ALL coordinates here are eyeballed
+ * shoreline positions for the (now verified) names — `verified` means the
+ * NAME came from the API's Station_Name, never the position. This file is
+ * interim: the registry moves to the Lake Destinations / Lake Stations
+ * content types via JSON:API (TERC-46) and needs TERC confirmation of
+ * coordinates and the never-seen ids.
  */
 
 export interface StationDef {
@@ -32,12 +35,17 @@ export const NEARSHORE_STATIONS: StationDef[] = [
   { id: 4, name: 'Homewood', lat: 39.086, lng: -120.159, verified: true },
   { id: 5, name: 'NS Station 5', lat: 39.07, lng: -120.155, verified: false },
   { id: 6, name: 'Rubicon', lat: 39.001, lng: -120.106, verified: true },
-  { id: 7, name: 'NS Station 7', lat: 39.1, lng: -119.945, verified: false },
+  // Sand Harbor: NV east shore. Dark since Q4 2024.
+  { id: 7, name: 'Sand Harbor', lat: 39.198, lng: -119.93, verified: true },
   { id: 8, name: 'Tahoe Vista', lat: 39.24, lng: -120.053, verified: true },
-  { id: 9, name: 'NS Station 9', lat: 39.005, lng: -120.11, verified: false },
+  // Tahoe City: NW shore. Last seen Jan 2026.
+  { id: 9, name: 'Tahoe City', lat: 39.17, lng: -120.14, verified: true },
   { id: 10, name: 'NS Station 10', lat: 38.99, lng: -120.105, verified: false },
-  { id: 11, name: 'NS Station 11', lat: 39.245, lng: -119.94, verified: false },
-  { id: 12, name: 'NS Station 12', lat: 39.225, lng: -119.93, verified: false },
+  // Timber Cove: South Lake Tahoe pier area. Actively reporting.
+  { id: 11, name: 'Timber Cove', lat: 38.945, lng: -119.959, verified: true },
+  // Cedar Point: actively reporting; physical location NOT yet confirmed —
+  // coordinate below is the old placeholder, do not trust it on the map.
+  { id: 12, name: 'Cedar Point', lat: 39.225, lng: -119.93, verified: true },
 ]
 
 export function stationById(id: number): StationDef | undefined {

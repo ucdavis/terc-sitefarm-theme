@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import SourceBadge from './SourceBadge.vue'
-import { syncFromLocation, useConditionsState } from '../composables/useConditionsState'
+import { loadRegistry, syncFromLocation, useConditionsState } from '../composables/useConditionsState'
 
 /**
  * Current Conditions shell (TERC-18): shared navigation, destination
@@ -27,6 +27,8 @@ onMounted(() => {
   // Restore view + selection from the URL (deep links, page reloads).
   // popstate keeps it in sync with the back button afterwards.
   syncFromLocation()
+  // Swap the static registry for site content (Lake Destinations, TERC-46).
+  void loadRegistry()
 })
 
 const VIEW_STUB_NOTES: Record<string, string> = {

@@ -15,3 +15,8 @@ dist/_*.scss
 
 # Ignore Mac OS Files
 .DS_Store
+# Registry sync credentials
+scripts/registry-sync/.env
+
+# Generated drush applier (rebuild with make-plan.mjs)
+scripts/registry-sync/dist/

@@ -126,3 +126,17 @@ lake time.
 panel from the prototype. It is enabled per block instance via the "Show
 cache diagnostics" checkbox on the PDB block settings form (`debug` prop);
 only one overlay renders no matter how many blocks enable it.
+
+## Site-owned registry (TERC-46)
+
+`vue/data/locations.ts` fetches the **Lake Destinations** (`lake_locations`)
+and **Lake Station** (`station`) content types over the site's own JSON:API
+(`/jsonapi/node/lake_locations?include=field_stations`, anonymous read) and
+adapts them into the `DestinationDef` / `RegistryStation` shapes. The shell
+calls `loadRegistry()` on mount; until it resolves — or if it fails — the
+components serve the static code registry in `vue/config/` (the empirically
+verified fallback). Station ids are scoped per `field_station_type`
+(`nearshore_station` / `met_station` / `nasa_buoy`), mirroring the report
+API's endpoint families. Editors adding a station/destination node changes
+the map with no deploy; the code registry only changes when the fallback
+needs updating.

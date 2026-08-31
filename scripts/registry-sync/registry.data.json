@@ -1,0 +1,32 @@
+{
+  "_comment": "Curated source of truth for the station/destination registry (TERC-46). The TERC report API provides names and activity; it provides NO coordinates — those live here, reviewed once, applied mechanically. verified=true means the coordinate has been confirmed by TERC staff (none yet); otherwise it is an eyeballed shoreline position for the API-verified name. See docs/station-registry-discovery.md for evidence.",
+  "stations": [
+    { "family": "nearshore_station", "id": 1,  "name": "NS Station 1",  "lat": 38.94,  "lng": -119.995, "verified": false, "note": "never observed 2024-2026" },
+    { "family": "nearshore_station", "id": 2,  "name": "Dollar Point",  "lat": 39.187, "lng": -120.0955, "verified": false },
+    { "family": "nearshore_station", "id": 3,  "name": "NS Station 3",  "lat": 38.933, "lng": -120.025, "verified": false, "note": "never observed 2024-2026" },
+    { "family": "nearshore_station", "id": 4,  "name": "Homewood",      "lat": 39.086, "lng": -120.159, "verified": false },
+    { "family": "nearshore_station", "id": 5,  "name": "NS Station 5",  "lat": 39.07,  "lng": -120.155, "verified": false, "note": "never observed 2024-2026" },
+    { "family": "nearshore_station", "id": 6,  "name": "Rubicon",       "lat": 39.001, "lng": -120.106, "verified": false },
+    { "family": "nearshore_station", "id": 7,  "name": "Sand Harbor",   "lat": 39.198, "lng": -119.93,  "verified": false, "note": "dark since Q4 2024" },
+    { "family": "nearshore_station", "id": 8,  "name": "Tahoe Vista",   "lat": 39.24,  "lng": -120.053, "verified": false },
+    { "family": "nearshore_station", "id": 9,  "name": "Tahoe City",    "lat": 39.17,  "lng": -120.14,  "verified": false, "note": "last seen Jan 2026" },
+    { "family": "nearshore_station", "id": 10, "name": "NS Station 10", "lat": 38.99,  "lng": -120.105, "verified": false, "note": "never observed 2024-2026" },
+    { "family": "nearshore_station", "id": 11, "name": "Timber Cove",   "lat": 38.945, "lng": -119.959, "verified": false },
+    { "family": "nearshore_station", "id": 12, "name": "Cedar Point",   "lat": 39.225, "lng": -119.93,  "verified": false, "note": "LOCATION UNCONFIRMED - placeholder coordinate" },
+    { "family": "met_station", "id": 1, "name": "USCG 2020 Met Station", "lat": 39.176, "lng": -120.119, "verified": false },
+    { "family": "nasa_buoy", "id": 1, "name": "NASA Buoy TB1", "lat": 39.155, "lng": -120.004, "verified": false },
+    { "family": "nasa_buoy", "id": 2, "name": "NASA Buoy TB2", "lat": 39.109, "lng": -120.011, "verified": false },
+    { "family": "nasa_buoy", "id": 3, "name": "NASA Buoy TB3", "lat": 39.11,  "lng": -120.076, "verified": false },
+    { "family": "nasa_buoy", "id": 4, "name": "NASA Buoy TB4", "lat": 39.156, "lng": -120.076, "verified": false },
+    { "family": "tc_homewood", "id": null, "name": "Homewood TC", "lat": 39.086, "lng": -120.16, "verified": false, "note": "id-less endpoint; last seen Apr 2026" }
+  ],
+  "destinations": [
+    { "slug": "incline-village",  "name": "Incline Village",  "lat": 39.23,  "lng": -119.98, "zoom": 12,    "stations": ["nearshore_station:2", "nearshore_station:8", "nearshore_station:7"] },
+    { "slug": "tahoe-keys",       "name": "Tahoe Keys",       "lat": 38.935, "lng": -119.99, "zoom": 13,    "stations": ["nearshore_station:1", "nearshore_station:3", "nearshore_station:11"] },
+    { "slug": "homewood",         "name": "Homewood",         "lat": 39.086, "lng": -120.16, "zoom": 13,    "stations": ["nearshore_station:4", "nearshore_station:5", "tc_homewood:"] },
+    { "slug": "glenbrook",        "name": "Glenbrook",        "lat": 39.088, "lng": -119.94, "zoom": 13,    "stations": ["nearshore_station:12"] },
+    { "slug": "rubicon-bay",      "name": "Rubicon Bay",      "lat": 39.0,   "lng": -120.108, "zoom": 13,   "stations": ["nearshore_station:6", "nearshore_station:9"] },
+    { "slug": "north-lake-tahoe", "name": "North Lake Tahoe", "lat": 39.185, "lng": -120.02, "zoom": 11.25, "stations": ["nearshore_station:2", "nearshore_station:7", "nearshore_station:8", "nearshore_station:9", "nearshore_station:12", "nasa_buoy:1", "nasa_buoy:2", "nasa_buoy:3", "nasa_buoy:4"] },
+    { "slug": "south-lake-tahoe", "name": "South Lake Tahoe", "lat": 38.99,  "lng": -120.04, "zoom": 11.25, "stations": ["nearshore_station:1", "nearshore_station:3", "nearshore_station:4", "nearshore_station:5", "nearshore_station:6", "nearshore_station:10", "nearshore_station:11", "tc_homewood:"] }
+  ]
+}

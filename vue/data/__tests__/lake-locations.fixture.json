@@ -1,0 +1,46 @@
+{
+ "data": [
+  {
+   "type": "node--lake_locations",
+   "id": "3cff2529-7b11-41e4-ab35-af57003e092f",
+   "attributes": {
+    "title": "Incline Village",
+    "status": true,
+    "field_location_id": "incline-village",
+    "field_location_geo_data": {
+     "lat": 39.23,
+     "lng": -119.98
+    }
+   },
+   "relationships": {
+    "field_stations": {
+     "data": [
+      {
+       "type": "node--station",
+       "id": "1b14e002-b1f0-465e-ad0e-d50c696c3f63",
+       "meta": {
+        "drupal_internal__target_id": 4106
+       }
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "included": [
+  {
+   "type": "node--station",
+   "id": "1b14e002-b1f0-465e-ad0e-d50c696c3f63",
+   "attributes": {
+    "title": "Dollar Point",
+    "status": true,
+    "field_station_id": 2,
+    "field_station_type": "nearshore_station",
+    "field_location_geo_data": {
+     "lat": 38.187,
+     "lng": -120.0955
+    }
+   }
+  }
+ ]
+}
