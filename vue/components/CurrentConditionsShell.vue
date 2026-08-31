@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import CacheDiagnostics from './CacheDiagnostics.vue'
 import LakeMap from './LakeMap.vue'
 import SourceBadge from './SourceBadge.vue'
 import WaterQualityView from './WaterQualityView.vue'
@@ -13,6 +14,27 @@ import { markerKey, useLakeOverview } from '../composables/useLakeOverview'
  * stories (Plan Your Day, Water Quality TERC-21, extended view). The map
  * region hosts the shared lake map (TERC-17).
  */
+/**
+ * Block-form toggles (PDB configuration -> props, same pattern as
+ * HelloLake): checkbox values arrive as 0/1 or '0'/'1'; absent means the
+ * block predates the option, so each falls back to its form default.
+ */
+const props = withDefaults(
+  defineProps<{
+    showPhase?: boolean | number | string
+    showSources?: boolean | number | string
+    debug?: boolean | number | string
+  }>(),
+  { showPhase: true, showSources: true, debug: false },
+)
+
+function asBool(v: boolean | number | string): boolean {
+  return v === true || v === 1 || v === '1'
+}
+const showPhase = asBool(props.showPhase)
+const showSources = asBool(props.showSources)
+const showDiagnostics = asBool(props.debug)
+
 const {
   view,
   setView,
@@ -74,8 +96,8 @@ onMounted(() => {
 
 /** Views still awaiting their own stories render a stub note instead. */
 const VIEW_STUB_NOTES: Record<string, string> = {
-  'plan-your-day': 'Station cards and lake overview arrive with the Plan Your Day story.',
-  'plan-your-day-extended': 'All six water metrics per station arrive with the extended view story.',
+  'plan-your-day':
+    "Station cards with a 'show more data' toggle arrive with the Plan Your Day story.",
 }
 </script>
 
@@ -83,7 +105,13 @@ const VIEW_STUB_NOTES: Record<string, string> = {
   <section class="cc-shell">
     <header class="cc-head">
       <h2>{{ heading }}</h2>
-      <SourceBadge :phase="1" :sources="['tepfsail50 REST API']" />
+      <SourceBadge
+        v-if="showPhase || showSources"
+        :phase="1"
+        :sources="['tepfsail50 REST API']"
+        :show-phase="showPhase"
+        :show-sources="showSources"
+      />
     </header>
 
     <nav class="cc-nav" aria-label="Current Conditions views">
@@ -155,6 +183,8 @@ const VIEW_STUB_NOTES: Record<string, string> = {
       <h3>Forecasted Conditions</h3>
       <p class="cc-view-stub">Modeled conditions summaries arrive with Phase 2 (TERC-12).</p>
     </div>
+
+    <CacheDiagnostics v-if="showDiagnostics" />
 
     <footer class="cc-disclaimer">
       All data are provisional, subject to revision, and provided for research
