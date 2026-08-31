@@ -75,6 +75,21 @@ describe('useLakeOverview', () => {
     expect(markers.value.find((m) => m.key === 'nearshore:2')!.status).toBe('offline')
   })
 
+  it('clears a stale reading when a reload fails', async () => {
+    nearshore.mockResolvedValue({ stationId: 2, stationName: null, records: [REC] })
+    const { markers, reload } = useLakeOverview()
+    await flushPromises()
+    expect(markers.value.find((m) => m.key === 'nearshore:2')!.waterTemp).toBe(62.1)
+
+    nearshore.mockRejectedValue(new Error('transient'))
+    reload()
+    await flushPromises()
+    const m = markers.value.find((x) => x.key === 'nearshore:2')!
+    expect(m.status).toBe('offline')
+    expect(m.waterTemp).toBeNull()
+    expect(m.time).toBeNull()
+  })
+
   it('requests the shared 2-day window used by the destination views', () => {
     useLakeOverview()
     const [, start, end] = nearshore.mock.calls[0] as [number, Date, Date]

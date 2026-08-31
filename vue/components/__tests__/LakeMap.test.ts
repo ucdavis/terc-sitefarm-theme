@@ -89,6 +89,26 @@ describe('LakeMap', () => {
     expect(fake.state.init?.zoom).toBe(DEST.zoom)
   })
 
+  it('opens on a prefocused station, preferring it over a destination', () => {
+    const { fake } = mountMap({
+      destinations: [DEST],
+      selectedDestinationId: 'homewood',
+      overviewMarkers: [marker({})],
+      focusedStationKey: 'nearshore:4',
+    })
+    expect(fake.state.init?.center).toEqual([39.086, -120.159])
+    expect(fake.state.init?.zoom).toBe(STATION_FOCUS_ZOOM)
+  })
+
+  it('escapes station names before interpolating them into tooltip HTML', () => {
+    const { fake } = mountMap({
+      overviewMarkers: [marker({ name: '<img src=x onerror=alert(1)>' })],
+    })
+    const tip = fake.state.badges[0].opts.tooltipHtml
+    expect(tip).not.toContain('<img')
+    expect(tip).toContain('&lt;img src=x onerror=alert(1)&gt;')
+  })
+
   it('renders reporting stations as temperature badges and offline ones as distinct markers', () => {
     const { fake } = mountMap({
       overviewMarkers: [

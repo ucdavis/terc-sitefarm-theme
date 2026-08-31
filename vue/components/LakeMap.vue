@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import type { DestinationDef } from '../config/destinations'
 import { LAKE_CENTER, LAKE_DEFAULT_ZOOM, STATION_FOCUS_ZOOM, TILE_LAYERS, type BasemapId } from '../config/lakeView'
-import type { MapEngine, MapEngineFactory } from '../map/engine'
+import { escapeHtml, type MapEngine, type MapEngineFactory } from '../map/engine'
 import { createLeafletEngine } from '../map/leafletEngine'
 import type { OverviewMarker } from '../composables/useLakeOverview'
 
@@ -63,7 +63,8 @@ function drawOverview() {
       ? m.time.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
       : null
     const parts = [
-      `<strong>${m.name}</strong>${m.kind === 'buoy' ? ' (mid-lake buoy)' : ''}`,
+      // Names come from site content / the live API — escape, never trust.
+      `<strong>${escapeHtml(m.name)}</strong>${m.kind === 'buoy' ? ' (mid-lake buoy)' : ''}`,
       reporting ? `Water ${m.waterTemp!.toFixed(1)} °F · ${when}` : 'Not reporting — station may be under maintenance',
       m.locationVerified ? '' : 'Location approximate',
       "<em>Click for this station's readings</em>",
@@ -102,12 +103,18 @@ onMounted(() => {
   if (!container.value) return
   const factory = props.engineFactory ?? createLeafletEngine
   const tiles = TILE_LAYERS[props.basemap]
-  // Open on the destination when one is already selected (deep link, reload);
-  // otherwise the whole lake.
-  const preselected = props.destinations.find((d) => d.id === props.selectedDestinationId)
+  // Open on the selection already in state (deep link, reload, or a host
+  // view mounting the map after state sync) — a focused station wins over a
+  // destination, matching their mutual exclusion; otherwise the whole lake.
+  const focused = props.focusedStationKey
+    ? props.overviewMarkers.find((m) => m.key === props.focusedStationKey)
+    : undefined
+  const preselected = focused
+    ? undefined
+    : props.destinations.find((d) => d.id === props.selectedDestinationId)
   engine.value = factory(container.value, {
-    center: preselected ? [preselected.lat, preselected.lng] : LAKE_CENTER,
-    zoom: preselected ? preselected.zoom : LAKE_DEFAULT_ZOOM,
+    center: focused ? [focused.lat, focused.lng] : preselected ? [preselected.lat, preselected.lng] : LAKE_CENTER,
+    zoom: focused ? STATION_FOCUS_ZOOM : preselected ? preselected.zoom : LAKE_DEFAULT_ZOOM,
     tileUrl: tiles.url,
     attribution: tiles.attribution,
     maxZoom: 17,

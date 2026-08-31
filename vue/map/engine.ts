@@ -11,6 +11,17 @@
 
 export type LatLng = [number, number]
 
+/**
+ * Escape text for interpolation into marker/tooltip HTML. Station and
+ * destination names come from site content and from the live API's
+ * Station_Name — never trust them as markup (PR review finding, TERC-17).
+ */
+export function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string
+  ))
+}
+
 export interface EngineInitOpts {
   center: LatLng
   zoom: number
@@ -38,6 +49,7 @@ export interface CircleMarkerOpts {
   weight: number
   fillColor: string
   fillOpacity: number
+  /** Plain text — engines must render it inert, never as markup. */
   tooltip: string
   onClick?: () => void
 }

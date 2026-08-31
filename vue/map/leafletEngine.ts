@@ -5,12 +5,13 @@
  */
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import type {
-  BadgeMarkerOpts,
-  CircleMarkerOpts,
-  EngineInitOpts,
-  LatLng,
-  MapEngine,
+import {
+  escapeHtml,
+  type BadgeMarkerOpts,
+  type CircleMarkerOpts,
+  type EngineInitOpts,
+  type LatLng,
+  type MapEngine,
 } from './engine'
 
 export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapEngine {
@@ -50,7 +51,9 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
         fillColor: o.fillColor,
         fillOpacity: o.fillOpacity,
       })
-      marker.bindTooltip(o.tooltip, { direction: 'top', offset: [0, -8] })
+      // The contract says tooltip is plain text; Leaflet renders tooltip
+      // strings as HTML, so escape here.
+      marker.bindTooltip(escapeHtml(o.tooltip), { direction: 'top', offset: [0, -8] })
       if (o.onClick) marker.on('click', o.onClick)
       group(name).addLayer(marker)
     },

@@ -1,4 +1,4 @@
-import { effectScope, ref, watch } from 'vue'
+import { effectScope, ref, watch, type EffectScope } from 'vue'
 import type { Registry, RegistryStation } from '../data/locations'
 import {
   fetchHomewood,
@@ -120,7 +120,9 @@ function load(): void {
         time: rec?.time ?? null,
         status: rec && rec.waterTemp !== null ? 'reporting' : 'offline',
       })
-    const offline = () => update(m.key, { status: 'offline' })
+    // Clear any previously loaded reading too: a marker that failed to
+    // refresh must not carry a stale temperature into 'offline'.
+    const offline = () => update(m.key, { status: 'offline', waterTemp: null, time: null })
 
     if (m.kind === 'nearshore') {
       fetchNearshoreRange(m.sourceId, start, end)
@@ -139,6 +141,7 @@ function load(): void {
 }
 
 let started = false
+let scope: EffectScope | null = null
 
 export function useLakeOverview() {
   const { registry } = useConditionsState()
@@ -151,7 +154,8 @@ export function useLakeOverview() {
     // overlapping stations' windows and joins in-flight requests. The watcher
     // lives in a detached scope so it survives even if the mounting
     // component is ever unmounted — the overview is page-lifetime state.
-    effectScope(true).run(() => {
+    scope = effectScope(true)
+    scope.run(() => {
       watch(registry, (r) => {
         seed(r)
         load()
@@ -161,8 +165,10 @@ export function useLakeOverview() {
   return { markers, reload: load }
 }
 
-/** Test hook: clear markers and allow the next mount to reseed. */
+/** Test hook: clear markers, stop the registry watcher, allow reseeding. */
 export function resetLakeOverviewForTests(): void {
+  scope?.stop()
+  scope = null
   markers.value = []
   started = false
 }
