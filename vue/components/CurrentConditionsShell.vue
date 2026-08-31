@@ -4,6 +4,7 @@ import LakeMap from './LakeMap.vue'
 import SourceBadge from './SourceBadge.vue'
 import WaterQualityView from './WaterQualityView.vue'
 import { loadRegistry, syncFromLocation, useConditionsState } from '../composables/useConditionsState'
+import { loadConditionBands } from '../data/conditionBands'
 import { markerKey, useLakeOverview } from '../composables/useLakeOverview'
 
 /**
@@ -45,6 +46,8 @@ onMounted(() => {
   syncFromLocation()
   // Swap the static registry for site content (Lake Destinations, TERC-46).
   void loadRegistry()
+  // Swap the placeholder condition bands for editor-owned ones (TERC-52).
+  void loadConditionBands()
 })
 
 /** Views still awaiting their own stories render a stub note instead. */

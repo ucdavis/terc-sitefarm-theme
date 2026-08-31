@@ -94,6 +94,14 @@ export class DataCache {
     return this.peek(key) !== undefined
   }
 
+  /** Drop one entry (and any in-flight join for it) so the next getOrFetch
+   *  refetches — for invalidation and test isolation. */
+  delete(key: string): void {
+    this.entries.delete(key)
+    this.inflight.delete(key)
+    refreshCounts()
+  }
+
   async getOrFetch<T>(
     key: string,
     ttl: number,

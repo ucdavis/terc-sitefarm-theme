@@ -10,6 +10,9 @@ vi.mock('../../composables/useLakeOverview', () => ({
   useLakeOverview: () => ({ markers: ref([]), reload: () => {} }),
   markerKey: (kind: string, id: number) => `${kind}:${id}`,
 }))
+vi.mock('../../data/conditionBands', () => ({
+  loadConditionBands: async () => {},
+}))
 
 import CurrentConditionsShell from '../CurrentConditionsShell.vue'
 import { syncFromLocation } from '../../composables/useConditionsState'

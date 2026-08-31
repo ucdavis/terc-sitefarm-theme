@@ -1,0 +1,103 @@
+{
+  "data": [
+    {
+      "type": "taxonomy_term--condition_bands",
+      "id": "9453ccc6-b321-4c4d-9047-cf14b7a247f1",
+      "attributes": {
+        "name": "Very cold",
+        "field_metric_key": "water_temp",
+        "field_band_max_value": 50,
+        "field_band_tone": "caution",
+        "field_band_sentence": "Dangerously cold for swimming — cold-water shock is a real risk. Wetsuits essential, stay close to shore."
+      }
+    },
+    {
+      "type": "taxonomy_term--condition_bands",
+      "id": "2f46ffde-7592-400d-87dc-db9e53e1f3e4",
+      "attributes": {
+        "name": "Cold",
+        "field_metric_key": "water_temp",
+        "field_band_max_value": 60,
+        "field_band_tone": "caution",
+        "field_band_sentence": "Cold enough to take your breath away — keep swims short or wear a wetsuit."
+      }
+    },
+    {
+      "type": "taxonomy_term--condition_bands",
+      "id": "7453bfd6-37bc-4fb1-965f-c836f94b415f",
+      "attributes": {
+        "name": "Cool",
+        "field_metric_key": "water_temp",
+        "field_band_max_value": 68,
+        "field_band_tone": "fair",
+        "field_band_sentence": "Refreshing but chilly — fine for a quick swim on a hot day, cold for a long soak."
+      }
+    },
+    {
+      "type": "taxonomy_term--condition_bands",
+      "id": "68f973d5-a719-437b-a0dd-db725205222e",
+      "attributes": {
+        "name": "Pleasant",
+        "field_metric_key": "water_temp",
+        "field_band_max_value": 75,
+        "field_band_tone": "good",
+        "field_band_sentence": "Comfortable swimming temperatures by mountain-lake standards."
+      }
+    },
+    {
+      "type": "taxonomy_term--condition_bands",
+      "id": "1e1cc26c-85b0-4087-9c80-f4cbe482a9b0",
+      "attributes": {
+        "name": "Warm",
+        "field_metric_key": "water_temp",
+        "field_band_max_value": null,
+        "field_band_tone": "info",
+        "field_band_sentence": "Unusually warm for Tahoe — easy swimming, and worth savoring."
+      }
+    },
+    {
+      "type": "taxonomy_term--condition_bands",
+      "id": "a7990e18-9516-4571-80cb-3d25528b49c2",
+      "attributes": {
+        "name": "Crystal clear",
+        "field_metric_key": "turbidity",
+        "field_band_max_value": 1,
+        "field_band_tone": "good",
+        "field_band_sentence": "Exceptional clarity — you can see far into the water. Classic Tahoe."
+      }
+    },
+    {
+      "type": "taxonomy_term--condition_bands",
+      "id": "349a62ba-b57d-4e79-8c1c-a509f674c828",
+      "attributes": {
+        "name": "Clear",
+        "field_metric_key": "turbidity",
+        "field_band_max_value": 5,
+        "field_band_tone": "good",
+        "field_band_sentence": "Clear water with good visibility for swimming and snorkeling."
+      }
+    },
+    {
+      "type": "taxonomy_term--condition_bands",
+      "id": "e940f186-f8d0-420c-a92a-0f2ee57a6a0c",
+      "attributes": {
+        "name": "Slightly cloudy",
+        "field_metric_key": "turbidity",
+        "field_band_max_value": 20,
+        "field_band_tone": "fair",
+        "field_band_sentence": "Some suspended sediment — visibility is reduced, which is common after wind, waves, or runoff."
+      }
+    },
+    {
+      "type": "taxonomy_term--condition_bands",
+      "id": "b70f7c11-6a34-4319-8bb3-90acaabf5635",
+      "attributes": {
+        "name": "Murky",
+        "field_metric_key": "turbidity",
+        "field_band_max_value": null,
+        "field_band_tone": "caution",
+        "field_band_sentence": "Poor visibility from stirred-up sediment — swimming and sight-fishing will be limited today."
+      }
+    }
+  ]
+}

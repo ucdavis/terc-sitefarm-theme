@@ -8,15 +8,19 @@
  * deliberate bands (not a continuum) so the message stays simple; sentences
  * are written for laypeople and kept to one line.
  *
- * TERC-52 moves these to editor-owned site content (condition scales via
- * JSON:API, same ownership pattern as the station registry); this file then
- * becomes the static fallback, exactly like config/stations.ts is for the
- * registry.
+ * TERC-52: these bands are editor-owned site content — the condition_bands
+ * taxonomy, fetched via JSON:API (data/conditionBands.ts) and applied here
+ * with applyConditionBands(). This file is the static fallback, exactly
+ * like config/stations.ts is for the registry: it renders immediately and
+ * whenever site content is unreachable. The bands live in a Vue ref, so
+ * every computed that calls assessMetric re-renders when site bands land.
  *
  * Units match the normalized data layer: temperatures in °F, wave height in
  * ft, wind in mph, DO in % saturation, turbidity in NTU, conductivity in
  * mS/cm, chlorophyll in µg/L.
  */
+
+import { ref } from 'vue'
 
 export type QualityTone = 'good' | 'fair' | 'caution' | 'info'
 
@@ -35,12 +39,12 @@ export interface QualityAssessment {
   tone: QualityTone
 }
 
-interface Band extends QualityAssessment {
+export interface Band extends QualityAssessment {
   /** Upper bound (exclusive); use Infinity for the last band. */
   max: number
 }
 
-const BANDS: Record<string, Band[]> = {
+export const STATIC_BANDS: Record<string, Band[]> = {
   waterTemp: [
     {
       max: 50,
@@ -268,14 +272,48 @@ const BANDS: Record<string, Band[]> = {
   ],
 }
 
-export type QualityMetric = keyof typeof BANDS
+export type QualityMetric = keyof typeof STATIC_BANDS
+
+/**
+ * The bands assessMetric consults — static until site content arrives.
+ * A ref so band swaps propagate through every computed using assessMetric.
+ */
+const activeBands = ref<Record<string, Band[]>>(STATIC_BANDS)
+
+/** True once editor-owned site bands replaced the static placeholders. */
+export const bandsFromSite = ref(false)
+
+/**
+ * Swap in site-owned bands (TERC-52). Per-metric fallback: a metric with no
+ * usable site bands keeps its static ones, so a partially filled vocabulary
+ * can never blank out part of the UI.
+ */
+export function applyConditionBands(site: Partial<Record<QualityMetric, Band[]>>): void {
+  const merged: Record<string, Band[]> = { ...STATIC_BANDS }
+  let any = false
+  for (const [metric, bands] of Object.entries(site)) {
+    if (metric in STATIC_BANDS && bands && bands.length > 0) {
+      merged[metric] = bands
+      any = true
+    }
+  }
+  activeBands.value = merged
+  bandsFromSite.value = any
+}
+
+/** Test hook: back to the static placeholder bands. */
+export function resetBandsForTests(): void {
+  activeBands.value = STATIC_BANDS
+  bandsFromSite.value = false
+}
 
 export function assessMetric(
   metric: QualityMetric,
   value: number | null | undefined,
 ): QualityAssessment | null {
   if (value === null || value === undefined || !Number.isFinite(value)) return null
-  const bands = BANDS[metric]
+  const bands = activeBands.value[metric]
+  if (!bands || bands.length === 0) return null
   const band = bands.find((b) => value < b.max) ?? bands[bands.length - 1]
   return { label: band.label, sentence: band.sentence, tone: band.tone }
 }

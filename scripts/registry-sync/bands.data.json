@@ -1,0 +1,46 @@
+{
+  "_comment": "Curated condition interpretation bands (TERC-52) — the source of truth the seeder pushes into the condition_bands taxonomy. Metric keys and field names match the vocabulary on tercdev (verified 2026-08-31). max is the band's EXCLUSIVE upper bound in the metric's display unit; null = open-ended top band (exactly one per metric). Sentences are draft placeholders pending TERC science review — editors refine them in Drupal after seeding; re-running the seeder then reports 'update' diffs, so only run it to intentionally reset to this file.",
+  "vocabulary": "condition_bands",
+  "bands": [
+    { "metric": "water_temp", "label": "Very cold", "max": 50, "tone": "caution", "sentence": "Dangerously cold for swimming — cold-water shock is a real risk. Wetsuits essential, stay close to shore." },
+    { "metric": "water_temp", "label": "Cold", "max": 60, "tone": "caution", "sentence": "Cold enough to take your breath away — keep swims short or wear a wetsuit." },
+    { "metric": "water_temp", "label": "Cool", "max": 68, "tone": "fair", "sentence": "Refreshing but chilly — fine for a quick swim on a hot day, cold for a long soak." },
+    { "metric": "water_temp", "label": "Pleasant", "max": 75, "tone": "good", "sentence": "Comfortable swimming temperatures by mountain-lake standards." },
+    { "metric": "water_temp", "label": "Warm", "max": null, "tone": "info", "sentence": "Unusually warm for Tahoe — easy swimming, and worth savoring." },
+
+    { "metric": "wave_height", "label": "Calm", "max": 0.5, "tone": "good", "sentence": "Flat water — ideal for paddleboarding, kayaking, and swimming." },
+    { "metric": "wave_height", "label": "Light chop", "max": 1.5, "tone": "fair", "sentence": "Small waves — fine for most boats, a bit of a workout for paddlers." },
+    { "metric": "wave_height", "label": "Choppy", "max": 3, "tone": "caution", "sentence": "Rough going for paddlecraft and small boats — stay near shore and wear a life vest." },
+    { "metric": "wave_height", "label": "Rough", "max": null, "tone": "caution", "sentence": "Large waves for Tahoe — hazardous for small craft; consider staying off the water." },
+
+    { "metric": "air_temp", "label": "Freezing", "max": 32, "tone": "caution", "sentence": "Below freezing — bundle up, and watch for icy footing along the shore." },
+    { "metric": "air_temp", "label": "Cold", "max": 50, "tone": "fair", "sentence": "A cold day at the lake — dress in warm layers." },
+    { "metric": "air_temp", "label": "Cool", "max": 65, "tone": "fair", "sentence": "Cool air — comfortable for hiking and paddling; bring a layer for out on the water." },
+    { "metric": "air_temp", "label": "Pleasant", "max": 80, "tone": "good", "sentence": "Comfortable air temperatures for just about anything on or off the water." },
+    { "metric": "air_temp", "label": "Hot", "max": null, "tone": "info", "sentence": "A hot one for Tahoe — sun builds fast at altitude, so plan for shade and water." },
+
+    { "metric": "wind_speed", "label": "Light air", "max": 5, "tone": "good", "sentence": "Barely a breeze — glassy water and easy paddling." },
+    { "metric": "wind_speed", "label": "Breezy", "max": 12, "tone": "fair", "sentence": "A steady breeze — expect some chop away from shore; fine for most boats." },
+    { "metric": "wind_speed", "label": "Windy", "max": 20, "tone": "caution", "sentence": "Strong enough to build whitecaps — paddlers should stay close to shore." },
+    { "metric": "wind_speed", "label": "Very windy", "max": null, "tone": "caution", "sentence": "Strong wind — small-craft caution; expect rough water and blowing sand at beaches." },
+
+    { "metric": "dissolved_oxygen", "label": "Low oxygen", "max": 50, "tone": "caution", "sentence": "Oxygen is on the low side right now — fish often move deeper and bite less until levels recover." },
+    { "metric": "dissolved_oxygen", "label": "Moderate", "max": 80, "tone": "fair", "sentence": "Enough oxygen for healthy aquatic life, though fish may be a little less active than usual." },
+    { "metric": "dissolved_oxygen", "label": "Healthy", "max": 120, "tone": "good", "sentence": "Well-oxygenated water — good conditions for fish and everything else living in the lake." },
+    { "metric": "dissolved_oxygen", "label": "Supersaturated", "max": null, "tone": "info", "sentence": "Daytime photosynthesis has pushed oxygen above 100% — a normal sunny-afternoon pattern; fish are typically active." },
+
+    { "metric": "turbidity", "label": "Crystal clear", "max": 1, "tone": "good", "sentence": "Exceptional clarity — you can see far into the water. Classic Tahoe." },
+    { "metric": "turbidity", "label": "Clear", "max": 5, "tone": "good", "sentence": "Clear water with good visibility for swimming and snorkeling." },
+    { "metric": "turbidity", "label": "Slightly cloudy", "max": 20, "tone": "fair", "sentence": "Some suspended sediment — visibility is reduced, which is common after wind, waves, or runoff." },
+    { "metric": "turbidity", "label": "Murky", "max": null, "tone": "caution", "sentence": "Poor visibility from stirred-up sediment — swimming and sight-fishing will be limited today." },
+
+    { "metric": "conductivity", "label": "Typical for Tahoe", "max": 0.15, "tone": "good", "sentence": "Dissolved-mineral levels are in the lake's normal range." },
+    { "metric": "conductivity", "label": "Elevated", "max": 0.5, "tone": "fair", "sentence": "More dissolved material than Tahoe's baseline — often follows storm runoff." },
+    { "metric": "conductivity", "label": "High", "max": null, "tone": "caution", "sentence": "Unusually high dissolved solids — can indicate strong runoff or a nearby inflow." },
+
+    { "metric": "chlorophyll", "label": "Very low algae", "max": 2.5, "tone": "good", "sentence": "Almost no algae in the water — clarity is at its best." },
+    { "metric": "chlorophyll", "label": "Some algae", "max": 10, "tone": "fair", "sentence": "Modest algae growth — normal for near-shore water in summer." },
+    { "metric": "chlorophyll", "label": "High algae", "max": 30, "tone": "caution", "sentence": "Noticeable algae — the water may look greenish near shore." },
+    { "metric": "chlorophyll", "label": "Bloom-level algae", "max": null, "tone": "caution", "sentence": "Algae at bloom levels — avoid swallowing water and rinse off after swimming." }
+  ]
+}
