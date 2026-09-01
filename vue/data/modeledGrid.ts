@@ -48,12 +48,23 @@ export interface ModelManifest {
 export function parseFrameName(filename: string): ModelFrame | null {
   const m = filename.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2})\.npy$/)
   if (!m) return null
-  const [, y, mo, d, h] = m
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  const d = Number(m[3])
+  const h = Number(m[4])
+  // Reject impossible calendar values ("2026-13-01", "2026-02-31", hour 99)
+  // rather than letting Date.UTC overflow roll them into a DIFFERENT valid
+  // instant that would corrupt manifest ordering. Deliberately NOT a strict
+  // wall-time round-trip check: the spring-forward hour (02 on the March
+  // changeover) is a nonexistent lake wall time but a legitimate frame name —
+  // it resolves to the instant after the jump instead of being dropped.
+  const daysInMonth = new Date(Date.UTC(y, mo, 0)).getUTCDate()
+  if (mo < 1 || mo > 12 || d < 1 || d > daysInMonth || h > 23) return null
   return {
     filename,
-    date: `${y}-${mo}-${d}`,
-    hour: Number.parseInt(h, 10),
-    time: lakeWallTimeToDate(Number(y), Number(mo), Number(d), Number(h)),
+    date: `${m[1]}-${m[2]}-${m[3]}`,
+    hour: h,
+    time: lakeWallTimeToDate(y, mo, d, h),
   }
 }
 

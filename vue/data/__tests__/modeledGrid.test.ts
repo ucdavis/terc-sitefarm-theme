@@ -70,6 +70,24 @@ describe('parseFrameName', () => {
     expect(parseFrameName('2026-08-18.npy')).toBeNull()
     expect(parseFrameName('2026-8-18 14.npy')).toBeNull()
   })
+
+  it('rejects impossible calendar values instead of letting Date roll them over', () => {
+    expect(parseFrameName('2026-13-01 14.npy')).toBeNull() // month 13
+    expect(parseFrameName('2026-00-01 14.npy')).toBeNull() // month 0
+    expect(parseFrameName('2026-02-31 14.npy')).toBeNull() // Feb 31
+    expect(parseFrameName('2026-02-29 14.npy')).toBeNull() // non-leap Feb 29
+    expect(parseFrameName('2026-08-00 14.npy')).toBeNull() // day 0
+    expect(parseFrameName('2026-08-18 99.npy')).toBeNull() // hour 99
+    expect(parseFrameName('2024-02-29 14.npy')).not.toBeNull() // real leap day
+  })
+
+  it('keeps the spring-forward frame (nonexistent 02:00 resolves forward, not dropped)', () => {
+    // DST starts 2026-03-08: the lake clock jumps 02:00 -> 03:00. A model
+    // frame named 02 must survive validation and land on the post-jump
+    // instant (03:00 PDT = 10:00Z) — dropping it would open a 4-hour gap.
+    const f = frameFor('2026-03-08 02.npy')
+    expect(f.time.toISOString()).toBe('2026-03-08T10:00:00.000Z')
+  })
 })
 
 describe('fetchModelManifest', () => {
