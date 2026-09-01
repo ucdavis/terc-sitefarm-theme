@@ -13,6 +13,13 @@ vi.mock('../../composables/useLakeOverview', () => ({
 vi.mock('../../data/conditionBands', () => ({
   loadConditionBands: async () => {},
 }))
+// loadRegistry() on shell mount also hits the network (JSON:API). The
+// fallback hides the failure, but the real in-flight request could survive
+// to environment teardown and log a spurious happy-dom AbortError.
+vi.mock('../../data/locations', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../data/locations')>()
+  return { ...mod, fetchRegistry: async () => mod.staticRegistry() }
+})
 
 import CurrentConditionsShell from '../CurrentConditionsShell.vue'
 import { syncFromLocation } from '../../composables/useConditionsState'
