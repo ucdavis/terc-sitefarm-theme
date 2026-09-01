@@ -11,7 +11,7 @@ vue/
   entries/     One .ts entry per BLOCK GROUP. Each is registered as its own
                Drupal library in ../terc.libraries.yml (vite: true).
                current-conditions.ts   -> terc/vue-current-conditions
-               (future) modeled-conditions.ts, weather-alerts.ts
+               (future) forecasted-conditions.ts, weather-alerts.ts
   components/  Vue SFCs (the blocks and their children).
   core/        Shared plumbing ported from the prototype: cache.ts
                (DataCache: TTL + LRU + in-flight join), requestState.ts
@@ -32,7 +32,7 @@ All entries build together, so Rollup factors modules shared between them
 module once per page regardless of how many entries import it — every block
 on a page therefore shares ONE DataCache instance, preserving the prototype's
 request de-duplication and zero-refetch behavior without a single mega-app.
-Modeled-only weight (npy parsing, grid rendering) stays out of the real-time
+Forecast-only weight (npy parsing, grid rendering) stays out of the real-time
 chunk graph.
 
 ## Adding a block component

@@ -178,7 +178,7 @@ onMounted(() => {
          the forward-looking Phase 2 note (TERC-57). -->
     <div v-if="showPhase" class="cc-forecast">
       <h3>Forecasted Conditions</h3>
-      <p class="cc-view-stub">Modeled conditions summaries arrive with Phase 2 (TERC-12).</p>
+      <p class="cc-view-stub">Forecast summaries arrive with Phase 2 (TERC-12).</p>
     </div>
 
     <CacheDiagnostics v-if="showDiagnostics" />

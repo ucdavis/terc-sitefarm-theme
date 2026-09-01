@@ -20,7 +20,7 @@
 export const REPORT_BASE =
   'https://tepfsail50.execute-api.us-west-2.amazonaws.com/v1/report'
 
-/** Phase 2 — modeled grids + precomputed wave solutions.
+/** Phase 2 — forecast (modeled) grids + precomputed wave solutions.
  *  (The prototype had a Vite dev-proxy fallback for the 2026-07-29 CORS
  *  outage; the theme build defines no proxy, so S3 is always direct. If
  *  TERC's S3 CORS policy is ever removed again, phase 2 needs a proxy
