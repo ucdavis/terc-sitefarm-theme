@@ -339,7 +339,7 @@ onMounted(async () => {
 }
 .pyd-toggle {
   font: inherit;
-  font-size: 13px;
+  font-size: .8125rem;
   font-weight: 600;
   padding: 6px 14px;
   border-radius: 99px;
@@ -358,12 +358,12 @@ onMounted(async () => {
   outline-offset: 2px;
 }
 .pyd-toggle-hint {
-  font-size: 12px;
+  font-size: .8125rem;
   color: #4a5a64;
 }
 .pyd-cold-note {
   margin: 0;
-  font-size: 12px;
+  font-size: .8125rem;
   line-height: 1.45;
   color: #8c4f17;
   background: #fdf3e0;
@@ -378,12 +378,12 @@ onMounted(async () => {
   flex-wrap: wrap;
 }
 .pyd-title {
-  font-size: 18px;
+  font-size: 1.125rem;
   margin: 0;
 }
 .pyd-clear {
   font: inherit;
-  font-size: 12px;
+  font-size: .8125rem;
   padding: 5px 12px;
   border-radius: 99px;
   border: 1px solid #d5dde2;
@@ -395,7 +395,7 @@ onMounted(async () => {
   background: #eef2f4;
 }
 .pyd-buoy-tag {
-  font-size: 10px;
+  font-size: .625rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -407,7 +407,7 @@ onMounted(async () => {
   vertical-align: middle;
 }
 .pyd-station-head {
-  font-size: 14px;
+  font-size: .875rem;
   color: #4a5a64;
   margin: 8px 0 0;
 }
@@ -422,18 +422,18 @@ onMounted(async () => {
   border: 1px dashed #d5dde2;
   border-radius: 8px;
   padding: 16px 18px;
-  font-size: 14px;
+  font-size: .875rem;
   color: #4a5a64;
 }
 .pyd-panel p {
   margin: 6px 0 0;
 }
 .pyd-welcome strong {
-  font-size: 16px;
+  font-size: 1rem;
   color: #13322b;
 }
 .pyd-hint {
-  font-size: 12.5px;
+  font-size: .8125rem;
   color: #5f6e77;
 }
 .pyd-status-list {
@@ -445,7 +445,7 @@ onMounted(async () => {
 }
 .pyd-note {
   margin: 6px 0 0;
-  font-size: 12.5px;
+  font-size: .8125rem;
   color: #5f6e77;
 }
 .pyd-met {
@@ -453,7 +453,7 @@ onMounted(async () => {
   padding-top: 8px;
 }
 .pyd-met-src {
-  font-size: 10px;
+  font-size: .625rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;

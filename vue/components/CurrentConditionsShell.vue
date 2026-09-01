@@ -207,8 +207,19 @@ onMounted(() => {
   gap: 1rem;
   flex-wrap: wrap;
 }
+/* Sized from SiteFarm's own runtime tokens (responsive, defined by the
+   parent theme): the block title steps down to the secondary heading
+   size, and view titles use the compact-context title size. Fallbacks
+   only apply if the parent theme ever stops defining the tokens. */
 .cc-head h2 {
   margin: 0;
+  font-size: var(--heading-secondary-font-size, 1.75rem);
+  line-height: 1.2;
+}
+.cc-view h3,
+.cc-forecast h3 {
+  font-size: var(--reduced-title-font-size, 1.375rem);
+  line-height: 1.25;
 }
 .cc-nav {
   display: flex;
@@ -281,7 +292,7 @@ onMounted(() => {
   margin: 0 0 0.3rem;
 }
 .cc-disclaimer {
-  font-size: 12px;
+  font-size: .8125rem;
   color: #4a5a64;
   border-top: 1px solid #d5dde2;
   padding-top: 0.6rem;

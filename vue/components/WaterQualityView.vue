@@ -379,7 +379,7 @@ const visibleCharts = computed(() =>
 }
 .wq-sub {
   margin: 0;
-  font-size: 13px;
+  font-size: .8125rem;
   color: #4a5a64;
 }
 .wq-range-row {
@@ -388,14 +388,14 @@ const visibleCharts = computed(() =>
   gap: 8px;
 }
 .wq-range-label {
-  font-size: 13px;
+  font-size: .8125rem;
   font-weight: 600;
   color: #4a5a64;
   margin-right: 4px;
 }
 .wq-range-btn {
   font: inherit;
-  font-size: 13px;
+  font-size: .8125rem;
   padding: 6px 14px;
   border-radius: 99px;
   border: 1px solid #d5dde2;
@@ -415,12 +415,12 @@ const visibleCharts = computed(() =>
   outline-offset: 2px;
 }
 .wq-loading-tag {
-  font-size: 12px;
+  font-size: .8125rem;
   color: #1c6b45;
 }
 .wq-fetch-warn {
   margin: 0;
-  font-size: 13px;
+  font-size: .8125rem;
   line-height: 1.45;
   color: #a03a22;
   background: #fbe9e5;
@@ -435,11 +435,11 @@ const visibleCharts = computed(() =>
   flex-wrap: wrap;
 }
 .wq-title {
-  font-size: 18px;
+  font-size: 1.125rem;
   margin: 0;
 }
 .wq-buoy-tag {
-  font-size: 10px;
+  font-size: .625rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -452,7 +452,7 @@ const visibleCharts = computed(() =>
 }
 .wq-clear {
   font: inherit;
-  font-size: 12px;
+  font-size: .8125rem;
   padding: 5px 12px;
   border-radius: 99px;
   border: 1px solid #d5dde2;
@@ -478,7 +478,7 @@ const visibleCharts = computed(() =>
   border: 1px dashed #d5dde2;
   border-radius: 8px;
   padding: 16px 18px;
-  font-size: 14px;
+  font-size: .875rem;
   color: #4a5a64;
 }
 .wq-panel p {
@@ -495,7 +495,7 @@ const visibleCharts = computed(() =>
   flex-wrap: wrap;
 }
 .wq-chip {
-  font-size: 11px;
+  font-size: .8125rem;
   font-weight: 600;
   border-radius: 99px;
   padding: 3px 9px;
@@ -518,13 +518,13 @@ const visibleCharts = computed(() =>
 }
 .wq-sentence {
   margin: 7px 0 0;
-  font-size: 12px;
+  font-size: .8125rem;
   line-height: 1.45;
   color: #4a5a64;
 }
 .wq-cold-note {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: .8125rem;
   line-height: 1.45;
   color: #8c4f17;
   background: #fdf3e0;
@@ -533,7 +533,7 @@ const visibleCharts = computed(() =>
 }
 .wq-sentinel-note {
   margin: 4px 0 0;
-  font-size: 12px;
+  font-size: .8125rem;
   /* #5f6e77 = 5.3:1 on white; the previous #7a8a92 failed WCAG AA (3.6:1). */
   color: #5f6e77;
   border-top: 1px solid #d5dde2;
