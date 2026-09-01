@@ -57,7 +57,7 @@ export function parseFrameName(filename: string): ModelFrame | null {
   // instant that would corrupt manifest ordering. Deliberately NOT a strict
   // wall-time round-trip check: the spring-forward hour (02 on the March
   // changeover) is a nonexistent lake wall time but a legitimate frame name —
-  // it resolves to the instant after the jump instead of being dropped.
+  // it resolves to a nearby in-gap instant instead of being dropped.
   const daysInMonth = new Date(Date.UTC(y, mo, 0)).getUTCDate()
   if (mo < 1 || mo > 12 || d < 1 || d > daysInMonth || h > 23) return null
   return {

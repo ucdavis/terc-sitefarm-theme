@@ -81,12 +81,18 @@ describe('parseFrameName', () => {
     expect(parseFrameName('2024-02-29 14.npy')).not.toBeNull() // real leap day
   })
 
-  it('keeps the spring-forward frame (nonexistent 02:00 resolves forward, not dropped)', () => {
-    // DST starts 2026-03-08: the lake clock jumps 02:00 -> 03:00. A model
-    // frame named 02 must survive validation and land on the post-jump
-    // instant (03:00 PDT = 10:00Z) — dropping it would open a 4-hour gap.
+  it('keeps the spring-forward frame (nonexistent 02:00 resolves nearby, not dropped)', () => {
+    // DST starts 2026-03-08: the lake clock jumps 02:00 -> 03:00, so a
+    // frame named 02 is a nonexistent wall time. It must survive
+    // validation (dropping it would open a 4-hour gap) and resolve inside
+    // the gap's neighborhood — lakeWallTimeToDate's two-pass conversion
+    // lands on 09:00Z (01:00 PST) — while preserving frame ordering.
     const f = frameFor('2026-03-08 02.npy')
-    expect(f.time.toISOString()).toBe('2026-03-08T10:00:00.000Z')
+    expect(f.time.toISOString()).toBe('2026-03-08T09:00:00.000Z')
+    const before = frameFor('2026-03-08 00.npy')
+    const after = frameFor('2026-03-08 04.npy')
+    expect(before.time.getTime()).toBeLessThan(f.time.getTime())
+    expect(f.time.getTime()).toBeLessThan(after.time.getTime())
   })
 })
 

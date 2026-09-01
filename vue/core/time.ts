@@ -18,7 +18,8 @@
  * into the zone, correct by the difference. It converges in <= 2 passes for
  * every real instant; the one irreducible edge is the nonexistent
  * spring-forward hour (e.g. 02:30 on the March changeover), which resolves
- * to the instant after the jump — acceptable for 20-minute sensor data.
+ * to a nearby instant just before the jump (pinned in modeledGrid tests:
+ * 02:00 -> 09:00Z = 01:00 PST) — acceptable for sensor/model cadences.
  */
 
 export const LAKE_TZ = 'America/Los_Angeles'
