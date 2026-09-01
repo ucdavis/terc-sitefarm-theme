@@ -70,7 +70,7 @@ const timeLabel = computed(() =>
   background: #eef2f4;
 }
 .card-label {
-  font-size: 13px;
+  font-size: .8125rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #4a5a64;
@@ -78,37 +78,37 @@ const timeLabel = computed(() =>
   margin-bottom: 6px;
 }
 .card-value {
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 600;
   color: #13322b;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
 .card-unit {
-  font-size: 15px;
+  font-size: .9375rem;
   font-weight: 500;
   color: #4a5a64;
   margin-left: 3px;
 }
 .card-novalue {
-  font-size: 14px;
+  font-size: .875rem;
   color: #7a8a92;
   font-style: italic;
   padding: 6px 0;
 }
 .card-meta {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: .8125rem;
   color: #7a8a92;
 }
 .suspect {
-  font-size: 15px;
+  font-size: .9375rem;
   margin-left: 6px;
   cursor: help;
 }
 .suspect-note {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: .8125rem;
   color: #9a6b15;
   background: #fdf6e7;
   border-radius: 4px;
@@ -121,7 +121,7 @@ const timeLabel = computed(() =>
 }
 .assess-label {
   display: inline-block;
-  font-size: 10.5px;
+  font-size: .65625rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -130,7 +130,7 @@ const timeLabel = computed(() =>
 }
 .assess-text {
   margin: 5px 0 0;
-  font-size: 13px;
+  font-size: .8125rem;
   line-height: 1.45;
   color: #4a5a64;
 }

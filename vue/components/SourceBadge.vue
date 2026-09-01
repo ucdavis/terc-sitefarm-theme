@@ -31,7 +31,7 @@ withDefaults(
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: .8125rem;
 }
 .phase-chip {
   font-weight: 700;
@@ -63,6 +63,6 @@ withDefaults(
   padding: 2px 8px;
   border-radius: 99px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
+  font-size: .8125rem;
 }
 </style>

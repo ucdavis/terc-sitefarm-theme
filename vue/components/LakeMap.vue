@@ -220,7 +220,7 @@ onBeforeUnmount(() => {
   background: #1d5b68;
   color: #fff;
   font-weight: 700;
-  font-size: 13px;
+  font-size: .8125rem;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   padding: 6px 10px;
@@ -249,6 +249,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 1rem;
 }
 </style>

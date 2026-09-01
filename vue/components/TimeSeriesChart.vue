@@ -147,7 +147,7 @@ const srSummary = computed(() => {
   padding: 14px 16px;
 }
 .chart-title {
-  font-size: 13px;
+  font-size: .8125rem;
   font-weight: 600;
   color: #13322b;
   margin-bottom: 8px;
