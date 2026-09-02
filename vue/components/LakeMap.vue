@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import type { DestinationDef } from '../config/destinations'
+import { LAKE_GRID_BOUNDS } from '../config/lakeGrid'
 import { LAKE_CENTER, LAKE_DEFAULT_ZOOM, STATION_FOCUS_ZOOM, TILE_LAYERS, type BasemapId } from '../config/lakeView'
 import { fmtLakeTime } from '../core/time'
 import { escapeHtml, type MapEngine, type MapEngineFactory } from '../map/engine'
@@ -28,6 +29,12 @@ const props = withDefaults(
     focusedStationKey?: string | null
     height?: string
     basemap?: BasemapId
+    /** Fit the modeled-grid domain box instead of center/zoom (TERC-22). */
+    fitLake?: boolean
+    /** Non-interactive data canvas: no zoom, drag, or keyboard panning. */
+    staticMap?: boolean
+    /** Region label override; the default describes the interactive map. */
+    ariaLabel?: string
     engineFactory?: MapEngineFactory
   }>(),
   {
@@ -37,8 +44,19 @@ const props = withDefaults(
     focusedStationKey: null,
     height: '460px',
     basemap: 'streets',
+    fitLake: false,
+    staticMap: false,
+    ariaLabel: undefined,
     engineFactory: undefined,
   },
+)
+
+const regionLabel = computed(
+  () =>
+    props.ariaLabel ??
+    (props.staticMap
+      ? 'Map of Lake Tahoe.'
+      : 'Interactive Lake Tahoe station map. Tab moves through station badges; the destination buttons above offer the same area selections.'),
 )
 
 const emit = defineEmits<{
@@ -131,7 +149,9 @@ onMounted(() => {
     zoom: focused ? STATION_FOCUS_ZOOM : preselected ? preselected.zoom : LAKE_DEFAULT_ZOOM,
     tileUrl: tiles.url,
     attribution: tiles.attribution,
-    maxZoom: 17,
+    maxZoom: tiles.maxZoom,
+    interactive: !props.staticMap,
+    fitBounds: props.fitLake ? LAKE_GRID_BOUNDS : undefined,
   })
   drawDestinations()
   drawOverview()
@@ -180,7 +200,7 @@ onBeforeUnmount(() => {
   <div
     class="lake-map-wrap"
     role="region"
-    aria-label="Interactive Lake Tahoe station map. Tab moves through station badges; the destination buttons above offer the same area selections."
+    :aria-label="regionLabel"
   >
     <div ref="container" class="lake-map" :style="{ height }" />
     <slot />

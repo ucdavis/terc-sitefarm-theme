@@ -22,12 +22,23 @@ export function escapeHtml(s: string): string {
   ))
 }
 
+/** [southWest, northEast] corner pair. */
+export type LatLngBounds = [LatLng, LatLng]
+
 export interface EngineInitOpts {
   center: LatLng
   zoom: number
   tileUrl: string
   attribution: string
   maxZoom: number
+  /**
+   * false = a non-interactive stage (no zoom/drag/keyboard panning) — the
+   * Forecasted Conditions shell's map is a data canvas, not a navigation
+   * surface (TERC-22). Defaults to true.
+   */
+  interactive?: boolean
+  /** Fit this box (overrides center/zoom) — e.g. the modeled-grid domain. */
+  fitBounds?: LatLngBounds
 }
 
 /** An HTML badge pinned to a point (station value chips, offline "!"). */
@@ -73,6 +84,8 @@ export interface MapEngine {
   addCircleMarker(group: string, opts: CircleMarkerOpts): void
   /** Animated move; used for destination/station focus and reset. */
   flyTo(center: LatLng, zoom: number): void
+  /** Instant refit to a bounding box (window resizes, layout shifts). */
+  fitBounds(bounds: LatLngBounds): void
   destroy(): void
 }
 

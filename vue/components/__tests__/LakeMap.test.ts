@@ -34,6 +34,7 @@ function makeFakeEngine() {
     flyTo(center, zoom) {
       state.flights.push({ center, zoom })
     },
+    fitBounds() {},
     destroy() {
       state.destroyed = true
     },

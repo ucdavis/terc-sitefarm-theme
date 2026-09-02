@@ -38,11 +38,49 @@ function terc_preprocess_block(array &$variables) {
   $pdb_component_libraries = [
     'vue_component:hello_lake' => 'terc/vue-current-conditions',
     'vue_component:current_conditions' => 'terc/vue-current-conditions',
+    'vue_component:forecasted_conditions' => 'terc/vue-forecasted-conditions',
   ];
   $plugin_id = $variables['plugin_id'] ?? '';
   if (isset($pdb_component_libraries[$plugin_id])) {
     $variables['#attached']['library'][] = $pdb_component_libraries[$plugin_id];
+    // The vite module attaches only the ENTRY chunk's own CSS. With two
+    // entries, CSS imported by SHARED modules (e.g. Leaflet's stylesheet)
+    // moves into a shared chunk whose CSS nothing attaches — see
+    // terc_library_info_build(), which collects it from the manifest.
+    $variables['#attached']['library'][] = 'terc/vue-shared-chunk-css';
   }
+}
+
+/**
+ * Implements hook_library_info_build().
+ *
+ * Defines terc/vue-shared-chunk-css: every CSS file the Vite manifest
+ * associates with SHARED chunks (manifest keys starting with "_"). The
+ * drupal/vite module rewrites entry libraries and attaches each entry's own
+ * CSS, but never walks the import graph — so when a module used by more
+ * than one entry imports CSS (Leaflet's stylesheet via the map engine),
+ * that CSS lands in a shared chunk and would silently never load. Built
+ * dynamically so content hashes in the filenames never go stale; rebuilt on
+ * cache rebuild, which the workflow already requires after every build.
+ */
+function terc_library_info_build() {
+  $libraries = [];
+  $manifest_path = __DIR__ . '/dist/.vite/manifest.json';
+  if (is_file($manifest_path)) {
+    $manifest = json_decode((string) file_get_contents($manifest_path), TRUE) ?: [];
+    $css = [];
+    foreach ($manifest as $key => $chunk) {
+      if (str_starts_with((string) $key, '_')) {
+        foreach ($chunk['css'] ?? [] as $file) {
+          $css['dist/' . $file] = ['minified' => TRUE];
+        }
+      }
+    }
+    if ($css) {
+      $libraries['vue-shared-chunk-css'] = ['css' => ['component' => $css]];
+    }
+  }
+  return $libraries;
 }
 
 /**

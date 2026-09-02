@@ -18,3 +18,8 @@ vue-current-conditions:
   vite: true
   js:
     vue/entries/current-conditions.ts: { attributes: { type: 'module' } }
+
+vue-forecasted-conditions:
+  vite: true
+  js:
+    vue/entries/forecasted-conditions.ts: { attributes: { type: 'module' } }
