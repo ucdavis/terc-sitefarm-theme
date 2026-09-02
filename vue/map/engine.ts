@@ -86,7 +86,22 @@ export interface MapEngine {
   flyTo(center: LatLng, zoom: number): void
   /** Instant refit to a bounding box (window resizes, layout shifts). */
   fitBounds(bounds: LatLngBounds): void
+  /**
+   * Place (or update in place) a named image overlay — the scalar-field
+   * layers (TERC-23). Same id = update the existing overlay's image, which
+   * engines should do without re-adding (no flicker on hour steps).
+   */
+  setImageOverlay(id: string, url: string, bounds: LatLngBounds, opacity: number): void
+  removeImageOverlay(id: string): void
   destroy(): void
 }
 
 export type MapEngineFactory = (el: HTMLElement, opts: EngineInitOpts) => MapEngine
+
+/**
+ * Injection key under which LakeMap provides its engine to overlay children
+ * rendered in its default slot (FieldOverlay). A ShallowRef because the
+ * engine appears on mount. Typed loosely as `unknown` would lose safety;
+ * consumers import this constant so the string can never drift.
+ */
+export const MAP_ENGINE_INJECTION_KEY = 'terc-map-engine'

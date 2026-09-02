@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, ref, shallowRef, watch } from 'vue'
 import type { DestinationDef } from '../config/destinations'
 import { LAKE_GRID_BOUNDS } from '../config/lakeGrid'
 import { LAKE_CENTER, LAKE_DEFAULT_ZOOM, STATION_FOCUS_ZOOM, TILE_LAYERS, type BasemapId } from '../config/lakeView'
 import { fmtLakeTime } from '../core/time'
-import { escapeHtml, type MapEngine, type MapEngineFactory } from '../map/engine'
+import { escapeHtml, MAP_ENGINE_INJECTION_KEY, type MapEngine, type MapEngineFactory } from '../map/engine'
 import { createLeafletEngine } from '../map/leafletEngine'
 import type { OverviewMarker } from '../composables/useLakeOverview'
 
@@ -66,6 +66,9 @@ const emit = defineEmits<{
 
 const container = ref<HTMLElement | null>(null)
 const engine = shallowRef<MapEngine | null>(null)
+// Overlay children in the default slot (FieldOverlay, TERC-23) draw through
+// the same engine seam rather than importing a map library.
+provide(MAP_ENGINE_INJECTION_KEY, engine)
 
 function drawOverview() {
   const eng = engine.value
