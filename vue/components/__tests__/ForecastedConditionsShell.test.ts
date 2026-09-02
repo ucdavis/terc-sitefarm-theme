@@ -21,6 +21,7 @@ const mountShell = (props: Record<string, unknown> = {}) =>
         CacheDiagnostics: true,
         WaterTemperatureView: true,
         CurrentsView: true,
+        WaveHeightView: true,
       },
     },
   })
@@ -49,27 +50,22 @@ describe('ForecastedConditionsShell', () => {
     expect(w.text()).toContain('Lake Tahoe Forecasted Conditions')
     const tabs = w.findAll('[role="tab"]')
     expect(tabs.map((t) => t.text())).toEqual(['Water Temperature', 'Currents', 'Wave Height'])
-    // Water Temperature (TERC-23) is implemented: its view renders and
-    // brings its own map stage, so the shell's bare stage stays away.
     expect(w.find('water-temperature-view-stub').exists()).toBe(true)
-    expect(w.find('lake-map-stub').exists()).toBe(false)
   })
 
-  it('keeps the bare map stage for views whose layer has not landed', async () => {
+  it('mounts only the active view — an offscreen one would fetch unseen grids', async () => {
     const w = mountShell()
     await flush()
-    await w.findAll('[role="tab"]')[2].trigger('click') // Wave Height (TERC-24 pending)
-    expect(w.find('lake-map-stub').exists()).toBe(true)
-    expect(w.find('water-temperature-view-stub').exists()).toBe(false)
-  })
+    const tabs = w.findAll('[role="tab"]')
 
-  it('mounts the Currents view, with its own stage, when its tab is active', async () => {
-    const w = mountShell()
-    await flush()
-    await w.findAll('[role="tab"]')[1].trigger('click')
+    await tabs[1].trigger('click')
     expect(w.find('currents-view-stub').exists()).toBe(true)
     expect(w.find('water-temperature-view-stub').exists()).toBe(false)
-    expect(w.find('lake-map-stub').exists()).toBe(false)
+    expect(w.find('wave-height-view-stub').exists()).toBe(false)
+
+    await tabs[2].trigger('click')
+    expect(w.find('wave-height-view-stub').exists()).toBe(true)
+    expect(w.find('currents-view-stub').exists()).toBe(false)
   })
 
   it('switches panels via tabs and announces the change politely', async () => {
@@ -88,14 +84,13 @@ describe('ForecastedConditionsShell', () => {
     expect(w.get('[aria-live="polite"]').text()).toContain('Currents view selected.')
   })
 
-  it('placeholder panels honestly name the story delivering each layer', async () => {
+  it('gives every panel its own visitor-facing blurb', async () => {
     const w = mountShell()
     await flush()
     const panels = w.findAll('[role="tabpanel"]')
-    // Delivered views carry no "arrives with" copy; pending ones name their story.
-    expect(panels[0].text()).not.toContain('arrives with')
-    expect(panels[1].text()).not.toContain('arrives with')
-    expect(panels[2].text()).toContain('TERC-24')
+    expect(panels[0].text()).toContain('cold upwellings')
+    expect(panels[1].text()).toContain('rip currents')
+    expect(panels[2].text()).toContain('wind forecast')
   })
 
   it('loads the manifest itself and shows the selected lake time in the caption', async () => {

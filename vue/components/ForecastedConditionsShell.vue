@@ -8,11 +8,11 @@ import { computed, ref } from 'vue'
 import type { Component } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
 import DateHourSelector from './DateHourSelector.vue'
-import LakeMap from './LakeMap.vue'
 import SourceBadge from './SourceBadge.vue'
 import CurrentsView from './CurrentsView.vue'
 import ViewTabs, { type ViewTab } from './ViewTabs.vue'
 import WaterTemperatureView from './WaterTemperatureView.vue'
+import WaveHeightView from './WaveHeightView.vue'
 import { useModelTime } from '../composables/useModelTime'
 import { fmtLakeTime } from '../core/time'
 
@@ -25,10 +25,8 @@ import { fmtLakeTime } from '../core/time'
  *
  * Navigation renders from the VIEWS registry rather than assuming a fixed
  * set — Weather and UV/Air Quality arrive in later phases and simply
- * aren't registered yet. The three registered views ship their field
- * layers in TERC-23 (temperature), TERC-25 (currents), and TERC-24 (wave
- * height); until each lands, its panel says so honestly instead of
- * rendering an empty map.
+ * aren't registered yet. Each registered view owns its own map stage and
+ * data loader; the shell owns only the time selection they share.
  */
 const props = withDefaults(
   defineProps<{
@@ -50,10 +48,7 @@ const showDiagnostics = asBool(props.debug)
 interface ViewDef extends ViewTab {
   /** One-line visitor-facing description shown in the panel. */
   blurb: string
-  /** Jira story delivering this view's field layer (placeholder copy). */
-  arrivesWith: string | null
-  /** The view component, once its story lands; null renders a placeholder. */
-  component: Component | null
+  component: Component
 }
 
 const VIEWS: ViewDef[] = [
@@ -62,7 +57,6 @@ const VIEWS: ViewDef[] = [
     label: 'Water Temperature',
     blurb:
       'Lake-wide forecasted surface temperature. The lake is not one temperature — cold upwellings can chill a shoreline overnight.',
-    arrivesWith: null,
     component: WaterTemperatureView,
   },
   {
@@ -70,15 +64,13 @@ const VIEWS: ViewDef[] = [
     label: 'Currents',
     blurb:
       'Forecasted water movement across the lake, including the gyres and rip currents that matter to swimmers and paddleboarders.',
-    arrivesWith: null,
     component: CurrentsView,
   },
   {
     key: 'wave-height',
     label: 'Wave Height',
     blurb: 'Forecasted wave heights driven by the wind forecast, lake-wide.',
-    arrivesWith: 'TERC-24',
-    component: null,
+    component: WaveHeightView,
   },
 ]
 
@@ -93,8 +85,10 @@ const activeView = computed(() => VIEWS.find((v) => v.key === activeKey.value) ?
 const idBase = `fc-${++shellSeq}`
 
 const { selectedFrame, manifestError, ensureManifest } = useModelTime()
-// The shell loads the manifest itself: the views' composable does too, but
-// none are registered until TERC-23 — the selector must not sit empty.
+// The shell loads the manifest itself rather than relying on whichever
+// view happens to be active: the date/hour selector is the shell's own
+// chrome and must never sit empty. Views join the same singleton, so this
+// costs no extra request.
 void ensureManifest()
 
 const heading = computed(() => `Lake Tahoe Forecasted Conditions`)
@@ -114,7 +108,10 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
       <h2 class="fc-heading">{{ heading }}</h2>
       <SourceBadge
         :phase="2"
-        :sources="['lake-tahoe-conditions S3 (model grids)']"
+        :sources="[
+          'lake-tahoe-conditions S3 (model grids)',
+          'api.weather.gov (wind forecast)',
+        ]"
         :show-phase="false"
         :show-sources="showSources"
       />
@@ -153,17 +150,9 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
     >
       <p class="fc-caption">{{ frameCaption }}</p>
       <p class="fc-blurb">{{ v.blurb }}</p>
-      <p v-if="v.arrivesWith" class="fc-placeholder">
-        The {{ v.label.toLowerCase() }} map layer arrives with {{ v.arrivesWith }}.
-        The date and hour you choose here already drive it.
-      </p>
-      <component :is="v.component" v-if="v.component && v.key === activeKey" />
-    </div>
-
-    <!-- Implemented views bring their own map stage; the bare stage remains
-         only while the active view's layer has not landed yet. -->
-    <div v-if="!activeView.component" class="fc-stage">
-      <LakeMap static-map fit-lake basemap="muted" height="640px" aria-label="Map of Lake Tahoe. Forecast layers render here as each view arrives." />
+      <!-- Only the active view mounts: each brings its own map, and an
+           offscreen one would fetch grids nobody is looking at. -->
+      <component :is="v.component" v-if="v.key === activeKey" />
     </div>
 
     <p class="fc-realtime">
@@ -238,12 +227,6 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
   margin: 0;
   color: #5f6e77;
   max-width: 70ch;
-}
-.fc-placeholder {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #5f6e77;
-  font-style: italic;
 }
 .fc-realtime {
   margin: 0;
