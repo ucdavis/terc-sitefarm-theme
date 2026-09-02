@@ -1,4 +1,15 @@
 {
+  "_SourceBadge.!~{001}~.js": {
+    "file": "SourceBadge.css",
+    "src": "_SourceBadge.!~{001}~.js"
+  },
+  "_SourceBadge.mzdmwGpv.js": {
+    "file": "chunks/SourceBadge.mzdmwGpv.js",
+    "name": "SourceBadge",
+    "css": [
+      "SourceBadge.css"
+    ]
+  },
   "js/main.js": {
     "file": "main.js",
     "name": "main",
@@ -21,8 +32,23 @@
     "name": "current-conditions",
     "src": "vue/entries/current-conditions.ts",
     "isEntry": true,
+    "imports": [
+      "_SourceBadge.mzdmwGpv.js"
+    ],
     "css": [
       "current-conditions.css"
+    ]
+  },
+  "vue/entries/forecasted-conditions.ts": {
+    "file": "forecasted-conditions.js",
+    "name": "forecasted-conditions",
+    "src": "vue/entries/forecasted-conditions.ts",
+    "isEntry": true,
+    "imports": [
+      "_SourceBadge.mzdmwGpv.js"
+    ],
+    "css": [
+      "forecasted-conditions.css"
     ]
   }
 }

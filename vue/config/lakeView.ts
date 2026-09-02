@@ -19,12 +19,21 @@ export const TILE_LAYERS = {
   streets: {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19,
   },
-  /** CARTO Positron light-gray, for Phase 2 data-overlay views where the
-   *  lake itself is the visual subject. */
+  /** Light-gray canvas for Phase 2 data-overlay views where the lake itself
+   *  is the visual subject. Esri World Light Gray Base — the prototype's
+   *  CARTO Positron now requires an API key (verified live 2026-09-01:
+   *  tiles render an "API KEY REQUIRED" watermark), so it is unusable.
+   *  The Esri service is keyless with attribution; it tops out at z16,
+   *  plenty for a whole-lake stage. */
   muted: {
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    // Esri's basemap terms want a linked "Powered by Esri" notice plus the
+    // service's current credits (PR review finding).
+    attribution:
+      '<a href="https://www.esri.com">Powered by Esri</a> &mdash; Esri, HERE, Garmin, OpenStreetMap contributors, and the GIS user community',
+    maxZoom: 16,
   },
 } as const
 

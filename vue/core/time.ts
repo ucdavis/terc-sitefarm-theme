@@ -114,6 +114,19 @@ export function fmtLakeDay(d: Date): string {
   return lakeDayFmt.format(d)
 }
 
+/** Lake-time clock reading only, e.g. "1:00 AM" — the hour stepper readout.
+ *  Formatting the INSTANT (not a stored wall-clock hour) keeps every readout
+ *  agreeing on the one frame a year whose named hour doesn't exist (the
+ *  spring-forward gap, where "02" resolves to a 1:00 AM PST instant). */
+const lakeHourFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: LAKE_TZ,
+  hour: 'numeric',
+  minute: '2-digit',
+})
+export function fmtLakeHour(d: Date): string {
+  return lakeHourFmt.format(d)
+}
+
 /** The most recent UTC midnight — the API's "today" boundary. */
 export function startOfTodayUtc(now: Date = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))

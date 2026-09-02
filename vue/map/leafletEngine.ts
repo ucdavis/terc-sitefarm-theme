@@ -11,11 +11,23 @@ import {
   type CircleMarkerOpts,
   type EngineInitOpts,
   type LatLng,
+  type LatLngBounds,
   type MapEngine,
 } from './engine'
 
 export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapEngine {
-  const map = L.map(el, { zoomSnap: 0.25 }).setView(opts.center, opts.zoom)
+  const interactive = opts.interactive !== false
+  const map = L.map(el, {
+    zoomSnap: 0.25,
+    zoomControl: interactive,
+    scrollWheelZoom: interactive,
+    doubleClickZoom: interactive,
+    boxZoom: interactive,
+    touchZoom: interactive,
+    dragging: interactive,
+    keyboard: interactive,
+  }).setView(opts.center, opts.zoom)
+  if (opts.fitBounds) map.fitBounds(opts.fitBounds)
   L.tileLayer(opts.tileUrl, { attribution: opts.attribution, maxZoom: opts.maxZoom }).addTo(map)
 
   const groups = new Map<string, L.LayerGroup>()
@@ -101,6 +113,10 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
 
     flyTo(center: LatLng, zoom: number) {
       map.flyTo(center, zoom, { duration: 0.8 })
+    },
+
+    fitBounds(bounds: LatLngBounds) {
+      map.fitBounds(bounds)
     },
 
     destroy() {

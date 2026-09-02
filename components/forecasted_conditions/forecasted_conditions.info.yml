@@ -1,0 +1,22 @@
+# Forecasted Conditions shell block (TERC-22). Same integration rules as
+# the other PDB components: no asset keys here — the entry library is
+# attached in terc_preprocess_block() so pdb_vue never adds its CDN Vue.
+name: 'TERC Forecasted Conditions'
+machine_name: forecasted-conditions
+type: pdb
+description: 'Lake Tahoe Forecasted Conditions shell: modeled-view navigation, shared date/hour selector with 24-hour playback, and the lake map stage. The Water Temperature, Currents, and Wave Height layers arrive in their own stories.'
+core_version_requirement: ^9 || ^10 || ^11
+presentation: vue
+category: 'TERC Lake Conditions'
+template: template.html
+configuration:
+  showSources:
+    type: checkbox
+    title: 'Show data-source chips'
+    description: 'The chips naming the data sources this block reads (the modeled-conditions S3 bucket).'
+    default_value: 1
+  debug:
+    type: checkbox
+    title: 'Show cache diagnostics'
+    description: 'Overlay live cache hit/miss/join statistics in the corner of the page — for debugging and demos only.'
+    default_value: 0
