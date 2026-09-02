@@ -30,7 +30,13 @@ function render() {
     return
   }
   const url = renderFieldImage(props.grid, props.scale)
-  if (url) engine.setImageOverlay(OVERLAY_ID, url, LAKE_GRID_BOUNDS, props.opacity)
+  if (url) {
+    engine.setImageOverlay(OVERLAY_ID, url, LAKE_GRID_BOUNDS, props.opacity)
+  } else {
+    // Canvas 2D unavailable (or render failed): don't leave the PREVIOUS
+    // frame's image on the map looking current (PR review finding).
+    engine.removeImageOverlay(OVERLAY_ID)
+  }
 }
 
 watch(() => [props.grid, props.scale, props.opacity, engineRef?.value], render, {

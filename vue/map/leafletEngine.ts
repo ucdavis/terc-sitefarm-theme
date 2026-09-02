@@ -124,8 +124,14 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
       const existing = imageOverlays.get(id)
       if (existing) {
         // Update in place — re-adding would flash the basemap between frames.
+        // Bounds too: today every caller reuses LAKE_GRID_BOUNDS, but the
+        // contract accepts bounds per call, so an id whose bounds change
+        // must not keep the old placement (PR review finding).
         existing.setUrl(url)
         existing.setOpacity(opacity)
+        // setBounds (unlike the imageOverlay constructor) narrowly wants a
+        // real L.LatLngBounds instance, not the tuple literal form.
+        existing.setBounds(L.latLngBounds(bounds))
       } else {
         const overlay = L.imageOverlay(url, bounds, {
           opacity,

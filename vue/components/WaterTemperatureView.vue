@@ -7,6 +7,7 @@ import LoadingState from './LoadingState.vue'
 import { useModeledField } from '../composables/useModeledField'
 import { COLD_WATER_SHOCK_NOTE } from '../config/qualitative'
 import { TEMPERATURE_SCALE } from '../core/colorScale'
+import { describeFieldExtent } from '../map/fieldSummary'
 
 /**
  * Water Temperature view (TERC-23): the lake-wide forecast surface
@@ -16,31 +17,37 @@ import { TEMPERATURE_SCALE } from '../core/colorScale'
  * hours re-renders instantly.
  *
  * Text alternative (a11y non-negotiable #1): the map layer is a canvas
- * image, so the same information is summarized as visible text — the
- * lake-wide temperature range for the selected hour — which also labels
- * the map region for assistive tech.
+ * image, so the same information is summarized as visible text — where
+ * the lake runs warmest and coldest this hour, not just the numeric
+ * range, since location IS the layer's essential information (PR review
+ * finding) — which also labels the map region for assistive tech.
  */
 const { state } = useModeledField('temperature')
 
 const rangeSummary = computed(() => {
   if (state.value.status !== 'success' || !state.value.data) return null
-  let min = Number.POSITIVE_INFINITY
-  let max = Number.NEGATIVE_INFINITY
-  const { values } = state.value.data
-  for (let i = 0; i < values.length; i++) {
-    const v = values[i]
-    if (Number.isNaN(v)) continue
-    if (v < min) min = v
-    if (v > max) max = v
-  }
-  if (!Number.isFinite(min)) return null
-  return `Forecast surface temperatures range from about ${Math.round(min)} to ${Math.round(max)} °F across the lake at this hour.`
+  return describeFieldExtent(
+    state.value.data,
+    'Forecast surface temperature',
+    (v) => `${Math.round(v)} °F`,
+  )
 })
 
-const mapLabel = computed(
-  () =>
-    `Map of Lake Tahoe colored by forecast surface water temperature. ${rangeSummary.value ?? 'No temperature data loaded.'}`,
+/** Grid loaded successfully but every cell is masked (no modeled water
+ *  cells) — an honest empty state, distinct from "still loading" and from
+ *  "not fetched yet" (non-negotiable #4: empty is normal, but must say so). */
+const noFieldData = computed(
+  () => state.value.status === 'success' && !!state.value.data && !rangeSummary.value,
 )
+
+const mapLabel = computed(() => {
+  const body =
+    rangeSummary.value ??
+    (noFieldData.value
+      ? 'No forecast temperature data is available for this hour.'
+      : 'No temperature data loaded.')
+  return `Map of Lake Tahoe colored by forecast surface water temperature. ${body}`
+})
 </script>
 
 <template>
@@ -52,6 +59,9 @@ const mapLabel = computed(
     </p>
 
     <p v-if="rangeSummary" class="wt-summary" aria-live="polite">{{ rangeSummary }}</p>
+    <p v-else-if="noFieldData" class="wt-summary" aria-live="polite">
+      No forecast temperature data is available for this hour.
+    </p>
 
     <div class="wt-stage">
       <div class="wt-row">
@@ -110,6 +120,19 @@ const mapLabel = computed(
   width: 150px;
   flex-shrink: 0;
   height: 640px;
+}
+/* The map is non-interactive (TERC-22) — visitors can't zoom in to
+   compensate for a squeezed layout, so narrow viewports stack the legend
+   under the full-width map instead of leaving it ~150px wide (PR review
+   finding). */
+@media (max-width: 640px) {
+  .wt-row {
+    flex-direction: column;
+  }
+  .wt-legend {
+    width: 100%;
+    height: 200px;
+  }
 }
 .wt-loading {
   position: absolute;

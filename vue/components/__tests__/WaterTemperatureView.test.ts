@@ -36,13 +36,18 @@ describe('WaterTemperatureView', () => {
     expect(w.text()).toContain('upwelling')
   })
 
-  it('summarizes the lake-wide range as visible text (map text alternative)', async () => {
+  it('summarizes range AND location as visible text (map text alternative)', async () => {
     fieldState.value = loading()
     const w = mountView()
     expect(w.find('.wt-summary').exists()).toBe(false)
+    // min at storage index 0 (west), max at index 2 (east) of a 1x3 grid.
     fieldState.value = success(grid([51.6, NaN, 68.4]))
     await w.vm.$nextTick()
-    expect(w.get('.wt-summary').text()).toContain('range from about 52 to 68 °F')
+    const text = w.get('.wt-summary').text()
+    expect(text).toContain('ranges from about 52 °F')
+    expect(text).toContain('to about 68 °F')
+    // Location, not just numbers (the PR review's core ask).
+    expect(text).toMatch(/shore|end of the lake/)
   })
 
   it('shows the skeleton while loading and an honest alert on failure', async () => {
@@ -54,10 +59,10 @@ describe('WaterTemperatureView', () => {
     expect(w.get('[role="alert"]').text()).toContain('could not be loaded')
   })
 
-  it('renders no summary when every cell is NaN (all-mask grid)', async () => {
+  it('says so honestly when every cell is NaN, rather than staying silent (all-mask grid)', async () => {
     fieldState.value = success(grid([NaN, NaN]))
     const w = mountView()
     await w.vm.$nextTick()
-    expect(w.find('.wt-summary').exists()).toBe(false)
+    expect(w.get('.wt-summary').text()).toContain('No forecast temperature data is available')
   })
 })

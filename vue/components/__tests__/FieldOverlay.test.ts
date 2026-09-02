@@ -14,6 +14,7 @@ vi.mock('../../map/fieldImage', () => ({
 }))
 
 import FieldOverlay from '../FieldOverlay.vue'
+import { renderFieldImage } from '../../map/fieldImage'
 
 function makeEngine() {
   const calls: { op: string; id: string; url?: string; opacity?: number }[] = []
@@ -80,6 +81,25 @@ describe('FieldOverlay', () => {
     expect(calls[calls.length - 1]).toEqual({ op: 'remove', id: 'scalar-field' })
     await w.setProps({ grid: grid() })
     w.unmount()
+    expect(calls[calls.length - 1]).toEqual({ op: 'remove', id: 'scalar-field' })
+  })
+
+  it('removes a stale overlay when a render attempt yields no image', async () => {
+    const { engine, calls } = makeEngine()
+    const engineRef = shallowRef<MapEngine | null>(engine)
+    const w = mountOverlay(engineRef, { grid: grid() })
+    await Promise.resolve()
+    expect(calls[calls.length - 1]).toEqual({
+      op: 'set',
+      id: 'scalar-field',
+      url: 'data:image/png;base64,fake',
+      opacity: 1,
+    })
+
+    // Canvas 2D unavailable (or a render failure) must not leave the
+    // PREVIOUS frame's image looking current on the map (PR review finding).
+    vi.mocked(renderFieldImage).mockReturnValueOnce(null)
+    await w.setProps({ grid: grid() })
     expect(calls[calls.length - 1]).toEqual({ op: 'remove', id: 'scalar-field' })
   })
 
