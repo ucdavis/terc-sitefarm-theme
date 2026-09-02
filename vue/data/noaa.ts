@@ -79,12 +79,17 @@ function expand(values: NoaaValue[], apply: (h: number, v: number) => void) {
   }
 }
 
+/**
+ * Fails closed on an unfamiliar unit rather than assuming one. Wind speed
+ * doesn't just get displayed — it selects the wave solution, so a wrong
+ * conversion would show confidently wrong wave heights lake-wide. The
+ * view has an explicit error state; a silent bad guess has nothing.
+ */
 function toMs(value: number, uom: string): number {
   if (uom.includes('km_h')) return kmhToMs(value)
   if (uom.includes('m_s')) return value
   if (uom.includes('kn')) return value * 0.514444
-  console.warn(`[noaa] unrecognized wind uom "${uom}", assuming km/h`)
-  return kmhToMs(value)
+  throw new Error(`NOAA reported wind in an unrecognized unit ("${uom}")`)
 }
 
 export async function fetchWindTimeline(): Promise<WindTimeline> {
@@ -99,7 +104,9 @@ export async function fetchWindTimeline(): Promise<WindTimeline> {
     if (!speedProp?.values || !dirProp?.values) {
       throw new Error('NOAA response missing windSpeed/windDirection values')
     }
-    const speedUom: string = speedProp.uom ?? 'wmoUnit:km_h-1'
+    // Also fail closed when the unit is missing entirely — same reason.
+    const speedUom: string | undefined = speedProp.uom
+    if (!speedUom) throw new Error('NOAA response omitted the wind speed unit')
 
     const speeds = new Map<number, number>()
     const dirs = new Map<number, number>()

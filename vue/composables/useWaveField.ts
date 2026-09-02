@@ -80,19 +80,25 @@ export function useWaveField() {
     if (!frame) return
     const gen = ++generation
 
-    if (!timeline) {
-      state.value = loading()
-      try {
-        timeline = await fetchWindTimeline()
-        windError.value = null
-      } catch (e) {
-        if (gen !== generation) return
-        windError.value = e instanceof Error ? e.message : String(e)
-        state.value = failure(e)
-        return
-      }
+    // Re-ask every time rather than once per mount: the call is cached for
+    // TTL.SHORT, so it's free inside that window and picks up a fresh
+    // forecast after it. A kiosk left open for hours must not keep
+    // answering from a timeline fetched this morning — its window would
+    // slide out from under the clock and start reporting real hours as
+    // uncovered. Only the FIRST fetch shows a loading state, so a cached
+    // timeline still renders without a flash.
+    const hadTimeline = timeline !== null
+    if (!hadTimeline) state.value = loading()
+    try {
+      timeline = await fetchWindTimeline()
+      windError.value = null
+    } catch (e) {
       if (gen !== generation) return
+      windError.value = e instanceof Error ? e.message : String(e)
+      state.value = failure(e)
+      return
     }
+    if (gen !== generation) return
 
     const match = windForTime(timeline, frame.time)
     if (!match) {
@@ -109,11 +115,18 @@ export function useWaveField() {
     const b = snapToBucket(match.wind.speedMs, match.wind.dirDeg)
     const cached = peekWaveGrid(b)
     if (cached) {
-      bucket.value = b
-      substituted.value = false
-      state.value = success(cached, true)
+      // peek honours a remembered substitution, so a neighbour's waves are
+      // never passed off as the requested solution.
+      bucket.value = cached.bucket
+      substituted.value = cached.substituted
+      state.value = success(cached.grid, true)
       void fetchWaveGrid(b) // registers the hit in shared stats; no network
     } else {
+      // Clear before loading: these describe the PREVIOUS frame, and the
+      // chrome renders during loading and errors — a stale calm note or
+      // substitution caveat would otherwise sit beside the new wind.
+      bucket.value = null
+      substituted.value = false
       state.value = loading()
       try {
         const result = await fetchWaveGrid(b)

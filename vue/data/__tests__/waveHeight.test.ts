@@ -3,6 +3,7 @@ import {
   bucketFile,
   fetchWaveGrid,
   peekWaveGrid,
+  resetWaveResolutionForTests,
   snapToBucket,
   type WaveBucket,
 } from '../waveHeight'
@@ -23,11 +24,15 @@ const B = {
   caching: { ws: 6, wd: 270 },
   calm: { ws: 0, wd: 45 },
   calmCaching: { ws: 0, wd: 315 },
+  networkFailure: { ws: 9, wd: 120 },
+  serverError: { ws: 11, wd: 150 },
+  remembered: { ws: 13, wd: 60 },
 } as const
 
 beforeEach(() => {
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
+  resetWaveResolutionForTests()
 })
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -89,6 +94,41 @@ describe('fetchWaveGrid', () => {
     )
   })
 
+  it('does NOT hunt for neighbours when the failure is not a missing bucket', async () => {
+    // A network blip or a 5xx must propagate, not fire 16 more requests
+    // and then present some other bucket's waves as this one's.
+    fetchMock.mockRejectedValueOnce(new Error('network down'))
+    await expect(fetchWaveGrid(B.networkFailure)).rejects.toThrow(/network down/)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 500 })
+    await expect(fetchWaveGrid(B.serverError)).rejects.toThrow(/500/)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('remembers a substitution so playback stops re-probing the same 403', async () => {
+    fetchMock.mockResolvedValueOnce(missing) // exact bucket absent
+    fetchMock.mockResolvedValueOnce(ok([[0.3]])) // neighbour answers
+    const first = await fetchWaveGrid(B.remembered)
+    expect(first.substituted).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    // A later hour resolving to the same absent bucket must reuse the
+    // known substitute rather than re-probing the 403.
+    fetchMock.mockClear()
+    const second = await fetchWaveGrid(B.remembered)
+    expect(second.bucket).toEqual(first.bucket)
+    expect(second.substituted).toBe(true)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    // …and the cache-first peek finds it too, still flagged as substituted.
+    const peeked = peekWaveGrid(B.remembered)
+    expect(peeked?.grid).toBe(first.grid)
+    expect(peeked?.substituted).toBe(true)
+    expect(peeked?.bucket).toEqual(first.bucket)
+  })
+
   it('caches a bucket so a second hour on the same wind costs no request', async () => {
     const bucket: WaveBucket = B.caching
     fetchMock.mockResolvedValueOnce(ok([[0.4]]))
@@ -96,7 +136,7 @@ describe('fetchWaveGrid', () => {
     const second = await fetchWaveGrid(bucket)
     expect(second.grid).toBe(first.grid)
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(peekWaveGrid(bucket)).toBe(first.grid)
+    expect(peekWaveGrid(bucket)?.grid).toBe(first.grid)
   })
 
   describe('flat calm (ws = 0)', () => {
@@ -116,8 +156,8 @@ describe('fetchWaveGrid', () => {
     it('caches the calm grid separately from the ws=1 grid it borrowed', async () => {
       fetchMock.mockResolvedValueOnce(ok([[0.02, 0]]))
       const calm = await fetchWaveGrid(B.calmCaching)
-      expect(peekWaveGrid(B.calmCaching)).toBe(calm.grid)
-      const borrowed = peekWaveGrid({ ws: 1, wd: B.calmCaching.wd })
+      expect(peekWaveGrid(B.calmCaching)?.grid).toBe(calm.grid)
+      const borrowed = peekWaveGrid({ ws: 1, wd: B.calmCaching.wd })?.grid
       expect(borrowed).toBeDefined()
       expect(borrowed).not.toBe(calm.grid)
       expect(borrowed?.values[0]).toBeCloseTo(0.066, 2) // still real heights

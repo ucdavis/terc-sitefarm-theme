@@ -68,6 +68,19 @@ describe('WaveHeightView', () => {
     expect(w.get('.wv-wind-text').text()).toContain('11 mph from the west-southwest')
   })
 
+  it('points the arrow where the wind blows, accounting for the glyph', async () => {
+    reset()
+    // The glyph points east (bearing 90) unrotated, and dirDeg is where
+    // the wind comes FROM, so a 240° wind blowing toward 60° needs
+    // rotate(330deg) — not rotate(60deg), which would aim it southeast.
+    wind.value = { speedMs: 5, speedMph: 11.4, dirDeg: 240 }
+    bucket.value = { ws: 5, wd: 240 }
+    const w = mountView()
+    await w.vm.$nextTick()
+    expect(w.get('.wv-arrow').attributes('style')).toContain('rotate(330deg)')
+    expect(w.get('.wv-arrow').attributes('aria-hidden')).toBe('true')
+  })
+
   it('discloses when the wind came from a neighbouring hour or bucket', async () => {
     reset()
     wind.value = { speedMs: 5, speedMph: 11.4, dirDeg: 240 }

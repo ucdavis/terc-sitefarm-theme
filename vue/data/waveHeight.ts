@@ -95,15 +95,37 @@ function toGrid(nested: (number | null)[][], zeroIsWater: boolean): ScalarGrid {
   }
 }
 
+/**
+ * A bucket that isn't in S3. S3 answers 403 (not 404) for missing keys —
+ * see module docs. Distinguishing this from a network blip or a bad
+ * payload matters: only a genuinely absent bucket justifies substituting
+ * a neighbour, and only it is worth remembering as absent.
+ */
+class BucketMissingError extends Error {
+  readonly missing = true
+}
+
+function isBucketMissing(e: unknown): boolean {
+  return e instanceof BucketMissingError
+}
+
 async function fetchBucketJson(b: WaveBucket): Promise<(number | null)[][]> {
   const res = await fetch(`${S3_BASE}/waveheight/${bucketFile(b)}`)
+  if (res.status === 403 || res.status === 404) {
+    throw new BucketMissingError(`wave bucket ${bucketFile(b)} not in S3 (HTTP ${res.status})`)
+  }
   if (!res.ok) throw new Error(`wave bucket ${bucketFile(b)} HTTP ${res.status}`)
   return (await res.json()) as (number | null)[][]
 }
 
+/** Cache key — the calm variant is derived, so it gets its own. */
+function cacheKey(b: WaveBucket): string {
+  return b.ws === WS_RANGE.min ? `wave:calm:${b.wd}` : `wave:${bucketKey(b)}`
+}
+
 /** One bucket, decoded and cached. Past solutions never change. */
 function loadBucket(b: WaveBucket): Promise<ScalarGrid> {
-  return gridCache.getOrFetch(`wave:${bucketKey(b)}`, TTL.FOREVER, async () =>
+  return gridCache.getOrFetch(cacheKey(b), TTL.FOREVER, async () =>
     toGrid(await fetchBucketJson(b), false),
   )
 }
@@ -114,7 +136,7 @@ function loadBucket(b: WaveBucket): Promise<ScalarGrid> {
  * verified) and flatten it to 0 ft — the model's actual answer.
  */
 function loadCalmBucket(b: WaveBucket): Promise<ScalarGrid> {
-  return gridCache.getOrFetch(`wave:calm:${b.wd}`, TTL.FOREVER, async () => {
+  return gridCache.getOrFetch(cacheKey(b), TTL.FOREVER, async () => {
     const shape = await loadBucket({ ws: 1, wd: b.wd })
     const values = new Float64Array(shape.values.length)
     for (let i = 0; i < values.length; i++) {
@@ -141,19 +163,37 @@ function neighbours(b: WaveBucket): WaveBucket[] {
 }
 
 /**
+ * Which bucket actually answered for a requested one. A bucket absent from
+ * S3 stays absent, so remembering the substitution keeps playback from
+ * re-probing the same 403 on every frame that resolves to it.
+ */
+const resolution = new Map<string, WaveBucket>()
+
+/**
  * Fetch a wave grid, falling back to an outward neighbour search when the
- * exact bucket is missing. Throws only when nothing nearby exists either —
- * which the view renders as an explicit message, never a blank map.
+ * requested bucket is genuinely absent from S3. Throws when nothing nearby
+ * exists either — which the view renders as an explicit message, never a
+ * blank map.
+ *
+ * Only a missing bucket triggers the search: a network failure or a bad
+ * payload propagates as-is, rather than firing 16 more requests and
+ * presenting some other bucket's waves as though this one didn't exist.
  */
 export async function fetchWaveGrid(bucket: WaveBucket): Promise<WaveGridResult> {
+  const known = resolution.get(bucketKey(bucket))
+  if (known) return { grid: await load(known), bucket: known, substituted: true }
+
   try {
     return { grid: await load(bucket), bucket, substituted: false }
-  } catch {
+  } catch (e) {
+    if (!isBucketMissing(e)) throw e
     for (const cand of neighbours(bucket)) {
       try {
-        return { grid: await load(cand), bucket: cand, substituted: true }
+        const grid = await load(cand)
+        resolution.set(bucketKey(bucket), cand)
+        return { grid, bucket: cand, substituted: true }
       } catch {
-        /* keep searching outward */
+        /* candidates are best-effort; keep searching outward */
       }
     }
     throw new Error(
@@ -162,7 +202,20 @@ export async function fetchWaveGrid(bucket: WaveBucket): Promise<WaveGridResult>
   }
 }
 
-export function peekWaveGrid(bucket: WaveBucket): ScalarGrid | undefined {
-  const key = bucket.ws === WS_RANGE.min ? `wave:calm:${bucket.wd}` : `wave:${bucketKey(bucket)}`
-  return gridCache.peek<ScalarGrid>(key)
+/**
+ * Synchronous cache lookup, honouring a remembered substitution — so the
+ * cache-first path renders instantly for a substituted bucket too, and
+ * still reports it as substituted rather than passing a neighbour's waves
+ * off as the requested solution.
+ */
+export function peekWaveGrid(bucket: WaveBucket): WaveGridResult | undefined {
+  const resolved = resolution.get(bucketKey(bucket)) ?? bucket
+  const grid = gridCache.peek<ScalarGrid>(cacheKey(resolved))
+  if (!grid) return undefined
+  return { grid, bucket: resolved, substituted: bucketKey(resolved) !== bucketKey(bucket) }
+}
+
+/** Test seam: forget remembered substitutions. */
+export function resetWaveResolutionForTests(): void {
+  resolution.clear()
 }

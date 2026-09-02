@@ -96,6 +96,31 @@ describe('fetchWindTimeline', () => {
     expect(t.byHour.size).toBe(1) // only the hour with BOTH speed and direction
   })
 
+  it('fails closed on an unfamiliar unit rather than guessing km/h', async () => {
+    // Wind speed selects the wave solution, so a wrong conversion would
+    // show confidently wrong wave heights lake-wide.
+    fetchMock.mockResolvedValueOnce(
+      noaaBody(
+        [{ validTime: '2026-09-02T00:00:00+00:00/PT1H', value: 10 }],
+        [{ validTime: '2026-09-02T00:00:00+00:00/PT1H', value: 90 }],
+        'wmoUnit:furlongs_per_fortnight',
+      ),
+    )
+    await expect(fetchWindTimeline()).rejects.toThrow(/unrecognized unit/)
+    miscCache.delete('noaa-wind')
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        properties: {
+          windSpeed: { values: [{ validTime: '2026-09-02T00:00:00+00:00/PT1H', value: 10 }] },
+          windDirection: { values: [{ validTime: '2026-09-02T00:00:00+00:00/PT1H', value: 90 }] },
+        },
+      }),
+    })
+    await expect(fetchWindTimeline()).rejects.toThrow(/omitted the wind speed unit/)
+  })
+
   it('surfaces a malformed response as an error, not empty wind', async () => {
     fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ properties: {} }) })
     await expect(fetchWindTimeline()).rejects.toThrow(/missing windSpeed/)

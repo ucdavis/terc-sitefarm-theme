@@ -108,7 +108,10 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
       <h2 class="fc-heading">{{ heading }}</h2>
       <SourceBadge
         :phase="2"
-        :sources="['lake-tahoe-conditions S3 (model grids)']"
+        :sources="[
+          'lake-tahoe-conditions S3 (model grids)',
+          'api.weather.gov (wind forecast)',
+        ]"
         :show-phase="false"
         :show-sources="showSources"
       />

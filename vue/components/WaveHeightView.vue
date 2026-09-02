@@ -18,9 +18,16 @@ import { compassName } from '../data/noaa'
  */
 const { state, wind, windOffsetHours, bucket, substituted, isCalm } = useWaveField()
 
-/** Meteorological direction is where wind comes FROM; the arrow points TO. */
+/**
+ * Point the arrow where the wind is going. Two rotations compose here:
+ * meteorological direction is where wind comes FROM, so the bearing to
+ * draw is dirDeg + 180; and the glyph already points right (east, bearing
+ * 90) at rotation 0, so the CSS angle is that bearing minus 90 — i.e.
+ * dirDeg + 90. Dropping the second term leaves the arrow 90° off, which
+ * looks plausible enough on a round lake to pass a glance.
+ */
 const arrowStyle = computed(() => ({
-  transform: `rotate(${wind.value ? (wind.value.dirDeg + 180) % 360 : 0}deg)`,
+  transform: `rotate(${wind.value ? (wind.value.dirDeg + 90) % 360 : 0}deg)`,
 }))
 
 const windText = computed(() => {
