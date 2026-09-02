@@ -65,7 +65,16 @@ async function ensureManifest() {
   if (loaded.value || frames.value.length > 0) return
   try {
     const manifest = await fetchModelManifest()
-    frames.value = manifest.temperature
+    // The two lists are identical in practice; fall back to flow if
+    // temperature ever ships empty. BOTH empty is an honest unavailable
+    // state, not a quiet success: report it and stay retryable
+    // (PR review finding).
+    const list = manifest.temperature.length ? manifest.temperature : manifest.flow
+    if (list.length === 0) {
+      manifestError.value = 'no forecast frames are currently published'
+      return
+    }
+    frames.value = list
     if (selectedIndex.value === -1 && frames.value.length > 0) {
       // Default to the frame closest to "now".
       const now = Date.now()

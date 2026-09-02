@@ -44,26 +44,27 @@ describe('ForecastedConditionsShell', () => {
   })
 
   it('switches panels via tabs and announces the change politely', async () => {
-    // v-show visibility asserted via the style attribute — happy-dom's
-    // isVisible() does not honor display:none reliably.
-    const hidden = (sel: string) =>
-      (w.get(sel).attributes('style') ?? '').includes('display: none')
+    // Panels located positionally (ids are per-instance); v-show asserted
+    // via the style attribute — happy-dom's isVisible() does not honor
+    // display:none reliably.
     const w = mountShell()
+    const hidden = (i: number) =>
+      (w.findAll('[role="tabpanel"]')[i].attributes('style') ?? '').includes('display: none')
     await flush()
-    expect(hidden('#fc-panel-water-temperature')).toBe(false)
-    expect(hidden('#fc-panel-currents')).toBe(true)
+    expect(hidden(0)).toBe(false)
+    expect(hidden(1)).toBe(true)
     await w.findAll('[role="tab"]')[1].trigger('click')
-    expect(hidden('#fc-panel-currents')).toBe(false)
-    expect(hidden('#fc-panel-water-temperature')).toBe(true)
+    expect(hidden(1)).toBe(false)
+    expect(hidden(0)).toBe(true)
     expect(w.get('[aria-live="polite"]').text()).toContain('Currents view selected.')
   })
 
   it('placeholder panels honestly name the story delivering each layer', async () => {
     const w = mountShell()
     await flush()
-    expect(w.get('#fc-panel-water-temperature').text()).toContain('TERC-23')
-    await w.findAll('[role="tab"]')[2].trigger('click')
-    expect(w.get('#fc-panel-wave-height').text()).toContain('TERC-24')
+    const panels = w.findAll('[role="tabpanel"]')
+    expect(panels[0].text()).toContain('TERC-23')
+    expect(panels[2].text()).toContain('TERC-24')
   })
 
   it('loads the manifest itself and shows the selected lake time in the caption', async () => {
@@ -71,7 +72,44 @@ describe('ForecastedConditionsShell', () => {
     await flush()
     expect(fetchMock).toHaveBeenCalledTimes(1)
     await flush()
-    expect(w.get('#fc-panel-water-temperature').text()).toContain('(lake time)')
+    expect(w.findAll('[role="tabpanel"]')[0].text()).toContain('(lake time)')
+  })
+
+  it('wires tabs to panels with matching per-instance ids', async () => {
+    const w = mountShell()
+    await flush()
+    const tab = w.findAll('[role="tab"]')[0]
+    const panel = w.findAll('[role="tabpanel"]')[0]
+    expect(tab.attributes('aria-controls')).toBe(panel.attributes('id'))
+    expect(panel.attributes('aria-labelledby')).toBe(tab.attributes('id'))
+  })
+
+  it('gives each shell instance disjoint tab ids (multi-instance pages)', async () => {
+    const a = mountShell()
+    const b = mountShell()
+    await flush()
+    const idsA = a.findAll('[role="tab"]').map((t) => t.attributes('id'))
+    const idsB = b.findAll('[role="tab"]').map((t) => t.attributes('id'))
+    for (const id of idsA) expect(idsB).not.toContain(id)
+  })
+
+  it('manifest failure offers a retry that recovers in place', async () => {
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 503 })
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ temperature: NAMES, flow: NAMES }),
+    })
+    const w = mountShell()
+    await flush()
+    await flush()
+    const retry = w.get('.fc-retry')
+    expect(retry.text()).toContain('Try again')
+    await retry.trigger('click')
+    await flush()
+    await flush()
+    expect(w.find('[role="alert"]').exists()).toBe(false)
+    expect(w.get('.frame-count').text()).toContain(`/ ${NAMES.length}`)
   })
 
   it('shows a manifest failure as an alert, honestly', async () => {

@@ -1,3 +1,8 @@
+<script lang="ts">
+/** Module-scope shell counter — one per mounted instance (see idBase). */
+let shellSeq = 0
+</script>
+
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
@@ -35,6 +40,7 @@ const props = withDefaults(
 function asBool(v: boolean | number | string): boolean {
   return v === true || v === 1 || v === '1'
 }
+
 const showSources = asBool(props.showSources)
 const showDiagnostics = asBool(props.debug)
 
@@ -70,6 +76,13 @@ const VIEWS: ViewDef[] = [
 
 const activeKey = ref(VIEWS[0].key)
 const activeView = computed(() => VIEWS.find((v) => v.key === activeKey.value) ?? VIEWS[0])
+
+// Per-instance id base: the mount layer supports several block instances on
+// one page, and duplicated tab/panel ids would cross-wire aria-controls /
+// aria-labelledby between them (PR review finding). A module-level counter
+// rather than useId(): each placeholder mounts as its OWN Vue app
+// (lib/mount.ts), and useId only dedupes within one app.
+const idBase = `fc-${++shellSeq}`
 
 const { selectedFrame, manifestError, ensureManifest } = useModelTime()
 // The shell loads the manifest itself: the views' composable does too, but
@@ -107,7 +120,7 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
     <ViewTabs
       v-model="activeKey"
       :tabs="VIEWS"
-      id-base="fc"
+      :id-base="idBase"
       list-label="Forecasted conditions views"
     />
     <span class="fc-sr-only" aria-live="polite">{{ viewAnnouncement }}</span>
@@ -116,17 +129,18 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
 
     <p v-if="manifestError" class="fc-error" role="alert">
       The forecast index could not be loaded right now ({{ manifestError }}).
-      Selection and playback are unavailable until it recovers — real-time
+      Selection and playback are unavailable until it loads — real-time
       conditions are unaffected.
+      <button class="fc-retry" type="button" @click="ensureManifest()">Try again</button>
     </p>
 
     <div
       v-for="v in VIEWS"
       v-show="v.key === activeKey"
-      :id="`fc-panel-${v.key}`"
+      :id="`${idBase}-panel-${v.key}`"
       :key="v.key"
       role="tabpanel"
-      :aria-labelledby="`fc-tab-${v.key}`"
+      :aria-labelledby="`${idBase}-tab-${v.key}`"
       class="fc-panel"
     >
       <p class="fc-caption">{{ frameCaption }}</p>
@@ -184,6 +198,21 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
   border-radius: 8px;
   padding: 12px 16px;
   font-size: 0.875rem;
+}
+.fc-retry {
+  font: inherit;
+  font-weight: 600;
+  margin-left: 8px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid #8f2a16;
+  background: #fff;
+  color: #8f2a16;
+  cursor: pointer;
+}
+.fc-retry:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
 }
 .fc-panel {
   display: flex;

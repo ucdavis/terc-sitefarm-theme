@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useModelTime } from '../composables/useModelTime'
-import { fmtLakeDay } from '../core/time'
+import { fmtLakeDay, fmtLakeHour } from '../core/time'
 
 /**
  * Date dropdown + hour stepper + "Next 24 h" playback driving the shared
@@ -38,13 +38,12 @@ const dateOptions = computed(() =>
   }),
 )
 
+// Format the INSTANT, not the filename hour — on the spring-forward frame
+// the two differ, and the caption below already formats the instant
+// (PR review finding).
 const hourLabel = computed(() => {
   const f = selectedFrame.value
-  if (!f) return '—'
-  const h = f.hour
-  const ampm = h < 12 ? 'AM' : 'PM'
-  const h12 = h % 12 === 0 ? 12 : h % 12
-  return `${h12}:00 ${ampm}`
+  return f ? fmtLakeHour(f.time) : '—'
 })
 
 const isForecast = computed(() => {
@@ -68,7 +67,7 @@ function onKeydown(e: KeyboardEvent) {
   <div
     class="selector"
     role="group"
-    aria-label="Forecast date and time. Left and right arrow keys step one model hour."
+    aria-label="Forecast date and time. Left and right arrow keys move to the previous or next available forecast time."
     tabindex="0"
     @keydown="onKeydown"
   >
@@ -87,7 +86,7 @@ function onKeydown(e: KeyboardEvent) {
         class="step-btn"
         type="button"
         :disabled="!canBack"
-        aria-label="Previous hour"
+        aria-label="Previous forecast time"
         @click="stepHour(-1)"
       >
         <span aria-hidden="true">‹</span>
@@ -100,7 +99,7 @@ function onKeydown(e: KeyboardEvent) {
         class="step-btn"
         type="button"
         :disabled="!canFwd"
-        aria-label="Next hour"
+        aria-label="Next forecast time"
         @click="stepHour(1)"
       >
         <span aria-hidden="true">›</span>
@@ -119,7 +118,7 @@ function onKeydown(e: KeyboardEvent) {
       {{ playing ? ' Stop' : ' Next 24 h' }}
     </button>
     <span v-if="frames.length" class="frame-count">
-      hour {{ selectedIndex + 1 }} / {{ frames.length }}
+      time {{ selectedIndex + 1 }} / {{ frames.length }}
     </span>
   </div>
 </template>

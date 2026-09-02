@@ -47,8 +47,8 @@ describe('DateHourSelector', () => {
     const t = useModelTime()
     t.selectedIndex.value = 0
     const w = mount(DateHourSelector)
-    const prev = w.get('[aria-label="Previous hour"]')
-    const next = w.get('[aria-label="Next hour"]')
+    const prev = w.get('[aria-label="Previous forecast time"]')
+    const next = w.get('[aria-label="Next forecast time"]')
     expect(prev.attributes('disabled')).toBeDefined()
     await next.trigger('click')
     expect(t.selectedIndex.value).toBe(1)

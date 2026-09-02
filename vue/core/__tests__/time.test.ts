@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtDateParam, lakeWallTimeToDate, parseTmStamp, startOfTodayLakeTime } from '../time'
+import { fmtDateParam, fmtLakeHour, lakeWallTimeToDate, parseTmStamp, startOfTodayLakeTime } from '../time'
 
 describe('lake-time pinning (TERC-43)', () => {
   it('winter wall time maps to PST (UTC-8)', () => {
@@ -30,6 +30,13 @@ describe('lake-time pinning (TERC-43)', () => {
   it('fmtDateParam uses the UTC calendar date (the API day boundary)', () => {
     expect(fmtDateParam(new Date('2026-01-16T07:59:00Z'))).toBe('20260116')
     expect(fmtDateParam(new Date('2026-01-15T23:59:00Z'))).toBe('20260115')
+  })
+  it('fmtLakeHour formats the instant, agreeing with fmtLakeTime on the DST gap frame', () => {
+    // The "2026-03-08 02" model frame resolves to 09:00Z = 1:00 AM PST —
+    // formatting the instant (not the filename hour) keeps the stepper
+    // readout and the caption in agreement (PR review finding).
+    expect(fmtLakeHour(new Date('2026-03-08T09:00:00Z'))).toBe('1:00 AM')
+    expect(fmtLakeHour(new Date('2026-08-19T21:00:00Z'))).toBe('2:00 PM')
   })
   it('startOfTodayLakeTime returns lake-time midnight for the given instant', () => {
     // At 2026-07-15T05:00Z the lake clock reads Jul 14 22:00 PDT;

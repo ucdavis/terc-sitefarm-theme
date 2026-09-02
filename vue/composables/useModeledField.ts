@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { getCurrentScope, onScopeDispose, ref, watch } from 'vue'
 import { gridCache } from '../core/cache'
 import { type RequestState, failure, idle, loading, success } from '../core/requestState'
 import {
@@ -28,6 +28,20 @@ export function useModeledField(variable: GridVariable) {
   const state = ref<RequestState<ScalarGrid>>(idle())
   let generation = 0
   let settleTimer: ReturnType<typeof setTimeout> | null = null
+  let disposed = false
+
+  // The watchers below die with the owning scope automatically, but the
+  // settle timer would not: it could fire after unmount and start
+  // background requests for a view that no longer exists (PR review
+  // finding). An async loadFrame finishing after disposal must not
+  // schedule a new one either.
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      disposed = true
+      generation++
+      if (settleTimer) clearTimeout(settleTimer)
+    })
+  }
 
   async function loadFrame(frame: ModelFrame) {
     const gen = ++generation
@@ -46,6 +60,7 @@ export function useModeledField(variable: GridVariable) {
       }
     }
 
+    if (disposed) return
     if (settleTimer) clearTimeout(settleTimer)
     settleTimer = setTimeout(() => {
       prefetchAdjacentFrames(variable, time.frames.value, time.selectedIndex.value)

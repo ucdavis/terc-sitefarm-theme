@@ -29,7 +29,10 @@ export const TILE_LAYERS = {
    *  plenty for a whole-lake stage. */
   muted: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+    // Esri's basemap terms want a linked "Powered by Esri" notice plus the
+    // service's current credits (PR review finding).
+    attribution:
+      '<a href="https://www.esri.com">Powered by Esri</a> &mdash; Esri, HERE, Garmin, OpenStreetMap contributors, and the GIS user community',
     maxZoom: 16,
   },
 } as const

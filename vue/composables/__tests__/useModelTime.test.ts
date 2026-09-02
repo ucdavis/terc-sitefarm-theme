@@ -102,6 +102,30 @@ describe('useModelTime', () => {
     expect(t.playing.value).toBe(false)
   })
 
+  it('an empty manifest is an honest unavailable state, and stays retryable', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ temperature: [], flow: [] }) })
+    const t = useModelTime()
+    await t.ensureManifest()
+    expect(t.manifestError.value).toMatch(/no forecast frames/)
+    expect(t.frames.value).toHaveLength(0)
+    // The cached (empty) manifest expires/refreshes; a later retry succeeds.
+    miscCache.delete('model-manifest')
+    await t.ensureManifest()
+    expect(t.manifestError.value).toBeNull()
+    expect(t.frames.value).toHaveLength(NAMES.length)
+  })
+
+  it('falls back to the flow list if temperature ships empty', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ temperature: [], flow: NAMES.slice(0, 3) }),
+    })
+    const t = useModelTime()
+    await t.ensureManifest()
+    expect(t.manifestError.value).toBeNull()
+    expect(t.frames.value).toHaveLength(3)
+  })
+
   it('manifest failure is reported and retried on the next ensureManifest', async () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 503 })
     const t = useModelTime()

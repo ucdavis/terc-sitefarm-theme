@@ -128,6 +128,21 @@ describe('useModeledField', () => {
     scope.stop()
   })
 
+  it('a disposed scope cancels the pending settle prefetch (no post-unmount requests)', async () => {
+    fetchMock.mockImplementation((url: string) =>
+      url.includes('contents.json') ? manifestResponse() : npyResponse(),
+    )
+    const scope = effectScope()
+    const field = scope.run(() => useModeledField('temperature'))!
+    await settle()
+    field.selectedIndex.value = 1
+    await settle()
+    const before = gridFetches()
+    scope.stop() // unmount before the 350 ms settle threshold
+    await vi.advanceTimersByTimeAsync(400)
+    expect(gridFetches()).toBe(before)
+  })
+
   it('prefetches adjacent frames after the view settles for 350 ms', async () => {
     fetchMock.mockImplementation((url: string) =>
       url.includes('contents.json') ? manifestResponse() : npyResponse(),
