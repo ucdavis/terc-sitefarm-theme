@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import LakeMap from '../LakeMap.vue'
 import { LAKE_CENTER, LAKE_DEFAULT_ZOOM, STATION_FOCUS_ZOOM } from '../../config/lakeView'
@@ -18,6 +18,8 @@ function makeFakeEngine() {
     badges: [] as { group: string; opts: BadgeMarkerOpts }[],
     circles: [] as { group: string; opts: CircleMarkerOpts }[],
     flights: [] as { center: LatLng; zoom: number }[],
+    fits: 0,
+    invalidations: 0,
     destroyed: false,
   }
   const engine: MapEngine = {
@@ -34,7 +36,12 @@ function makeFakeEngine() {
     flyTo(center, zoom) {
       state.flights.push({ center, zoom })
     },
-    fitBounds() {},
+    fitBounds() {
+      state.fits++
+    },
+    invalidateSize() {
+      state.invalidations++
+    },
     setImageOverlay() {},
     removeImageOverlay() {},
     destroy() {
@@ -190,5 +197,83 @@ describe('LakeMap', () => {
     const { fake, wrapper } = mountMap()
     wrapper.unmount()
     expect(fake.state.destroyed).toBe(true)
+  })
+
+  describe('container size changes', () => {
+    /** Captures the ResizeObserver callback so a resize can be simulated. */
+    function stubResizeObserver() {
+      const cbs: ResizeObserverCallback[] = []
+      const disconnects = { count: 0 }
+      class FakeResizeObserver {
+        constructor(cb: ResizeObserverCallback) {
+          cbs.push(cb)
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {
+          disconnects.count++
+        }
+      }
+      vi.stubGlobal('ResizeObserver', FakeResizeObserver)
+      const resize = (width: number, height: number) =>
+        cbs[0]?.(
+          [{ contentRect: { width, height } } as ResizeObserverEntry],
+          {} as ResizeObserver,
+        )
+      return { resize, disconnects }
+    }
+
+    it('re-measures when a hidden container finally gets a real size', () => {
+      // The regression: a field view mounted inside a tab panel Vue
+      // un-hides AFTER the child mounts leaves the engine sized 0x0 —
+      // one stray tile and an invisible overlay.
+      const { resize } = stubResizeObserver()
+      const { fake } = mountMap({ fitLake: true })
+      expect(fake.state.invalidations).toBe(0)
+
+      resize(1004, 640)
+      expect(fake.state.invalidations).toBe(1)
+      // The first fit ran against the wrong box, so it must be redone.
+      expect(fake.state.fits).toBeGreaterThan(0)
+
+      vi.unstubAllGlobals()
+    })
+
+    it('ignores zero-size boxes and repeats of the same size', () => {
+      const { resize } = stubResizeObserver()
+      const { fake } = mountMap({ fitLake: true })
+
+      resize(0, 0)
+      expect(fake.state.invalidations).toBe(0)
+
+      resize(1004, 640)
+      resize(1004, 640)
+      expect(fake.state.invalidations).toBe(1)
+
+      resize(600, 640) // the responsive breakpoint widening the map
+      expect(fake.state.invalidations).toBe(2)
+
+      vi.unstubAllGlobals()
+    })
+
+    it('never refits an interactive map — that would yank the visitor’s view', () => {
+      const { resize } = stubResizeObserver()
+      const { fake } = mountMap() // fitLake defaults false
+      resize(1004, 640)
+      expect(fake.state.invalidations).toBe(1)
+      expect(fake.state.fits).toBe(0)
+
+      vi.unstubAllGlobals()
+    })
+
+    it('disconnects the observer on unmount', () => {
+      const { resize, disconnects } = stubResizeObserver()
+      const { wrapper } = mountMap({ fitLake: true })
+      wrapper.unmount()
+      expect(disconnects.count).toBe(1)
+      expect(() => resize(800, 600)).not.toThrow()
+
+      vi.unstubAllGlobals()
+    })
   })
 })

@@ -15,7 +15,14 @@ const mountShell = (props: Record<string, unknown> = {}) =>
     props,
     // WaterTemperatureView has its own suite; stubbing it keeps shell tests
     // free of grid fetches.
-    global: { stubs: { LakeMap: true, CacheDiagnostics: true, WaterTemperatureView: true } },
+    global: {
+      stubs: {
+        LakeMap: true,
+        CacheDiagnostics: true,
+        WaterTemperatureView: true,
+        CurrentsView: true,
+      },
+    },
   })
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
@@ -51,9 +58,18 @@ describe('ForecastedConditionsShell', () => {
   it('keeps the bare map stage for views whose layer has not landed', async () => {
     const w = mountShell()
     await flush()
-    await w.findAll('[role="tab"]')[1].trigger('click') // Currents (TERC-25 pending)
+    await w.findAll('[role="tab"]')[2].trigger('click') // Wave Height (TERC-24 pending)
     expect(w.find('lake-map-stub').exists()).toBe(true)
     expect(w.find('water-temperature-view-stub').exists()).toBe(false)
+  })
+
+  it('mounts the Currents view, with its own stage, when its tab is active', async () => {
+    const w = mountShell()
+    await flush()
+    await w.findAll('[role="tab"]')[1].trigger('click')
+    expect(w.find('currents-view-stub').exists()).toBe(true)
+    expect(w.find('water-temperature-view-stub').exists()).toBe(false)
+    expect(w.find('lake-map-stub').exists()).toBe(false)
   })
 
   it('switches panels via tabs and announces the change politely', async () => {
@@ -76,9 +92,9 @@ describe('ForecastedConditionsShell', () => {
     const w = mountShell()
     await flush()
     const panels = w.findAll('[role="tabpanel"]')
-    // Water Temperature is delivered — no "arrives with" copy in its panel.
+    // Delivered views carry no "arrives with" copy; pending ones name their story.
     expect(panels[0].text()).not.toContain('arrives with')
-    expect(panels[1].text()).toContain('TERC-25')
+    expect(panels[1].text()).not.toContain('arrives with')
     expect(panels[2].text()).toContain('TERC-24')
   })
 
