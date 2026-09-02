@@ -10,6 +10,7 @@ import CacheDiagnostics from './CacheDiagnostics.vue'
 import DateHourSelector from './DateHourSelector.vue'
 import LakeMap from './LakeMap.vue'
 import SourceBadge from './SourceBadge.vue'
+import CurrentsView from './CurrentsView.vue'
 import ViewTabs, { type ViewTab } from './ViewTabs.vue'
 import WaterTemperatureView from './WaterTemperatureView.vue'
 import { useModelTime } from '../composables/useModelTime'
@@ -69,8 +70,8 @@ const VIEWS: ViewDef[] = [
     label: 'Currents',
     blurb:
       'Forecasted water movement across the lake, including the gyres and rip currents that matter to swimmers and paddleboarders.',
-    arrivesWith: 'TERC-25',
-    component: null,
+    arrivesWith: null,
+    component: CurrentsView,
   },
   {
     key: 'wave-height',

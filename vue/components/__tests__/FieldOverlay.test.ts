@@ -24,6 +24,7 @@ function makeEngine() {
     addCircleMarker() {},
     flyTo() {},
     fitBounds() {},
+    invalidateSize() {},
     setImageOverlay(id: string, url: string, _b: unknown, opacity: number) {
       calls.push({ op: 'set', id, url, opacity })
     },

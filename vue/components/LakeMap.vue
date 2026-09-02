@@ -66,6 +66,7 @@ const emit = defineEmits<{
 
 const container = ref<HTMLElement | null>(null)
 const engine = shallowRef<MapEngine | null>(null)
+let resizeObserver: ResizeObserver | null = null
 // Overlay children in the default slot (FieldOverlay, TERC-23) draw through
 // the same engine seam rather than importing a map library.
 provide(MAP_ENGINE_INJECTION_KEY, engine)
@@ -158,6 +159,30 @@ onMounted(() => {
   })
   drawDestinations()
   drawOverview()
+
+  // Engines cache the container size at init. A map mounted inside a tab
+  // panel that Vue un-hides AFTER this child's onMounted (the Forecasted
+  // Conditions views) would otherwise keep a zero size — one stray tile,
+  // an invisible overlay — until something else forced a re-measure. This
+  // also covers the responsive breakpoint where the legend stacks and the
+  // map widens without a window resize event.
+  if (typeof ResizeObserver !== 'undefined' && container.value) {
+    let lastW = 0
+    let lastH = 0
+    resizeObserver = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect
+      if (!box || box.width === 0 || box.height === 0) return
+      if (box.width === lastW && box.height === lastH) return
+      lastW = box.width
+      lastH = box.height
+      engine.value?.invalidateSize()
+      // The initial fit was computed against the wrong box; redo it.
+      // Only for the data-canvas maps — refitting an interactive map
+      // would yank the view out from under the visitor.
+      if (props.fitLake) engine.value?.fitBounds(LAKE_GRID_BOUNDS)
+    })
+    resizeObserver.observe(container.value)
+  }
 })
 
 watch(
@@ -194,6 +219,8 @@ function resetView() {
 defineExpose({ resetView })
 
 onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
   engine.value?.destroy()
   engine.value = null
 })

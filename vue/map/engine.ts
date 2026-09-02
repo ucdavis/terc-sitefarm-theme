@@ -87,6 +87,13 @@ export interface MapEngine {
   /** Instant refit to a bounding box (window resizes, layout shifts). */
   fitBounds(bounds: LatLngBounds): void
   /**
+   * Re-read the container's size. Engines cache it at init, so a map built
+   * inside a hidden or not-yet-laid-out element (a tab panel Vue un-hides
+   * after the child mounts) keeps a zero size and renders one stray tile
+   * until told otherwise. LakeMap calls this whenever the box changes.
+   */
+  invalidateSize(): void
+  /**
    * Place (or update in place) a named image overlay — the scalar-field
    * layers (TERC-23). Same id = update the existing overlay's image, which
    * engines should do without re-adding (no flicker on hour steps).

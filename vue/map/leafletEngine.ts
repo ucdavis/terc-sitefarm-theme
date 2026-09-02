@@ -120,6 +120,10 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
       map.fitBounds(bounds)
     },
 
+    invalidateSize() {
+      map.invalidateSize()
+    },
+
     setImageOverlay(id: string, url: string, bounds: LatLngBounds, opacity: number) {
       const existing = imageOverlays.get(id)
       if (existing) {
