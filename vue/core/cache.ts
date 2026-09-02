@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import type { PersistentStore } from './persistentStore'
 
 /**
  * The shared cache — used by every data module in both phases.
@@ -20,7 +21,7 @@ export const TTL = {
 } as const
 
 export interface CacheEvent {
-  kind: 'hit' | 'miss' | 'join' | 'evict' | 'prefetch'
+  kind: 'hit' | 'miss' | 'join' | 'evict' | 'prefetch' | 'disk'
   key: string
   at: number
 }
@@ -31,6 +32,9 @@ export const cacheStats = reactive({
   joins: 0,
   evictions: 0,
   prefetches: 0,
+  /** Served from the persistent tier: no download, no decode (TERC-48). */
+  diskHits: 0,
+  diskWrites: 0,
   entries: 0,
   inflight: 0,
   events: [] as CacheEvent[],
@@ -53,10 +57,25 @@ function refreshCounts() {
   cacheStats.inflight = allCaches.reduce((n, c) => n + c.inflightCount, 0)
 }
 
+/**
+ * Optional cold tier beneath the in-memory LRU (TERC-48). Only entries
+ * cached FOREVER are eligible: those are the immutable ones (past model
+ * hours, precomputed wave buckets). Anything with a real TTL is volatile
+ * by definition — persisting the manifest or a wind forecast would mean
+ * serving a stale window after a reload, which is the opposite of the
+ * point.
+ */
+export interface CachePersistence {
+  store: PersistentStore
+  /** Approximate stored size, for the tier's own eviction budget. */
+  bytesOf: (value: unknown) => number
+}
+
 export class DataCache {
   // Map preserves insertion order -> oldest-first makes a cheap LRU.
   private entries = new Map<string, Entry>()
   private inflight = new Map<string, Promise<unknown>>()
+  private persistence: CachePersistence | null = null
 
   constructor(
     public readonly name: string,
@@ -94,6 +113,15 @@ export class DataCache {
     return this.peek(key) !== undefined
   }
 
+  /**
+   * Give this cache a cold tier. Wired at the entry point rather than in
+   * this module so cache.ts stays storage-agnostic and tests attach a
+   * fake. Attaching is idempotent; pass null to detach.
+   */
+  attachPersistence(p: CachePersistence | null): void {
+    this.persistence = p
+  }
+
   /** Drop one entry (and any in-flight join for it) so the next getOrFetch
    *  refetches — for invalidation and test isolation. */
   delete(key: string): void {
@@ -126,15 +154,47 @@ export class DataCache {
       return pending as Promise<T>
     }
 
-    if (opts.prefetch) {
-      cacheStats.prefetches++
-      record('prefetch', scoped)
-    } else {
-      cacheStats.misses++
-      record('miss', scoped)
+    // Only immutable entries are eligible for the cold tier — see
+    // CachePersistence.
+    const persistence = ttl === TTL.FOREVER ? this.persistence : null
+
+    /**
+     * Disk before network. Counting happens here rather than up front so
+     * the diagnostics stay truthful: a disk hit is not a miss, and no
+     * request was made. Concurrent callers still join, because this whole
+     * function is what the in-flight promise wraps.
+     */
+    const produce = async (): Promise<T> => {
+      if (persistence) {
+        const stored = await persistence.store.get(key)
+        if (stored !== undefined) {
+          cacheStats.diskHits++
+          record('disk', scoped)
+          return stored as T
+        }
+      }
+      if (opts.prefetch) {
+        cacheStats.prefetches++
+        record('prefetch', scoped)
+      } else {
+        cacheStats.misses++
+        record('miss', scoped)
+      }
+      const value = await fetcher()
+      if (persistence) {
+        // Best-effort and off the critical path: the value is already
+        // being returned, and a storage failure must never fail a request.
+        void persistence.store
+          .put(key, value, persistence.bytesOf(value))
+          .then(() => {
+            cacheStats.diskWrites++
+          })
+          .catch(() => {})
+      }
+      return value
     }
 
-    const p = fetcher()
+    const p = produce()
       .then((value) => {
         this.entries.delete(key)
         this.entries.set(key, {
