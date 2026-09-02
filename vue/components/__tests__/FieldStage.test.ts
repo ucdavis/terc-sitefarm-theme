@@ -75,6 +75,16 @@ describe('FieldStage', () => {
     expect(mapLabelOf(w)).toContain(BASE.emptyMessage)
   })
 
+  it('states the empty case for a loader that reports empty outright', () => {
+    // RequestState treats `empty` as a first-class finished-with-no-data
+    // outcome — TERC-24 uses it when no wind bucket is close enough. It
+    // must not fall through to the not-loaded-yet wording (PR review).
+    const w = mountStage(empty())
+    expect(w.get('.field-summary').text()).toBe(BASE.emptyMessage)
+    expect(mapLabelOf(w)).toContain(BASE.emptyMessage)
+    expect(mapLabelOf(w)).not.toContain('No data loaded yet')
+  })
+
   it('shows no summary at all before any grid has loaded', () => {
     expect(mountStage(loading()).find('.field-summary').exists()).toBe(false)
   })

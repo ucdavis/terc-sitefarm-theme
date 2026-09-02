@@ -51,10 +51,17 @@ const summary = computed(() => {
   )
 })
 
-/** Grid loaded but every cell is masked — an honest empty state, distinct
- *  from "still loading" and from "not fetched yet" (non-negotiable #4). */
+/**
+ * Nothing to draw, but the request finished — an honest empty state,
+ * distinct from "still loading" and from "not fetched yet"
+ * (non-negotiable #4). Two ways to get here: the loader reported `empty`
+ * outright (TERC-24 resolves no wind bucket close enough to the forecast),
+ * or a grid arrived whose every cell is masked.
+ */
 const noFieldData = computed(
-  () => props.state.status === 'success' && !!props.state.data && !summary.value,
+  () =>
+    props.state.status === 'empty' ||
+    (props.state.status === 'success' && !!props.state.data && !summary.value),
 )
 
 const mapLabel = computed(() => {
