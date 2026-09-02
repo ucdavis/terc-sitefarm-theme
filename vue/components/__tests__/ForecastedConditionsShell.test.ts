@@ -13,7 +13,9 @@ import ForecastedConditionsShell from '../ForecastedConditionsShell.vue'
 const mountShell = (props: Record<string, unknown> = {}) =>
   mount(ForecastedConditionsShell, {
     props,
-    global: { stubs: { LakeMap: true, CacheDiagnostics: true } },
+    // WaterTemperatureView has its own suite; stubbing it keeps shell tests
+    // free of grid fetches.
+    global: { stubs: { LakeMap: true, CacheDiagnostics: true, WaterTemperatureView: true } },
   })
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
@@ -34,13 +36,24 @@ afterEach(() => {
 })
 
 describe('ForecastedConditionsShell', () => {
-  it('renders the heading, the three registered view tabs, and the map stage', async () => {
+  it('renders the heading, the three view tabs, and the active view component', async () => {
     const w = mountShell()
     await flush()
     expect(w.text()).toContain('Lake Tahoe Forecasted Conditions')
     const tabs = w.findAll('[role="tab"]')
     expect(tabs.map((t) => t.text())).toEqual(['Water Temperature', 'Currents', 'Wave Height'])
+    // Water Temperature (TERC-23) is implemented: its view renders and
+    // brings its own map stage, so the shell's bare stage stays away.
+    expect(w.find('water-temperature-view-stub').exists()).toBe(true)
+    expect(w.find('lake-map-stub').exists()).toBe(false)
+  })
+
+  it('keeps the bare map stage for views whose layer has not landed', async () => {
+    const w = mountShell()
+    await flush()
+    await w.findAll('[role="tab"]')[1].trigger('click') // Currents (TERC-25 pending)
     expect(w.find('lake-map-stub').exists()).toBe(true)
+    expect(w.find('water-temperature-view-stub').exists()).toBe(false)
   })
 
   it('switches panels via tabs and announces the change politely', async () => {
@@ -63,7 +76,9 @@ describe('ForecastedConditionsShell', () => {
     const w = mountShell()
     await flush()
     const panels = w.findAll('[role="tabpanel"]')
-    expect(panels[0].text()).toContain('TERC-23')
+    // Water Temperature is delivered — no "arrives with" copy in its panel.
+    expect(panels[0].text()).not.toContain('arrives with')
+    expect(panels[1].text()).toContain('TERC-25')
     expect(panels[2].text()).toContain('TERC-24')
   })
 

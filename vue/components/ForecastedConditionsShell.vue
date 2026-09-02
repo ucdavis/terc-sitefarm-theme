@@ -5,11 +5,13 @@ let shellSeq = 0
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import type { Component } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
 import DateHourSelector from './DateHourSelector.vue'
 import LakeMap from './LakeMap.vue'
 import SourceBadge from './SourceBadge.vue'
 import ViewTabs, { type ViewTab } from './ViewTabs.vue'
+import WaterTemperatureView from './WaterTemperatureView.vue'
 import { useModelTime } from '../composables/useModelTime'
 import { fmtLakeTime } from '../core/time'
 
@@ -49,6 +51,8 @@ interface ViewDef extends ViewTab {
   blurb: string
   /** Jira story delivering this view's field layer (placeholder copy). */
   arrivesWith: string | null
+  /** The view component, once its story lands; null renders a placeholder. */
+  component: Component | null
 }
 
 const VIEWS: ViewDef[] = [
@@ -57,7 +61,8 @@ const VIEWS: ViewDef[] = [
     label: 'Water Temperature',
     blurb:
       'Lake-wide forecasted surface temperature. The lake is not one temperature — cold upwellings can chill a shoreline overnight.',
-    arrivesWith: 'TERC-23',
+    arrivesWith: null,
+    component: WaterTemperatureView,
   },
   {
     key: 'currents',
@@ -65,12 +70,14 @@ const VIEWS: ViewDef[] = [
     blurb:
       'Forecasted water movement across the lake, including the gyres and rip currents that matter to swimmers and paddleboarders.',
     arrivesWith: 'TERC-25',
+    component: null,
   },
   {
     key: 'wave-height',
     label: 'Wave Height',
     blurb: 'Forecasted wave heights driven by the wind forecast, lake-wide.',
     arrivesWith: 'TERC-24',
+    component: null,
   },
 ]
 
@@ -149,9 +156,12 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
         The {{ v.label.toLowerCase() }} map layer arrives with {{ v.arrivesWith }}.
         The date and hour you choose here already drive it.
       </p>
+      <component :is="v.component" v-if="v.component && v.key === activeKey" />
     </div>
 
-    <div class="fc-stage">
+    <!-- Implemented views bring their own map stage; the bare stage remains
+         only while the active view's layer has not landed yet. -->
+    <div v-if="!activeView.component" class="fc-stage">
       <LakeMap static-map fit-lake basemap="muted" height="640px" aria-label="Map of Lake Tahoe. Forecast layers render here as each view arrives." />
     </div>
 

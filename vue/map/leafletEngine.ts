@@ -45,6 +45,7 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
   // the same id gets focus back instead of dropping the user to <body>.
   const badgeEls = new Map<string, Map<string, HTMLElement>>()
   let refocusId: string | null = null
+  const imageOverlays = new Map<string, L.ImageOverlay>()
 
   return {
     clearGroup(name: string) {
@@ -117,6 +118,27 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
 
     fitBounds(bounds: LatLngBounds) {
       map.fitBounds(bounds)
+    },
+
+    setImageOverlay(id: string, url: string, bounds: LatLngBounds, opacity: number) {
+      const existing = imageOverlays.get(id)
+      if (existing) {
+        // Update in place — re-adding would flash the basemap between frames.
+        existing.setUrl(url)
+        existing.setOpacity(opacity)
+      } else {
+        const overlay = L.imageOverlay(url, bounds, {
+          opacity,
+          interactive: false,
+          className: 'terc-field-overlay',
+        }).addTo(map)
+        imageOverlays.set(id, overlay)
+      }
+    },
+
+    removeImageOverlay(id: string) {
+      imageOverlays.get(id)?.remove()
+      imageOverlays.delete(id)
     },
 
     destroy() {

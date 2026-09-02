@@ -35,6 +35,8 @@ function makeFakeEngine() {
       state.flights.push({ center, zoom })
     },
     fitBounds() {},
+    setImageOverlay() {},
+    removeImageOverlay() {},
     destroy() {
       state.destroyed = true
     },
