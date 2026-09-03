@@ -210,9 +210,6 @@ onMounted(() => {
       </template>
     </div>
 
-    <!-- Phase-related placeholder: follows the "Show phase indicator"
-         block toggle, so a placement that hides phase chips also hides
-         the forward-looking Phase 2 note (TERC-57). -->
     <!-- Phase 2 is live (TERC-12): the placeholder is now the cross-link to
          the Forecasted Conditions page. It has its own block toggle rather
          than riding on "Show phase indicator" — that toggle hid a

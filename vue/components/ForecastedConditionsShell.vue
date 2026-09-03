@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
 import DateHourSelector from './DateHourSelector.vue'
@@ -85,20 +85,29 @@ function viewFromLocation(): string {
 const activeKey = ref(viewFromLocation())
 const activeView = computed(() => VIEWS.find((v) => v.key === activeKey.value) ?? VIEWS[0])
 
-// Immediate so an unknown ?fc-view= is normalised away on mount rather than
-// lingering in a URL that no longer describes what's shown.
-watch(
-  activeKey,
-  (key) => {
-    const url = new URL(window.location.href)
-    if (key === VIEWS[0].key) url.searchParams.delete(PARAM_VIEW)
-    else url.searchParams.set(PARAM_VIEW, key)
-    if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
-  },
-  { immediate: true },
-)
+/** The page URL describing `key` — no param for the default view. */
+function urlForView(key: string): URL {
+  const url = new URL(window.location.href)
+  if (key === VIEWS[0].key) url.searchParams.delete(PARAM_VIEW)
+  else url.searchParams.set(PARAM_VIEW, key)
+  return url
+}
+
+// History discipline, matching the Real-Time page (useConditionsState):
+//  - a user's tab choice PUSHES, so Back walks the views they visited;
+//  - an unknown ?fc-view= is REPLACED away on mount, so the URL never
+//    describes something other than what's shown, without adding an entry;
+//  - popstate only reads — writing there would clobber the entry the
+//    browser just restored.
+function onSelectView(key: string) {
+  if (key === activeKey.value) return
+  activeKey.value = key
+  window.history.pushState(null, '', urlForView(key))
+}
+const normalised = urlForView(activeKey.value)
+if (normalised.href !== window.location.href) window.history.replaceState(window.history.state, '', normalised)
+
 onMounted(() => {
-  // Back/forward between deep links re-reads the param.
   const onPop = () => {
     activeKey.value = viewFromLocation()
   }
@@ -152,8 +161,9 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
     </p>
 
     <ViewTabs
-      v-model="activeKey"
+      :model-value="activeKey"
       :tabs="VIEWS"
+      @update:model-value="onSelectView"
       :id-base="idBase"
       list-label="Forecasted conditions views"
     />
