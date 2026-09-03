@@ -50,20 +50,32 @@ describe('CurrentConditionsShell tabs (TERC-55)', () => {
     expect(w.find('[aria-current]').exists()).toBe(false)
   })
 
-  it('wires the active tab to the panel by id in both directions', async () => {
+  it('gives every tab a real panel, and shows only the active one', async () => {
     const w = mountShell()
-    const panel = w.get('[role="tabpanel"]')
-    let active = w.get('[role="tab"][aria-selected="true"]')
-    expect(active.attributes('aria-controls')).toBe(panel.attributes('id'))
-    expect(panel.attributes('aria-labelledby')).toBe(active.attributes('id'))
+    const tabs = w.findAll('[role="tab"]')
+    const panels = w.findAll('[role="tabpanel"]')
+    // Every aria-controls resolves to an element that exists at rest — an
+    // IDREF to nothing is invalid ARIA (PR review finding).
+    expect(panels).toHaveLength(tabs.length)
+    for (const tab of tabs) {
+      const panel = panels.find((p) => p.attributes('id') === tab.attributes('aria-controls'))
+      expect(panel).toBeDefined()
+      expect(panel!.attributes('aria-labelledby')).toBe(tab.attributes('id'))
+    }
+    const hidden = (p: (typeof panels)[number]) =>
+      (p.attributes('style') ?? '').includes('display: none')
+    expect(panels.map(hidden)).toEqual([false, true])
+    // Only the shown panel mounts content: the other view must not fetch.
+    expect(panels[1].find('h3').exists()).toBe(false)
 
-    await w.findAll('[role="tab"]')[1].trigger('click')
-    active = w.get('[role="tab"][aria-selected="true"]')
-    expect(active.text()).toBe('Water Quality')
-    // The single panel re-pairs with whichever tab is active.
-    expect(w.get('[role="tabpanel"]').attributes('id')).toBe(active.attributes('aria-controls'))
-    expect(w.get('[role="tabpanel"]').attributes('aria-labelledby')).toBe(active.attributes('id'))
-    expect(w.get('.cc-view h3').text()).toBe('Water Quality')
+    await tabs[1].trigger('click')
+    const after = w.findAll('[role="tabpanel"]')
+    expect(after.map(hidden)).toEqual([true, false])
+    expect(after[0].find('h3').exists()).toBe(false)
+    expect(after[1].get('h3').text()).toBe('Water Quality')
+    expect(w.get('[role="tab"][aria-selected="true"]').attributes('aria-controls')).toBe(
+      after[1].attributes('id'),
+    )
   })
 
   it('switches views with the arrow keys, wrapping, plus Home and End', async () => {

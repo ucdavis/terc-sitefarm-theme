@@ -179,20 +179,24 @@ onMounted(() => {
       />
     </div>
 
-    <!-- One panel whose content follows the active tab; its id matches that
-         tab's aria-controls, so the pairing holds whichever tab is active. -->
+    <!-- One panel container per tab, always present, so every tab's
+         aria-controls resolves to a real element (the ViewTabs contract);
+         only the active panel is shown and only it mounts content, so the
+         inactive view never fetches or renders (PR review finding). -->
     <div
-      :id="`${idBase}-panel-${view}`"
+      v-for="v in views"
+      v-show="view === v.id"
+      :id="`${idBase}-panel-${v.id}`"
+      :key="v.id"
       class="cc-view"
       role="tabpanel"
-      :aria-labelledby="`${idBase}-tab-${view}`"
+      :aria-labelledby="`${idBase}-tab-${v.id}`"
     >
-      <h3>{{ activeViewLabel }}</h3>
-      <WaterQualityView v-if="view === 'water-quality'" />
-      <PlanYourDayView v-else />
-      <!-- Both Phase 1 views are real now (TERC-21, TERC-58) — the stub
-           machinery from TERC-18 is gone. -->
-
+      <template v-if="view === v.id">
+        <h3>{{ v.label }}</h3>
+        <WaterQualityView v-if="v.id === 'water-quality'" />
+        <PlanYourDayView v-else />
+      </template>
     </div>
 
     <!-- Phase-related placeholder: follows the "Show phase indicator"
@@ -269,7 +273,10 @@ onMounted(() => {
 }
 /* Keyboard focus must be clearly visible on every control (WCAG 2.4.7);
    don't rely on the browser default surviving theme CSS. */
-.cc-dest:focus-visible,
+.cc-dest:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
+}
 /* Visually hidden, still announced (live region). */
 .cc-sr-only {
   position: absolute;
