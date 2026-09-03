@@ -56,14 +56,8 @@ const caveats = computed(() => {
     empty-message="No wind forecast covers this hour, so wave heights can't be shown for it. Wave forecasts follow the wind forecast, which runs from about half a day ago through the next week."
     error-message="The wave forecast for this hour could not be loaded. Try another hour, or come back shortly — real-time conditions are unaffected."
   >
-    <p class="wv-safety">
-      Waves here are driven by wind: how hard it blows, how far it blows
-      across open water (the fetch), and how deep that water is. The same
-      wind builds much bigger waves on a long, exposed shore than in a
-      sheltered bay — which is why the east and south shores can be rough
-      while the west shore stays calm.
-    </p>
-
+    <!-- The wind/fetch/depth copy is editor-owned block text, rendered by
+         the shell beside this panel (TERC-9). -->
     <template #chrome>
       <div v-if="wind" class="wv-wind">
         <span class="wv-arrow" :style="arrowStyle" aria-hidden="true">➤</span>
@@ -82,9 +76,6 @@ const caveats = computed(() => {
 </template>
 
 <style scoped>
-.wv-safety {
-  margin: 0;
-}
 .wv-wind {
   display: flex;
   align-items: center;

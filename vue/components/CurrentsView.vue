@@ -28,20 +28,7 @@ const { state } = useModeledField('flow')
     map-description="Map of Lake Tahoe colored by forecast surface current speed."
     empty-message="No forecast current data is available for this hour."
     error-message="The current forecast for this hour could not be loaded. Try another hour, or come back shortly — real-time conditions are unaffected."
-  >
-    <p class="cv-safety">
-      Lake Tahoe's water is always moving. Large, slow gyres circulate the
-      whole lake, and wind pushes surface water toward shore where it
-      returns as fast, narrow outflows — the same rip currents that catch
-      swimmers and paddleboarders off guard. Fast water is invisible from
-      the beach: check here before you go in, stay close to shore, and wear
-      a life vest on any craft.
-    </p>
-  </FieldStage>
+  />
+  <!-- The gyre/rip-current copy is editor-owned block text, rendered by
+       the shell beside this panel (TERC-9). -->
 </template>
-
-<style scoped>
-.cv-safety {
-  margin: 0;
-}
-</style>

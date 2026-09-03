@@ -88,13 +88,35 @@ describe('ForecastedConditionsShell', () => {
     expect(w.get('[aria-live="polite"]').text()).toContain('Currents view selected.')
   })
 
-  it('gives every panel its own visitor-facing blurb', async () => {
+  it('renders the editor-owned text beside each panel, defaults included (TERC-9)', async () => {
     const w = mountShell()
     await flush()
     const panels = w.findAll('[role="tabpanel"]')
-    expect(panels[0].text()).toContain('cold upwellings')
-    expect(panels[1].text()).toContain('rip currents')
-    expect(panels[2].text()).toContain('wind forecast')
+    const aside = (i: number) => panels[i].get('.fc-panel-aside')
+    expect(aside(0).attributes('aria-label')).toBe('About Water Temperature')
+    expect(aside(0).text()).toContain('cold upwellings')
+    expect(aside(0).text()).toContain('cold-water shock')
+    expect(aside(1).text()).toContain('rip currents')
+    expect(aside(2).text()).toContain('the fetch')
+    // Blank lines in the text become paragraphs.
+    expect(aside(0).findAll('p')).toHaveLength(2)
+    expect(panels[0].classes()).toContain('fc-panel--with-aside')
+    // The views themselves no longer carry the copy.
+    expect(w.find('.wt-safety, .cv-safety, .wv-safety').exists()).toBe(false)
+  })
+
+  it('takes intro and per-view text from the block form', async () => {
+    const w = mountShell({
+      introText: 'Custom intro.\n\nSecond paragraph.',
+      currentsText: 'Editors wrote this about currents.',
+    })
+    await flush()
+    const intro = w.get('.fc-intro')
+    expect(intro.findAll('p').map((p) => p.text())).toEqual(['Custom intro.', 'Second paragraph.'])
+    const panels = w.findAll('[role="tabpanel"]')
+    expect(panels[1].get('.fc-panel-aside').text()).toBe('Editors wrote this about currents.')
+    // Unconfigured views keep their defaults.
+    expect(panels[0].get('.fc-panel-aside').text()).toContain('cold-water shock')
   })
 
   it('loads the manifest itself and shows the selected lake time in the caption', async () => {

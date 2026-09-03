@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import FieldStage from './FieldStage.vue'
 import { useModeledField } from '../composables/useModeledField'
-import { COLD_WATER_SHOCK_NOTE } from '../config/qualitative'
 import { TEMPERATURE_SCALE } from '../core/colorScale'
 
 /**
@@ -25,17 +24,7 @@ const { state } = useModeledField('temperature')
     map-description="Map of Lake Tahoe colored by forecast surface water temperature."
     empty-message="No forecast temperature data is available for this hour."
     error-message="The temperature forecast for this hour could not be loaded. Try another hour, or come back shortly — real-time conditions are unaffected."
-  >
-    <p class="wt-safety">
-      The lake is never one temperature — wind can pull deep, cold water to
-      the surface overnight (an upwelling), chilling a shoreline that was
-      comfortable the day before. {{ COLD_WATER_SHOCK_NOTE }}
-    </p>
-  </FieldStage>
+  />
+  <!-- The cold-water/upwelling copy is editor-owned block text, rendered
+       by the shell beside this panel (TERC-9). -->
 </template>
-
-<style scoped>
-.wt-safety {
-  margin: 0;
-}
-</style>

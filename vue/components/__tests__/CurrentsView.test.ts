@@ -42,12 +42,6 @@ describe('CurrentsView', () => {
     expect(requested).toEqual(['flow'])
   })
 
-  it('always shows the rip-current safety copy, whatever the data state', () => {
-    fieldState.value = loading()
-    const w = mountView()
-    expect(w.text()).toContain('rip currents')
-    expect(w.text()).toContain('gyres')
-  })
 
   it('speaks its summary as current speed in ft/min', async () => {
     fieldState.value = success(grid([8.2, NaN, 74.9]))

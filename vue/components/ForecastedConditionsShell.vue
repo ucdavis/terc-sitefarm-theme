@@ -30,9 +30,47 @@ const props = withDefaults(
     debug?: boolean | number | string
     /** Path of the Phase 1 block's page, for the cross-link. */
     realTimePath?: string
+    /**
+     * Editor-owned copy (TERC-9): the intro under the heading and one text
+     * per view, shown beside that view's panel. Plain text; blank lines
+     * separate paragraphs. Defaults are the copy the views shipped with.
+     */
+    introText?: string
+    waterTemperatureText?: string
+    currentsText?: string
+    waveHeightText?: string
   }>(),
-  { showSources: true, debug: false, realTimePath: '/real-time-conditions' },
+  {
+    showSources: true,
+    debug: false,
+    realTimePath: '/real-time-conditions',
+    introText:
+      'Model-based forecasts of lake conditions, updated daily. Pick a date and hour — your selection follows you between views — or press “Next 24 h” to watch conditions evolve.',
+    waterTemperatureText:
+      'Lake-wide forecasted surface temperature. The lake is not one temperature — cold upwellings can chill a shoreline overnight.\n\n' +
+      'The lake is never one temperature — wind can pull deep, cold water to the surface overnight (an upwelling), chilling a shoreline that was comfortable the day before. Even on warm days, water below the surface layer stays dangerously cold — sudden immersion can cause cold-water shock. Enter gradually, stay close to shore, and wear a life vest on any craft.',
+    currentsText:
+      'Forecasted water movement across the lake, including the gyres and rip currents that matter to swimmers and paddleboarders.\n\n' +
+      "Lake Tahoe's water is always moving. Large, slow gyres circulate the whole lake, and wind pushes surface water toward shore where it returns as fast, narrow outflows, the same rip currents that catch swimmers and paddleboarders off guard. Fast water is invisible from the beach: check here before you go in, stay close to shore, and wear a life vest on any craft.",
+    waveHeightText:
+      'Forecasted wave heights driven by the wind forecast, lake-wide.\n\n' +
+      'Waves here are driven by wind: how hard it blows, how far it blows across open water (the fetch), and how deep that water is. The same wind builds much bigger waves on a long, exposed shore than in a sheltered bay, which is why the east and south shores can be rough while the west shore stays calm.',
+  },
 )
+
+/** Plain text -> paragraphs: blank lines separate, stray whitespace dropped. */
+function paragraphs(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((p) => p.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+}
+const introParagraphs = computed(() => paragraphs(props.introText))
+const viewTexts = computed<Record<string, string[]>>(() => ({
+  'water-temperature': paragraphs(props.waterTemperatureText),
+  currents: paragraphs(props.currentsText),
+  'wave-height': paragraphs(props.waveHeightText),
+}))
 
 function asBool(v: boolean | number | string): boolean {
   return v === true || v === 1 || v === '1'
@@ -42,32 +80,15 @@ const showSources = asBool(props.showSources)
 const showDiagnostics = asBool(props.debug)
 
 interface ViewDef extends ViewTab {
-  /** One-line visitor-facing description shown in the panel. */
-  blurb: string
   component: Component
 }
 
+/** The visitor-facing text for each view lives in the block form — see
+ *  the *Text props — so this registry is only key, label, and component. */
 const VIEWS: ViewDef[] = [
-  {
-    key: 'water-temperature',
-    label: 'Water Temperature',
-    blurb:
-      'Lake-wide forecasted surface temperature. The lake is not one temperature — cold upwellings can chill a shoreline overnight.',
-    component: WaterTemperatureView,
-  },
-  {
-    key: 'currents',
-    label: 'Currents',
-    blurb:
-      'Forecasted water movement across the lake, including the gyres and rip currents that matter to swimmers and paddleboarders.',
-    component: CurrentsView,
-  },
-  {
-    key: 'wave-height',
-    label: 'Wave Height',
-    blurb: 'Forecasted wave heights driven by the wind forecast, lake-wide.',
-    component: WaveHeightView,
-  },
+  { key: 'water-temperature', label: 'Water Temperature', component: WaterTemperatureView },
+  { key: 'currents', label: 'Currents', component: CurrentsView },
+  { key: 'wave-height', label: 'Wave Height', component: WaveHeightView },
 ]
 
 /**
@@ -154,11 +175,9 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
         :show-sources="showSources"
       />
     </header>
-    <p class="fc-intro">
-      Model-based forecasts of lake conditions, updated daily. Pick a date and
-      hour — your selection follows you between views — or press
-      “Next&nbsp;24&nbsp;h” to watch conditions evolve.
-    </p>
+    <div class="fc-intro">
+      <p v-for="(p, i) in introParagraphs" :key="i">{{ p }}</p>
+    </div>
 
     <ViewTabs
       :model-value="activeKey"
@@ -186,12 +205,23 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
       role="tabpanel"
       :aria-labelledby="`${idBase}-tab-${v.key}`"
       class="fc-panel"
+      :class="{ 'fc-panel--with-aside': viewTexts[v.key]?.length }"
     >
-      <p class="fc-caption">{{ frameCaption }}</p>
-      <p class="fc-blurb">{{ v.blurb }}</p>
-      <!-- Only the active view mounts: each brings its own map, and an
-           offscreen one would fetch grids nobody is looking at. -->
-      <component :is="v.component" v-if="v.key === activeKey" />
+      <div class="fc-panel-main">
+        <p class="fc-caption">{{ frameCaption }}</p>
+        <!-- Only the active view mounts: each brings its own map, and an
+             offscreen one would fetch grids nobody is looking at. -->
+        <component :is="v.component" v-if="v.key === activeKey" />
+      </div>
+      <!-- Editor-owned description and safety copy for this view (TERC-9):
+           beside the panel content from desktop widths, below it otherwise. -->
+      <aside
+        v-if="viewTexts[v.key]?.length"
+        class="fc-panel-aside"
+        :aria-label="`About ${v.label}`"
+      >
+        <p v-for="(p, i) in viewTexts[v.key]" :key="i">{{ p }}</p>
+      </aside>
     </div>
 
     <p class="fc-realtime">
@@ -222,9 +252,14 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
   margin: 0;
 }
 .fc-intro {
-  margin: 0;
   color: #5f6e77;
   max-width: 62ch;
+}
+.fc-intro p {
+  margin: 0 0 0.5rem;
+}
+.fc-intro p:last-child {
+  margin-bottom: 0;
 }
 .fc-selector {
   align-self: flex-start;
@@ -253,19 +288,41 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
   outline: 3px solid #f0b323;
   outline-offset: 2px;
 }
+/* Panel = the view (caption + map stage) with the editor's text beside it
+   from desktop widths; the text moves under the view below that. The view
+   keeps most of the width — it is the subject; the text is context. */
 .fc-panel {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .fc-panel--with-aside {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  }
+}
+.fc-panel-main {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+.fc-panel-aside {
+  padding: 0.9rem 1.1rem;
+  border: 1px solid #d5dde2;
+  border-radius: 8px;
+  background: #f6f9fa;
+  color: #22343c;
+}
+.fc-panel-aside p {
+  margin: 0 0 0.75rem;
+}
+.fc-panel-aside p:last-child {
+  margin-bottom: 0;
 }
 .fc-caption {
   margin: 0;
   font-weight: 600;
-}
-.fc-blurb {
-  margin: 0;
-  color: #5f6e77;
-  max-width: 70ch;
 }
 .fc-realtime {
   margin: 0;
