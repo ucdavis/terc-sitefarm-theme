@@ -28,14 +28,25 @@ const props = withDefaults(
     showPhase?: boolean | number | string
     showSources?: boolean | number | string
     debug?: boolean | number | string
+    /** The "Forecasted Conditions" cross-link section (TERC-12). */
+    showForecastLink?: boolean | number | string
+    /** Path of the Forecasted Conditions page, for the cross-link (TERC-12). */
+    forecastPath?: string
   }>(),
-  { showPhase: true, showSources: true, debug: false },
+  {
+    showPhase: true,
+    showSources: true,
+    debug: false,
+    showForecastLink: true,
+    forecastPath: '/forecasted-conditions',
+  },
 )
 
 function asBool(v: boolean | number | string): boolean {
   return v === true || v === 1 || v === '1'
 }
 const showPhase = asBool(props.showPhase)
+const showForecastLink = asBool(props.showForecastLink)
 const showSources = asBool(props.showSources)
 const showDiagnostics = asBool(props.debug)
 
@@ -199,12 +210,18 @@ onMounted(() => {
       </template>
     </div>
 
-    <!-- Phase-related placeholder: follows the "Show phase indicator"
-         block toggle, so a placement that hides phase chips also hides
-         the forward-looking Phase 2 note (TERC-57). -->
-    <div v-if="showPhase" class="cc-forecast">
+    <!-- Phase 2 is live (TERC-12): the placeholder is now the cross-link to
+         the Forecasted Conditions page. It has its own block toggle rather
+         than riding on "Show phase indicator" — that toggle hid a
+         placeholder (TERC-57), but this is real navigation, and hiding
+         phase chips must not silently remove it. -->
+    <div v-if="showForecastLink" class="cc-forecast">
       <h3>Forecasted Conditions</h3>
-      <p class="cc-view-stub">Forecast summaries arrive with Phase 2 (TERC-12).</p>
+      <p class="cc-forecast-link">
+        Planning ahead? <a :href="forecastPath">See Forecasted Conditions</a> —
+        model-based forecasts of surface temperature, currents, and wave
+        height for the next few days.
+      </p>
     </div>
 
     <CacheDiagnostics v-if="showDiagnostics" />
@@ -289,9 +306,16 @@ onMounted(() => {
   white-space: nowrap;
   border: 0;
 }
-.cc-view-stub {
-  color: #4a5a64;
-  font-style: italic;
+.cc-forecast-link {
+  margin: 0;
+}
+.cc-forecast-link a {
+  color: #1c6b45;
+  font-weight: 600;
+}
+.cc-forecast-link a:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
 }
 .cc-view h3,
 .cc-forecast h3 {

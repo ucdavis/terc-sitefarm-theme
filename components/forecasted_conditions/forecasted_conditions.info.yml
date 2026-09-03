@@ -20,3 +20,8 @@ configuration:
     title: 'Show cache diagnostics'
     description: 'Overlay live cache hit/miss/join statistics in the corner of the page — for debugging and demos only.'
     default_value: 0
+  realTimePath:
+    type: textfield
+    title: 'Real-Time Conditions page path'
+    description: 'Where the "See Real-Time Conditions" link points. Leave as-is unless that page moves.'
+    default_value: '/real-time-conditions'

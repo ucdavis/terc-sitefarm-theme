@@ -37,10 +37,14 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock)
   miscCache.delete('model-manifest')
   resetModelTimeForTests()
+  // The shell writes ?fc-view= to the URL (TERC-12) and happy-dom shares
+  // location across a file's tests — start each one from a clean address.
+  window.history.replaceState(null, '', '/forecasted-conditions')
 })
 afterEach(() => {
   resetModelTimeForTests()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('ForecastedConditionsShell', () => {
@@ -162,5 +166,70 @@ describe('ForecastedConditionsShell', () => {
     await flush()
     expect(w.find('.source-chip').exists()).toBe(false)
     expect(w.find('cache-diagnostics-stub').exists()).toBe(true)
+  })
+
+  describe('deep-linkable view (TERC-12)', () => {
+    it('defaults to Water Temperature with no param or an unknown one', async () => {
+      window.history.replaceState(null, '', '/forecasted-conditions?fc-view=nonsense')
+      const w = mountShell()
+      await flush()
+      expect(w.get('[role="tab"][aria-selected="true"]').text()).toBe('Water Temperature')
+      // An unknown value is dropped from the URL rather than preserved.
+      expect(new URLSearchParams(window.location.search).get('fc-view')).toBeNull()
+    })
+
+    it('opens the view named in ?fc-view=', async () => {
+      window.history.replaceState(null, '', '/forecasted-conditions?fc-view=currents')
+      const w = mountShell()
+      await flush()
+      expect(w.get('[role="tab"][aria-selected="true"]').text()).toBe('Currents')
+    })
+
+    it('PUSHES a chosen view so Back can walk the views visited, and clears it for the default', async () => {
+      window.history.replaceState(null, '', '/forecasted-conditions?other=1')
+      const push = vi.spyOn(window.history, 'pushState')
+      const replace = vi.spyOn(window.history, 'replaceState')
+      const w = mountShell()
+      await flush()
+      expect(replace).not.toHaveBeenCalled() // nothing to normalise
+      await w.findAll('[role="tab"]')[2].trigger('click')
+      const q = new URLSearchParams(window.location.search)
+      expect(q.get('fc-view')).toBe('wave-height')
+      expect(q.get('other')).toBe('1') // unrelated params survive
+      expect(push).toHaveBeenCalledTimes(1)
+      await w.findAll('[role="tab"]')[0].trigger('click')
+      expect(new URLSearchParams(window.location.search).get('fc-view')).toBeNull()
+      expect(push).toHaveBeenCalledTimes(2)
+      expect(replace).not.toHaveBeenCalled()
+    })
+
+    it('normalises an unknown param with REPLACE, adding no history entry', async () => {
+      window.history.replaceState(null, '', '/forecasted-conditions?fc-view=nonsense')
+      const push = vi.spyOn(window.history, 'pushState')
+      const replace = vi.spyOn(window.history, 'replaceState')
+      mountShell()
+      await flush()
+      expect(replace).toHaveBeenCalledTimes(1)
+      expect(push).not.toHaveBeenCalled()
+    })
+
+    it('follows Back/Forward (popstate) without writing history', async () => {
+      window.history.replaceState(null, '', '/forecasted-conditions')
+      const w = mountShell()
+      await flush()
+      await w.findAll('[role="tab"]')[1].trigger('click') // pushes ?fc-view=currents
+      expect(new URLSearchParams(window.location.search).get('fc-view')).toBe('currents')
+
+      // The browser restores the previous entry and fires popstate.
+      window.history.replaceState(null, '', '/forecasted-conditions')
+      const push = vi.spyOn(window.history, 'pushState')
+      const replace = vi.spyOn(window.history, 'replaceState')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      await flush()
+      expect(w.get('[role="tab"][aria-selected="true"]').text()).toBe('Water Temperature')
+      expect(push).not.toHaveBeenCalled()
+      expect(replace).not.toHaveBeenCalled()
+      expect(window.location.search).toBe('') // the restored entry is left alone
+    })
   })
 })
