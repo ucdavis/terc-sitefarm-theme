@@ -4,7 +4,7 @@ import type { DestinationDef } from '../config/destinations'
 import { LAKE_GRID_BOUNDS } from '../config/lakeGrid'
 import { LAKE_CENTER, LAKE_DEFAULT_ZOOM, STATION_FOCUS_ZOOM, TILE_LAYERS, type BasemapId } from '../config/lakeView'
 import { fmtLakeTime } from '../core/time'
-import { escapeHtml, MAP_ENGINE_INJECTION_KEY, type MapEngine, type MapEngineFactory } from '../map/engine'
+import { escapeHtml, MAP_ENGINE_INJECTION_KEY, type LatLng, type MapEngine, type MapEngineFactory } from '../map/engine'
 import { createLeafletEngine } from '../map/leafletEngine'
 import type { OverviewMarker } from '../composables/useLakeOverview'
 
@@ -205,22 +205,39 @@ watch(() => props.overviewMarkers, drawOverview, { deep: true })
 
 watch(
   () => props.focusedStationKey,
-  (key) => {
-    drawOverview() // re-render badges so the focus ring moves
-    const m = props.overviewMarkers.find((x) => x.key === key)
-    if (m) engine.value?.flyTo([m.lat, m.lng], STATION_FOCUS_ZOOM)
-    // Focus cleared with no destination selected -> back to the whole lake.
-    else if (!key && !props.selectedDestinationId) resetView()
-  },
+  () => drawOverview(), // re-render badges so the focus ring moves
 )
 
+/**
+ * What the map should be framing, keyed on the RESOLVED selection rather
+ * than the requested id. A deep link (`?cc-dest=` / `?cc-station=`) can
+ * name a destination or station that only arrives with the site registry
+ * or the first marker seed, after this map mounted on the static registry;
+ * watching the ids alone would leave such a link on the whole lake. Marker
+ * polls and registry swaps that re-deliver the same entry produce the same
+ * key, so they never re-fly (and never yank a visitor who has panned).
+ */
+const framingTarget = computed(() => {
+  if (props.focusedStationKey) {
+    const m = props.overviewMarkers.find((x) => x.key === props.focusedStationKey)
+    return m ? { key: `station:${m.key}`, center: [m.lat, m.lng] as LatLng, zoom: STATION_FOCUS_ZOOM } : { key: 'pending' }
+  }
+  if (props.selectedDestinationId) {
+    const d = props.destinations.find((x) => x.id === props.selectedDestinationId)
+    return d ? { key: `destination:${d.id}`, center: [d.lat, d.lng] as LatLng, zoom: d.zoom } : { key: 'pending' }
+  }
+  return { key: 'lake' }
+})
+
 watch(
-  () => props.selectedDestinationId,
-  (id) => {
-    const d = props.destinations.find((x) => x.id === id)
-    if (d) engine.value?.flyTo([d.lat, d.lng], d.zoom)
-    // Cleared selection with no station focus -> back to the whole lake.
-    else if (!props.focusedStationKey) resetView()
+  () => framingTarget.value.key,
+  () => {
+    const t = framingTarget.value
+    if (t.center) engine.value?.flyTo(t.center, t.zoom)
+    // Selection cleared (no destination, no station) -> the whole lake.
+    // A selection that has not resolved yet ('pending') leaves the view
+    // alone until its entry arrives.
+    else if (t.key === 'lake') resetView()
   },
 )
 
