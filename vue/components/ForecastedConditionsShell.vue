@@ -1,8 +1,3 @@
-<script lang="ts">
-/** Module-scope shell counter — one per mounted instance (see idBase). */
-let shellSeq = 0
-</script>
-
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { Component } from 'vue'
@@ -15,6 +10,7 @@ import WaterTemperatureView from './WaterTemperatureView.vue'
 import WaveHeightView from './WaveHeightView.vue'
 import { useModelTime } from '../composables/useModelTime'
 import { fmtLakeTime } from '../core/time'
+import { uniqueId } from '../lib/uniqueId'
 
 /**
  * Forecasted Conditions shell (TERC-22): the wrapper for the Phase 2
@@ -79,10 +75,10 @@ const activeView = computed(() => VIEWS.find((v) => v.key === activeKey.value) ?
 
 // Per-instance id base: the mount layer supports several block instances on
 // one page, and duplicated tab/panel ids would cross-wire aria-controls /
-// aria-labelledby between them (PR review finding). A module-level counter
+// aria-labelledby between them (PR review finding). A page-level counter
 // rather than useId(): each placeholder mounts as its OWN Vue app
-// (lib/mount.ts), and useId only dedupes within one app.
-const idBase = `fc-${++shellSeq}`
+// (lib/mount.ts), and useId only dedupes within one app — see lib/uniqueId.
+const idBase = uniqueId('fc')
 
 const { selectedFrame, manifestError, ensureManifest } = useModelTime()
 // The shell loads the manifest itself rather than relying on whichever
