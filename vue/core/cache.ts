@@ -76,6 +76,13 @@ export class DataCache {
   private entries = new Map<string, Entry>()
   private inflight = new Map<string, Promise<unknown>>()
   private persistence: CachePersistence | null = null
+  /**
+   * Keys whose persisted row is being dropped. The store delete is async,
+   * so without this a getOrFetch issued right after delete() could read
+   * the row back before the deletion lands — resurrecting exactly the
+   * value the caller invalidated.
+   */
+  private dropping = new Set<string>()
 
   constructor(
     public readonly name: string,
@@ -123,10 +130,19 @@ export class DataCache {
   }
 
   /** Drop one entry (and any in-flight join for it) so the next getOrFetch
-   *  refetches — for invalidation and test isolation. */
+   *  refetches — for invalidation and test isolation. Drops the persisted
+   *  row too, or the cold tier would just hand the value straight back. */
   delete(key: string): void {
     this.entries.delete(key)
     this.inflight.delete(key)
+    const persistence = this.persistence
+    if (persistence) {
+      this.dropping.add(key)
+      void persistence.store
+        .delete(key)
+        .catch(() => {})
+        .finally(() => this.dropping.delete(key))
+    }
     refreshCounts()
   }
 
@@ -165,7 +181,7 @@ export class DataCache {
      * function is what the in-flight promise wraps.
      */
     const produce = async (): Promise<T> => {
-      if (persistence) {
+      if (persistence && !this.dropping.has(key)) {
         const stored = await persistence.store.get(key)
         if (stored !== undefined) {
           cacheStats.diskHits++
@@ -186,8 +202,11 @@ export class DataCache {
         // being returned, and a storage failure must never fail a request.
         void persistence.store
           .put(key, value, persistence.bytesOf(value))
-          .then(() => {
-            cacheStats.diskWrites++
+          .then((stored) => {
+            // Only a value actually on disk counts: a dropped write
+            // (quota, blocked storage) resolves false, and a counter that
+            // tallied attempts would report a warm cache that isn't.
+            if (stored) cacheStats.diskWrites++
           })
           .catch(() => {})
       }

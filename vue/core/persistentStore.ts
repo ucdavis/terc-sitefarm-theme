@@ -18,8 +18,15 @@
 export interface PersistentStore {
   /** Cached value, or undefined for a miss, a stale format, or any error. */
   get(key: string): Promise<unknown | undefined>
-  /** Best-effort write; resolves even when the write was dropped. */
-  put(key: string, value: unknown, bytes: number): Promise<void>
+  /**
+   * Best-effort write. Resolves `true` only when the value is actually
+   * stored — a dropped write (quota, blocked storage) resolves `false`
+   * rather than rejecting, so callers can report what really happened
+   * instead of counting attempts.
+   */
+  put(key: string, value: unknown, bytes: number): Promise<boolean>
+  /** Drop one row, so an invalidated key cannot be resurrected from disk. */
+  delete(key: string): Promise<void>
   /** Drop everything — used when the stored format is superseded. */
   clear(): Promise<void>
 }
@@ -41,6 +48,9 @@ export const nullStore: PersistentStore = {
   async get() {
     return undefined
   },
-  async put() {},
+  async put() {
+    return false
+  },
+  async delete() {},
   async clear() {},
 }

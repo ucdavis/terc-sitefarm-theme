@@ -8,7 +8,7 @@ import type { PersistentStore } from '../persistentStore'
  */
 function fakeStore() {
   const rows = new Map<string, { value: unknown; bytes: number }>()
-  const calls = { get: 0, put: 0 }
+  const calls = { get: 0, put: 0, delete: 0 }
   const store: PersistentStore = {
     async get(key) {
       calls.get++
@@ -17,6 +17,11 @@ function fakeStore() {
     async put(key, value, bytes) {
       calls.put++
       rows.set(key, { value, bytes })
+      return true
+    },
+    async delete(key) {
+      calls.delete++
+      rows.delete(key)
     },
     async clear() {
       rows.clear()
@@ -90,7 +95,10 @@ describe('DataCache cold tier', () => {
       async get() {
         throw new Error('storage blocked')
       },
-      async put() {},
+      async put() {
+        return true
+      },
+      async delete() {},
       async clear() {},
     }
     cache.attachPersistence({ store, bytesOf })
@@ -109,6 +117,7 @@ describe('DataCache cold tier', () => {
       async put() {
         throw new Error('quota exceeded')
       },
+      async delete() {},
       async clear() {},
     }
     cache.attachPersistence({ store, bytesOf })
@@ -130,6 +139,62 @@ describe('DataCache cold tier', () => {
     expect(a).toBe(b)
     expect(calls.get).toBe(1)
     expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it('delete() drops the persisted row, so the next read really refetches', async () => {
+    const { store, rows, calls } = fakeStore()
+    cache.attachPersistence({ store, bytesOf })
+    await cache.getOrFetch('grid:h', TTL.FOREVER, async () => 'first')
+    await flush()
+    expect(rows.has('grid:h')).toBe(true)
+
+    cache.delete('grid:h')
+    const fetcher = vi.fn(async () => 'second')
+    // Issued immediately, while the store delete is still in flight — the
+    // cold tier must not hand back the value that was just invalidated.
+    expect(await cache.getOrFetch('grid:h', TTL.FOREVER, fetcher)).toBe('second')
+    expect(fetcher).toHaveBeenCalledOnce()
+    expect(calls.delete).toBe(1)
+  })
+
+  it('consults the store again once a delete has settled', async () => {
+    const { store } = fakeStore()
+    cache.attachPersistence({ store, bytesOf })
+    await cache.getOrFetch('grid:i', TTL.FOREVER, async () => 'v1')
+    await flush()
+
+    cache.delete('grid:i')
+    await flush() // the drop lands
+    await cache.getOrFetch('grid:i', TTL.FOREVER, async () => 'v2')
+    await flush()
+    cache.delete('grid:i') // clear memory only; the row from v2 remains
+    await flush()
+    expect(await cache.getOrFetch('grid:i', TTL.FOREVER, async () => 'v3')).toBe('v3')
+  })
+
+  it('counts only writes the store actually accepted', async () => {
+    // put() resolving false means "dropped" (quota, blocked storage); a
+    // counter that tallied attempts would report a warm cache that isn't.
+    const store: PersistentStore = {
+      async get() {
+        return undefined
+      },
+      async put() {
+        return false
+      },
+      async delete() {},
+      async clear() {},
+    }
+    cache.attachPersistence({ store, bytesOf })
+    await cache.getOrFetch('grid:j', TTL.FOREVER, async () => 'value')
+    await flush()
+    expect(cacheStats.diskWrites).toBe(0)
+
+    const accepted = fakeStore()
+    cache.attachPersistence({ store: accepted.store, bytesOf })
+    await cache.getOrFetch('grid:k', TTL.FOREVER, async () => 'value')
+    await flush()
+    expect(cacheStats.diskWrites).toBe(1)
   })
 
   it('is inert until a tier is attached', async () => {

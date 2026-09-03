@@ -47,14 +47,24 @@ export function createIndexedDbStore(): PersistentStore {
   if (typeof indexedDB === 'undefined') return nullStore
 
   let dbPromise: Promise<IDBDatabase> | null = null
+  /** Nothing works: the database can't be opened or read. */
   let disabled = false
+  /**
+   * Writes only. A full disk (QuotaExceededError) says nothing about the
+   * rows already stored, so those keep serving for the rest of the
+   * session instead of throwing away a warm cache over one failed write.
+   */
+  let writesDisabled = false
 
-  function fail(op: string, err: unknown): undefined {
-    if (!disabled) {
-      disabled = true
-      // One line, once: a disabled cold tier is a performance detail, not
+  function fail(op: 'read' | 'write' | 'clear', err: unknown): undefined {
+    const alreadyOff = op === 'write' ? writesDisabled || disabled : disabled
+    if (op === 'write') writesDisabled = true
+    else disabled = true
+    if (!alreadyOff) {
+      // One line, once: a degraded cold tier is a performance detail, not
       // a user-facing problem — everything still works over the network.
-      console.info(`[terc] offline grid cache disabled after ${op} failed`, err)
+      const scope = op === 'write' ? 'stopped writing to' : 'disabled'
+      console.info(`[terc] offline grid cache ${scope} after ${op} failed`, err)
     }
     return undefined
   }
@@ -134,7 +144,7 @@ export function createIndexedDbStore(): PersistentStore {
     },
 
     async put(key, value, bytes) {
-      if (disabled) return
+      if (disabled || writesDisabled) return false
       try {
         const db = await open()
         const tx = db.transaction([GRIDS, META], 'readwrite')
@@ -142,9 +152,25 @@ export function createIndexedDbStore(): PersistentStore {
         tx.objectStore(META).put({ key, bytes, lastUsed: Date.now() } satisfies MetaRow)
         await txDone(tx)
         await evict(db)
+        return true
       } catch (err) {
-        // QuotaExceededError lands here: the tier stops writing, reads of
-        // what's already stored keep working until the session ends.
+        // QuotaExceededError lands here. Writes stop; reads of what's
+        // already stored keep working for the rest of the session (a full
+        // disk doesn't invalidate rows that are already on it). A broken
+        // database fails the next read too, which disables the tier
+        // outright.
+        fail('write', err)
+        return false
+      }
+    },
+
+    async delete(key) {
+      if (disabled) return
+      try {
+        await drop(await open(), [key])
+      } catch (err) {
+        // Invalidation failing is worth knowing about: the next read
+        // could otherwise resurrect a value the caller dropped.
         fail('write', err)
       }
     },
