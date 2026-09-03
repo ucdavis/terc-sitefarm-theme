@@ -204,9 +204,17 @@ onMounted(() => {
          beside it (TERC-9). Only site content carries a description, so
          the aside simply doesn't exist for the static fallback or for a
          place nobody has written up yet. -->
+    <!-- Layout: a tall, lake-framing map column on the left (Lake Tahoe is a
+         tall lake; a portrait frame is what lets it fill the map) with the
+         description/welcome and the view panels in a reading column on the
+         right from 900px; below that everything stacks — map, then
+         description, then the panels. --cc-map-height drives the map's
+         height per breakpoint. -->
     <div class="cc-map-row" :class="{ 'cc-map-row--with-aside': asideMode !== null }">
       <div class="cc-map-region" data-terc-map-slot>
         <LakeMap
+          fit-lake
+          height="var(--cc-map-height, 470px)"
           :destinations="destinations"
           :selected-destination-id="destinationId"
           :overview-markers="markers"
@@ -215,6 +223,7 @@ onMounted(() => {
           @select-station="onSelectStation"
         />
       </div>
+      <div class="cc-side">
       <aside
         v-if="asideMode === 'description' && destination"
         class="cc-location-desc"
@@ -239,26 +248,28 @@ onMounted(() => {
           {{ reportingDestinationNames.join(', ') }}.
         </p>
       </aside>
-    </div>
 
-    <!-- One panel container per tab, always present, so every tab's
-         aria-controls resolves to a real element (the ViewTabs contract);
-         only the active panel is shown and only it mounts content, so the
-         inactive view never fetches or renders (PR review finding). -->
-    <div
-      v-for="v in views"
-      v-show="view === v.id"
-      :id="`${idBase}-panel-${v.id}`"
-      :key="v.id"
-      class="cc-view"
-      role="tabpanel"
-      :aria-labelledby="`${idBase}-tab-${v.id}`"
-    >
-      <template v-if="view === v.id">
-        <h3>{{ v.label }}</h3>
-        <WaterQualityView v-if="v.id === 'water-quality'" />
-        <PlanYourDayView v-else />
-      </template>
+      <!-- The view panels share the reading column with the description.
+           One panel container per tab, always present, so every tab's
+           aria-controls resolves to a real element (the ViewTabs contract);
+           only the active panel is shown and only it mounts content, so the
+           inactive view never fetches or renders (PR review finding). -->
+      <div
+        v-for="v in views"
+        v-show="view === v.id"
+        :id="`${idBase}-panel-${v.id}`"
+        :key="v.id"
+        class="cc-view"
+        role="tabpanel"
+        :aria-labelledby="`${idBase}-tab-${v.id}`"
+      >
+        <template v-if="view === v.id">
+          <h3>{{ v.label }}</h3>
+          <WaterQualityView v-if="v.id === 'water-quality'" />
+          <PlanYourDayView v-else />
+        </template>
+      </div>
+      </div>
     </div>
 
     <!-- Phase 2 is live (TERC-12): the placeholder is now the cross-link to
@@ -371,14 +382,31 @@ onMounted(() => {
 /* Map + description: side by side where there's room, the description
    under the map otherwise. The map keeps most of the width — it is the
    navigation surface; the description is context. */
+/* Phones and narrow windows: map, then description, then the panels,
+   each full width. From 900px: a 420px tall map column that frames the
+   lake end to end, with the reading column beside it. The map sticks
+   while the reading column scrolls, so the badges stay in view next to
+   the cards they belong to. */
 .cc-map-row {
+  --cc-map-height: 470px;
   display: grid;
   gap: 1rem;
   align-items: start;
 }
+.cc-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
 @media (min-width: 900px) {
-  .cc-map-row--with-aside {
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  .cc-map-row {
+    --cc-map-height: 780px;
+    grid-template-columns: 420px minmax(0, 1fr);
+  }
+  .cc-map-region {
+    position: sticky;
+    top: 1rem;
   }
 }
 .cc-location-desc {

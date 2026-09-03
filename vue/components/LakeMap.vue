@@ -67,6 +67,8 @@ const emit = defineEmits<{
 const container = ref<HTMLElement | null>(null)
 const engine = shallowRef<MapEngine | null>(null)
 let resizeObserver: ResizeObserver | null = null
+/** Whether the container has ever reported a non-zero box. */
+let hadRealSize = false
 // Overlay children in the default slot (FieldOverlay, TERC-23) draw through
 // the same engine seam rather than importing a map library.
 provide(MAP_ENGINE_INJECTION_KEY, engine)
@@ -155,7 +157,9 @@ onMounted(() => {
     attribution: tiles.attribution,
     maxZoom: tiles.maxZoom,
     interactive: !props.staticMap,
-    fitBounds: props.fitLake ? LAKE_GRID_BOUNDS : undefined,
+    // Fit the whole lake only when opening on the whole lake: a deep link
+    // to a destination or station keeps its own framing.
+    fitBounds: props.fitLake && !focused && !preselected ? LAKE_GRID_BOUNDS : undefined,
   })
   drawDestinations()
   drawOverview()
@@ -176,10 +180,17 @@ onMounted(() => {
       lastW = box.width
       lastH = box.height
       engine.value?.invalidateSize()
-      // The initial fit was computed against the wrong box; redo it.
-      // Only for the data-canvas maps — refitting an interactive map
-      // would yank the view out from under the visitor.
-      if (props.fitLake) engine.value?.fitBounds(LAKE_GRID_BOUNDS)
+      // The initial fit may have been computed against the wrong box (a
+      // panel still hidden at mount): redo it on the FIRST real size for
+      // any lake-fitting map that is showing the whole lake. After that,
+      // only the data-canvas maps keep refitting — refitting an
+      // interactive map would yank the view out from under a visitor who
+      // has panned or picked a destination.
+      const atRest = !props.selectedDestinationId && !props.focusedStationKey
+      if (props.fitLake && (props.staticMap || (!hadRealSize && atRest))) {
+        engine.value?.fitBounds(LAKE_GRID_BOUNDS)
+      }
+      hadRealSize = true
     })
     resizeObserver.observe(container.value)
   }
@@ -213,8 +224,11 @@ watch(
   },
 )
 
+/** "Whole lake": refit the lake box when this map frames the lake, else the
+ *  classic centre + zoom. */
 function resetView() {
-  engine.value?.flyTo(LAKE_CENTER, LAKE_DEFAULT_ZOOM)
+  if (props.fitLake) engine.value?.fitBounds(LAKE_GRID_BOUNDS)
+  else engine.value?.flyTo(LAKE_CENTER, LAKE_DEFAULT_ZOOM)
 }
 defineExpose({ resetView })
 
