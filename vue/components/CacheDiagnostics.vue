@@ -17,6 +17,8 @@ import { cacheStats } from '../core/cache'
  * CacheDevOverlay; here it is enabled per block instance via the PDB block
  * settings form ("Show cache diagnostics" checkbox) so editors/developers
  * can watch hits/misses/joins on any page, then switch it back off.
+ * "disk" counts grids served from the persistent tier (TERC-48) — no
+ * download and no decode, which is what a warm reload should look like.
  */
 const collapsed = ref(false)
 const me = Symbol('cache-overlay')
@@ -43,6 +45,7 @@ onBeforeUnmount(() => {
       </div>
       <div class="stat-row">
         <span class="pf">prefetches {{ cacheStats.prefetches }}</span>
+        <span class="disk">disk {{ cacheStats.diskHits }}</span>
         <span>entries {{ cacheStats.entries }}</span>
         <span>inflight {{ cacheStats.inflight }}</span>
         <span v-if="cacheStats.evictions">evicted {{ cacheStats.evictions }}</span>
@@ -126,4 +129,5 @@ onBeforeUnmount(() => {
 .events li.join .kind { color: #d8b3f0; }
 .events li.prefetch .kind { color: #8fc7e8; }
 .events li.evict .kind { color: #f28f8f; }
+.events li.disk .kind { color: #9ad9d2; }
 </style>

@@ -8,6 +8,12 @@
  */
 import { registerBlocks, mountRegistered } from '../lib/mount'
 import ForecastedConditionsShell from '../components/ForecastedConditionsShell.vue'
+import { enableGridPersistence } from '../core/gridPersistence'
+
+// Past model hours and precomputed wave buckets are immutable, so they're
+// kept across reloads (TERC-48). Phase 1 doesn't call this: its station
+// readings are volatile and belong to the network every time.
+enableGridPersistence()
 
 registerBlocks({
   'forecasted-conditions': ForecastedConditionsShell,
