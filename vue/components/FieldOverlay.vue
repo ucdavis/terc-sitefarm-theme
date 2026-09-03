@@ -35,7 +35,19 @@ async function render() {
     engine.removeImageOverlay(OVERLAY_ID)
     return
   }
-  const url = await renderFieldUrl(props.grid, props.scale)
+  let url: string | null
+  try {
+    url = await renderFieldUrl(props.grid, props.scale)
+  } catch (e) {
+    // Only the newest render may act on failure, too: a superseded one
+    // erroring must not tear down the frame that replaced it.
+    if (gen !== renderGen) return
+    // A render that failed outright must not leave the PREVIOUS frame on
+    // the map looking current (PR review finding).
+    engineRef?.value?.removeImageOverlay(OVERLAY_ID)
+    console.warn('[terc] field overlay render failed', e)
+    return
+  }
   if (gen !== renderGen) return
   const live = engineRef?.value
   if (!live) return

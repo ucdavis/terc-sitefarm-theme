@@ -37,7 +37,14 @@ function memoKey(grid: ScalarGrid, scale: ColorScale): string {
   return `${id}:${scale.name}`
 }
 
+/** Renders in flight, so concurrent misses for one key share a render. */
+const pending = new Map<string, Promise<string | null>>()
+let workerRenderFallbackLogged = false
+
 function remember(key: string, url: string): void {
+  const previous = memo.get(key)
+  // Replacing a different blob for the same key would orphan its URL.
+  if (previous && previous !== url && previous.startsWith('blob:')) URL.revokeObjectURL(previous)
   memo.delete(key)
   memo.set(key, url)
   while (memo.size > MAX_MEMO) {
@@ -64,6 +71,22 @@ export async function renderFieldUrl(input: ScalarGrid, scale: ColorScale): Prom
     remember(key, hit) // LRU touch
     return hit
   }
+  // A miss while the same picture is already being drawn (rapid A→B→A
+  // stepping) joins that render rather than starting a second one — which
+  // would also have replaced the first blob URL in the memo unrevoked.
+  const inflight = pending.get(key)
+  if (inflight) return inflight
+  const job = produce(grid, scale)
+    .then((url) => {
+      if (url) remember(key, url)
+      return url
+    })
+    .finally(() => pending.delete(key))
+  pending.set(key, job)
+  return job
+}
+
+async function produce(grid: ScalarGrid, scale: ColorScale): Promise<string | null> {
   // Plain payloads only: exactly the fields the worker reads.
   const payload: ScalarGrid = {
     rows: grid.rows,
@@ -80,10 +103,20 @@ export async function renderFieldUrl(input: ScalarGrid, scale: ColorScale): Prom
     max: scale.max,
     stops: [...scale.stops],
   }
-  const blob = await offload<Blob | null>({ kind: 'render', grid: payload, scale: plainScale }, () => null)
-  const url = blob ? URL.createObjectURL(blob) : renderFieldImage(grid, scale)
-  if (url) remember(key, url)
-  return url
+  let blob: Blob | null = null
+  try {
+    blob = await offload<Blob | null>({ kind: 'render', grid: payload, scale: plainScale }, () => null)
+  } catch (e) {
+    // offload() rejects when the worker itself reports failure — for a
+    // decode that's a data error and must propagate, but a render has no
+    // data-error case: the grid already decoded, so a convertToBlob() or
+    // OffscreenCanvas failure is about the environment. Draw it here.
+    if (!workerRenderFallbackLogged) {
+      workerRenderFallbackLogged = true
+      console.info('[terc] worker render failed; drawing on the main thread', e)
+    }
+  }
+  return blob ? URL.createObjectURL(blob) : renderFieldImage(grid, scale)
 }
 
 /** Test seam: forget every rendered image. */

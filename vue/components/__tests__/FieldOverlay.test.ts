@@ -124,6 +124,37 @@ describe('FieldOverlay', () => {
     expect(last(calls).url).toBe('blob:newest')
   })
 
+  it('removes the overlay when the render itself fails', async () => {
+    // A rejected render must not leave the previous frame on the map
+    // looking current (PR review finding).
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { engine, calls } = makeEngine()
+    const w = mountOverlay(shallowRef<MapEngine | null>(engine), { grid: grid() })
+    await flush()
+    expect(last(calls).op).toBe('set')
+    vi.mocked(renderFieldUrl).mockRejectedValueOnce(new Error('convertToBlob failed'))
+    await w.setProps({ grid: grid(51) })
+    await flush()
+    expect(last(calls)).toEqual({ op: 'remove', id: 'scalar-field' })
+  })
+
+  it('ignores a failure from a superseded render', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { engine, calls } = makeEngine()
+    const slow: { reject?: (e: unknown) => void } = {}
+    vi.mocked(renderFieldUrl)
+      .mockImplementationOnce(() => new Promise<string>((_, rej) => (slow.reject = rej)))
+      .mockImplementationOnce(async () => 'blob:newest')
+    const w = mountOverlay(shallowRef<MapEngine | null>(engine), { grid: grid(1) })
+    await w.setProps({ grid: grid(2) })
+    await flush()
+    expect(last(calls).url).toBe('blob:newest')
+    slow.reject?.(new Error('stale render failed'))
+    await flush()
+    // The newest frame stays; the stale failure removed nothing.
+    expect(last(calls)).toEqual({ op: 'set', id: 'scalar-field', url: 'blob:newest', opacity: 1 })
+  })
+
   it('re-renders when the scale changes, not just the grid', async () => {
     const { engine } = makeEngine()
     const w = mountOverlay(shallowRef<MapEngine | null>(engine), { grid: grid() })

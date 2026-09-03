@@ -96,6 +96,44 @@ describe('renderFieldUrl', () => {
     expect(seen).toHaveLength(1)
   })
 
+  it('joins concurrent misses for one picture onto a single render', async () => {
+    // Rapid A→B→A stepping can ask for the same frame twice before the
+    // first render returns; a second render would also have replaced the
+    // first blob URL in the memo without revoking it (PR review finding).
+    const seen: GridWorkerRequest[] = []
+    const gate: { open?: () => void } = {}
+    setGridWorkerForTests({
+      request<T>(req: GridWorkerRequest) {
+        seen.push(req)
+        return new Promise<T>((resolve) => (gate.open = () => resolve(new Blob(['png']) as T)))
+      },
+    })
+    const g = grid()
+    const a = renderFieldUrl(g, TEMPERATURE_SCALE)
+    const b = renderFieldUrl(g, TEMPERATURE_SCALE)
+    gate.open?.()
+    const [ua, ub] = await Promise.all([a, b])
+    expect(ua).toBe(ub)
+    expect(seen).toHaveLength(1)
+    expect(created).toHaveLength(1)
+    expect(revoked).toHaveLength(0)
+  })
+
+  it('falls back to the main-thread canvas when the worker render fails', async () => {
+    // A render has no data-error case — the grid already decoded — so a
+    // convertToBlob()/OffscreenCanvas failure in the worker must not
+    // surface as an error; it must just draw here instead.
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    setGridWorkerForTests({
+      async request() {
+        throw new Error('convertToBlob failed')
+      },
+    })
+    expect(await renderFieldUrl(grid(), TEMPERATURE_SCALE)).toBe('data:image/png;base64,sync')
+    expect(renderFieldImage).toHaveBeenCalledOnce()
+    expect(info).toHaveBeenCalledOnce()
+  })
+
   it('falls back to the synchronous canvas path without a worker', async () => {
     setGridWorkerForTests(null)
     expect(await renderFieldUrl(grid(), TEMPERATURE_SCALE)).toBe('data:image/png;base64,sync')
