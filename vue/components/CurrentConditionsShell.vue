@@ -179,15 +179,31 @@ onMounted(() => {
     <p class="cc-sr-only" aria-live="polite">{{ selectionAnnouncement }}</p>
     <p class="cc-sr-only" aria-live="polite">{{ viewAnnouncement }}</p>
 
-    <div class="cc-map-region" data-terc-map-slot>
-      <LakeMap
-        :destinations="destinations"
-        :selected-destination-id="destinationId"
-        :overview-markers="markers"
-        :focused-station-key="focusedStationKey"
-        @select-destination="selectDestination"
-        @select-station="onSelectStation"
-      />
+    <!-- Map, with the selected destination's editor-written description
+         beside it (TERC-9). Only site content carries a description, so
+         the aside simply doesn't exist for the static fallback or for a
+         place nobody has written up yet. -->
+    <div class="cc-map-row" :class="{ 'cc-map-row--with-aside': !!destination?.description }">
+      <div class="cc-map-region" data-terc-map-slot>
+        <LakeMap
+          :destinations="destinations"
+          :selected-destination-id="destinationId"
+          :overview-markers="markers"
+          :focused-station-key="focusedStationKey"
+          @select-destination="selectDestination"
+          @select-station="onSelectStation"
+        />
+      </div>
+      <aside
+        v-if="destination?.description"
+        class="cc-location-desc"
+        :aria-label="`About ${destination.name}`"
+      >
+        <h3>{{ destination.name }}</h3>
+        <!-- Drupal-filtered HTML (the field's `processed` output), not raw
+             editor input — see locations.ts. -->
+        <div class="cc-location-desc-body" v-html="destination.description" />
+      </aside>
     </div>
 
     <!-- One panel container per tab, always present, so every tab's
@@ -314,6 +330,40 @@ onMounted(() => {
   font-weight: 600;
 }
 .cc-forecast-link a:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
+}
+/* Map + description: side by side where there's room, the description
+   under the map otherwise. The map keeps most of the width — it is the
+   navigation surface; the description is context. */
+.cc-map-row {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .cc-map-row--with-aside {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  }
+}
+.cc-location-desc {
+  padding: 0.9rem 1.1rem;
+  border: 1px solid #d5dde2;
+  border-radius: 8px;
+  background: #f6f9fa;
+}
+.cc-location-desc h3 {
+  margin: 0 0 0.5rem;
+  font-size: var(--reduced-title-font-size, 1.375rem);
+  line-height: 1.25;
+}
+.cc-location-desc-body :deep(p) {
+  margin: 0 0 0.75rem;
+}
+.cc-location-desc-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.cc-location-desc-body :deep(a:focus-visible) {
   outline: 3px solid #f0b323;
   outline-offset: 2px;
 }

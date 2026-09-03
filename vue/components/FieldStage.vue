@@ -73,8 +73,9 @@ const mapLabel = computed(() => {
 
 <template>
   <div class="field-view">
-    <!-- Safety / interpretation copy: always visible, whatever the data state. -->
-    <div class="field-intro"><slot /></div>
+    <!-- Optional intro copy from the host view; the forecast views' safety
+         text is editor-owned and rendered by the shell instead (TERC-9). -->
+    <div v-if="$slots.default" class="field-intro"><slot /></div>
 
     <p v-if="summary" class="field-summary" aria-live="polite">{{ summary }}</p>
     <p v-else-if="noFieldData" class="field-summary" aria-live="polite">{{ emptyMessage }}</p>

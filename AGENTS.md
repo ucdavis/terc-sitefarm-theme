@@ -141,7 +141,11 @@ drush warning — imported config expecting creds the local site lacks.
 
 Plan Your Day defaults to temp/wave/turbidity with a "show more data"
 toggle; Water Quality is all-charts, no tiles (Climate Impacts page dropped
-into it); cold-water-shock messaging always shows with water temperature;
-one `condition_bands` vocabulary (not per-parameter); ~30-min auto-refresh
+into it); cold-water-shock messaging should accompany water temperature —
+it does by default on both pages, but it is not a hard requirement: the
+Forecasted Conditions block's intro and per-view copy are editor-owned
+block settings (TERC-9), so an editor may reword or drop it, and code must
+not re-add it unconditionally there; one `condition_bands` vocabulary (not
+per-parameter); ~30-min auto-refresh
 for kiosks is a pending story; QR posters (TERC-59) and brand-palette band
 colors (TERC-60) are specced in the backlog.

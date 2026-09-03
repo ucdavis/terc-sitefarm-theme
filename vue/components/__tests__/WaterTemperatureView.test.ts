@@ -43,12 +43,6 @@ describe('WaterTemperatureView', () => {
     expect(requested).toEqual(['temperature'])
   })
 
-  it('always shows the cold-water safety copy, whatever the data state', () => {
-    fieldState.value = loading()
-    const w = mountView()
-    expect(w.text()).toContain('cold-water shock')
-    expect(w.text()).toContain('upwelling')
-  })
 
   it('speaks its summary in degrees Fahrenheit', async () => {
     fieldState.value = success(grid([51.6, NaN, 68.4]))

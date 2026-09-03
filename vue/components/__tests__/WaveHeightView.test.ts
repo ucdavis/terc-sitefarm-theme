@@ -51,13 +51,6 @@ const mountView = () =>
   })
 
 describe('WaveHeightView', () => {
-  it('always explains what drives waves — wind, fetch, and depth', () => {
-    reset()
-    const w = mountView()
-    expect(w.text()).toContain('fetch')
-    expect(w.text()).toContain('sheltered bay')
-  })
-
   it('states the wind in plain language, not just a bearing', async () => {
     reset()
     wind.value = { speedMs: 5, speedMph: 11.4, dirDeg: 240 }
