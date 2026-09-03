@@ -6,7 +6,8 @@ import { ref } from 'vue'
 // The lake map has its own suite (LakeMap.test.ts) and the overview
 // composable fetches live station data — stub both so shell tests stay
 // network-free and focused on shell behavior.
-vi.mock('../../composables/useLakeOverview', () => ({
+vi.mock('../../composables/useLakeOverview', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../composables/useLakeOverview')>()),
   useLakeOverview: () => ({ markers: ref([]), reload: () => {} }),
   markerKey: (kind: string, id: number) => `${kind}:${id}`,
 }))

@@ -10,7 +10,11 @@ import SourceBadge from './SourceBadge.vue'
 import WaterQualityView from './WaterQualityView.vue'
 import { loadRegistry, syncFromLocation, useConditionsState } from '../composables/useConditionsState'
 import { loadConditionBands } from '../data/conditionBands'
-import { markerKey, useLakeOverview } from '../composables/useLakeOverview'
+import {
+  markerKey,
+  reportingDestinationNames as reportingDestinations,
+  useLakeOverview,
+} from '../composables/useLakeOverview'
 
 /**
  * Current Conditions shell (TERC-18): shared navigation, destination
@@ -78,6 +82,23 @@ function onSelectView(key: string) {
 }
 /** Announce view switches to assistive tech, as the Phase 2 shell does. */
 const viewAnnouncement = computed(() => `${activeViewLabel.value} view selected.`)
+
+/**
+ * What sits beside the map: the selected destination's editor-written
+ * description when there is one, the whole-lake welcome when nothing is
+ * selected, nothing otherwise (an undescribed destination, or a focused
+ * station — its card set below is the content).
+ */
+const asideMode = computed<'description' | 'welcome' | null>(() => {
+  if (destination.value?.description) return 'description'
+  if (!hasSelection.value) return 'welcome'
+  return null
+})
+
+/** The welcome's hint: derived from live markers, never a hard-coded list. */
+const reportingDestinationNames = computed(() =>
+  reportingDestinations(markers.value, destinations.value),
+)
 
 const focusedStationKey = computed(() =>
   focusedStation.value ? markerKey(focusedStation.value.kind, focusedStation.value.sourceId) : null,
@@ -183,7 +204,7 @@ onMounted(() => {
          beside it (TERC-9). Only site content carries a description, so
          the aside simply doesn't exist for the static fallback or for a
          place nobody has written up yet. -->
-    <div class="cc-map-row" :class="{ 'cc-map-row--with-aside': !!destination?.description }">
+    <div class="cc-map-row" :class="{ 'cc-map-row--with-aside': asideMode !== null }">
       <div class="cc-map-region" data-terc-map-slot>
         <LakeMap
           :destinations="destinations"
@@ -195,7 +216,7 @@ onMounted(() => {
         />
       </div>
       <aside
-        v-if="destination?.description"
+        v-if="asideMode === 'description' && destination"
         class="cc-location-desc"
         :aria-label="`About ${destination.name}`"
       >
@@ -203,6 +224,20 @@ onMounted(() => {
         <!-- Drupal-filtered HTML (the field's `processed` output), not raw
              editor input — see locations.ts. -->
         <div class="cc-location-desc-body" v-html="destination.description" />
+      </aside>
+      <!-- Whole lake, nothing selected: the welcome lives here, in the same
+           slot the descriptions use, rather than down in the Plan Your Day
+           panel (TERC-9 follow-up). -->
+      <aside v-else-if="asideMode === 'welcome'" class="cc-location-desc cc-welcome" aria-label="Welcome to Lake Tahoe">
+        <h3>Welcome to Lake Tahoe.</h3>
+        <p>
+          Pick a destination above — or click any station badge on the map — to
+          see current water conditions for where you're headed.
+        </p>
+        <p v-if="reportingDestinationNames.length" class="cc-welcome-hint">
+          Destinations with reporting stations right now:
+          {{ reportingDestinationNames.join(', ') }}.
+        </p>
       </aside>
     </div>
 
@@ -366,6 +401,16 @@ onMounted(() => {
 .cc-location-desc-body :deep(a:focus-visible) {
   outline: 3px solid #f0b323;
   outline-offset: 2px;
+}
+.cc-welcome p {
+  margin: 0 0 0.75rem;
+}
+.cc-welcome p:last-child {
+  margin-bottom: 0;
+}
+.cc-welcome-hint {
+  font-size: 0.8125rem;
+  color: #5f6e77;
 }
 .cc-view h3,
 .cc-forecast h3 {

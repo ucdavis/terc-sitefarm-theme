@@ -5,7 +5,10 @@ import LoadingState from './LoadingState.vue'
 import { useConditionsState } from '../composables/useConditionsState'
 import { useDestinationData } from '../composables/useDestinationData'
 import { useFocusedStation } from '../composables/useFocusedStation'
-import { useLakeOverview } from '../composables/useLakeOverview'
+import {
+  reportingDestinationNames as reportingDestinations,
+  useLakeOverview,
+} from '../composables/useLakeOverview'
 import {
   fetchMetStation,
   latestRecord,
@@ -138,28 +141,11 @@ const focusedName = computed(() => {
   return f.name || `${f.kind} station ${f.sourceId}`
 })
 
-/**
- * Which destinations have at least one reporting station right now —
- * derived from the live overview markers instead of the prototype's
- * hard-coded hint list.
- */
-const reportingDestinationNames = computed(() => {
-  const reportingNearshore = new Set(
-    markers.value.filter((m) => m.kind === 'nearshore' && m.status === 'reporting').map((m) => m.sourceId),
-  )
-  const reportingBuoyIds = new Set(
-    markers.value.filter((m) => m.kind === 'buoy' && m.status === 'reporting').map((m) => m.sourceId),
-  )
-  const homewoodUp = markers.value.some((m) => m.kind === 'homewood' && m.status === 'reporting')
-  return registry.value.destinations
-    .filter(
-      (d) =>
-        d.stationIds.some((id) => reportingNearshore.has(id)) ||
-        (d.buoyIds ?? []).some((id) => reportingBuoyIds.has(id)) ||
-        (d.includesHomewood === true && homewoodUp),
-    )
-    .map((d) => d.name)
-})
+/** Destinations reporting right now — derived from the live markers
+ *  (shared helper; the shell's welcome uses the same one). */
+const reportingDestinationNames = computed(() =>
+  reportingDestinations(markers.value, registry.value.destinations),
+)
 
 /** Lake weather: the USCG met station — the one fetch unique to this view. */
 const met = ref<MetRecord | null>(null)
@@ -242,17 +228,9 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-else-if="!destination" class="pyd-panel pyd-welcome">
-      <strong>Welcome to Lake Tahoe.</strong>
-      <p>
-        Pick a destination above — or click any station badge on the map — to
-        see current water conditions for where you're headed.
-      </p>
-      <p v-if="reportingDestinationNames.length" class="pyd-hint">
-        Destinations with reporting stations right now:
-        {{ reportingDestinationNames.join(', ') }}.
-      </p>
-    </div>
+    <!-- Whole lake, nothing selected: the welcome now sits beside the map in
+         the shell (TERC-9 follow-up); this view has nothing to add. -->
+    <template v-else-if="!destination" />
 
     <template v-else>
       <template v-if="reportingStations.length || reportingBuoys.length">
@@ -427,10 +405,6 @@ onMounted(async () => {
 }
 .pyd-panel p {
   margin: 6px 0 0;
-}
-.pyd-welcome strong {
-  font-size: 1rem;
-  color: #13322b;
 }
 .pyd-hint {
   font-size: .8125rem;

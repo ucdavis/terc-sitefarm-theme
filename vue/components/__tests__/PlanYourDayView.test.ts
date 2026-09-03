@@ -72,10 +72,12 @@ const cardLabels = (w: ReturnType<typeof mount>) =>
   w.findAll('.pyd-grid')[0].findAll('.card-label').map((n) => n.text())
 
 describe('PlanYourDayView', () => {
-  it('welcomes with no selection and always shows the cold-water-shock note', () => {
+  it('always shows the cold-water-shock note; the whole-lake welcome now lives beside the map', () => {
     const w = mount(PlanYourDayView)
-    expect(w.text()).toContain('Welcome to Lake Tahoe')
     expect(w.find('.pyd-cold-note').text()).toBe(COLD_WATER_SHOCK_NOTE)
+    // The welcome moved to the shell's map aside (TERC-9 follow-up).
+    expect(w.text()).not.toContain('Welcome to Lake Tahoe')
+    expect(w.find('.pyd-welcome').exists()).toBe(false)
   })
 
   it('defaults each station card set to temp, wave height, and turbidity (demo decision)', async () => {
