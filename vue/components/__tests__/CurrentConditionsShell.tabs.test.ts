@@ -4,7 +4,8 @@ import { mount } from '@vue/test-utils'
 import { ref } from 'vue'
 
 // Same network-free setup as CurrentConditionsShell.test.ts.
-vi.mock('../../composables/useLakeOverview', () => ({
+vi.mock('../../composables/useLakeOverview', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../composables/useLakeOverview')>()),
   useLakeOverview: () => ({ markers: ref([]), reload: () => {} }),
   markerKey: (kind: string, id: number) => `${kind}:${id}`,
 }))

@@ -2,9 +2,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ref } from 'vue'
+import type { OverviewMarker } from '../../composables/useLakeOverview'
 
-vi.mock('../../composables/useLakeOverview', () => ({
-  useLakeOverview: () => ({ markers: ref([]), reload: () => {} }),
+// Live markers, controllable per test (the welcome's hint derives from them).
+const markers = ref<OverviewMarker[]>([])
+vi.mock('../../composables/useLakeOverview', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../composables/useLakeOverview')>()),
+  useLakeOverview: () => ({ markers, reload: () => {} }),
   markerKey: (kind: string, id: number) => `${kind}:${id}`,
 }))
 vi.mock('../../data/conditionBands', () => ({
@@ -43,39 +47,55 @@ const pick = async (w: ReturnType<typeof mountShell>, name: string) =>
   w.findAll('.cc-dest').find((b) => b.text() === name)!.trigger('click')
 
 beforeEach(() => {
+  markers.value = []
   window.history.replaceState(null, '', '/real-time-conditions')
   syncFromLocation()
 })
 
-describe('CurrentConditionsShell location description (TERC-9)', () => {
-  it('shows nothing beside the map until a described destination is chosen', async () => {
+describe('CurrentConditionsShell map aside (TERC-9)', () => {
+  it('welcomes beside the map when the whole lake is shown', async () => {
     const w = mountShell()
     await flush()
-    expect(w.find('.cc-location-desc').exists()).toBe(false)
-    expect(w.get('.cc-map-row').classes()).not.toContain('cc-map-row--with-aside')
+    const aside = w.get('.cc-location-desc.cc-welcome')
+    expect(aside.attributes('aria-label')).toBe('Welcome to Lake Tahoe')
+    expect(aside.text()).toContain('Pick a destination above')
+    expect(w.get('.cc-map-row').classes()).toContain('cc-map-row--with-aside')
+    // Nothing is reporting in this fixture, so no hint.
+    expect(aside.find('.cc-welcome-hint').exists()).toBe(false)
   })
 
-  it('renders the editor-written description beside the map for the selected place', async () => {
+  it('lists the destinations reporting right now, derived from live markers', async () => {
+    // Station 2 belongs to Incline Village in the static registry.
+    markers.value = [
+      { key: 'nearshore:2', kind: 'nearshore', sourceId: 2, name: 'Dollar Point', lat: 39.2, lng: -120.1, status: 'reporting' } as OverviewMarker,
+    ]
+    const w = mountShell()
+    await flush()
+    const hint = w.get('.cc-welcome-hint')
+    expect(hint.text()).toContain('reporting stations right now')
+    expect(hint.text()).toContain('Incline Village')
+    expect(hint.text()).not.toContain('Glenbrook')
+  })
+
+  it('replaces the welcome with the editor-written description for a described place', async () => {
     const w = mountShell()
     await flush()
     await pick(w, 'Incline Village')
+    expect(w.find('.cc-welcome').exists()).toBe(false)
     const aside = w.get('.cc-location-desc')
     expect(aside.attributes('aria-label')).toBe('About Incline Village')
     expect(aside.get('h3').text()).toBe('Incline Village')
     // Rendered as HTML, not escaped text.
     expect(aside.find('.cc-location-desc-body em').text()).toBe('earliest')
-    expect(w.get('.cc-map-row').classes()).toContain('cc-map-row--with-aside')
   })
 
-  it('goes away for a destination nobody has written up, and on reset', async () => {
+  it('shows no aside for a destination nobody has written up, and the welcome again on reset', async () => {
     const w = mountShell()
     await flush()
-    await pick(w, 'Incline Village')
-    expect(w.find('.cc-location-desc').exists()).toBe(true)
     await pick(w, 'Glenbrook')
     expect(w.find('.cc-location-desc').exists()).toBe(false)
-    await pick(w, 'Incline Village')
+    expect(w.get('.cc-map-row').classes()).not.toContain('cc-map-row--with-aside')
     await pick(w, 'Show whole lake')
-    expect(w.find('.cc-location-desc').exists()).toBe(false)
+    expect(w.find('.cc-welcome').exists()).toBe(true)
   })
 })
