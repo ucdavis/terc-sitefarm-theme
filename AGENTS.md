@@ -96,8 +96,13 @@ drush warning — imported config expecting creds the local site lacks.
 6. **Guard async races** with generation tokens wherever fast selection
    changes trigger loads.
 7. **Library seams**: Leaflet lives only in `vue/map/leafletEngine.ts`,
-   Chart.js only in `vue/components/TimeSeriesChart.vue`. Tests drive
-   components through fake engines. New heavy dependencies follow suit.
+   Chart.js only in `vue/components/TimeSeriesChart.vue`, IndexedDB only
+   in `vue/core/indexedDbStore.ts`, and the Web Worker only in
+   `vue/core/gridWorker.ts` (+ `vue/workers/grid.worker.ts`, which imports
+   pure modules only — no Vue, no cache, no DOM). Tests drive components
+   through fake engines/stores/transports; the thin adapters are verified
+   live. New heavy dependencies follow suit. Anything posted to the worker
+   must be a plain object: Vue's reactive proxies are not cloneable.
 8. **Type sizing through SiteFarm**: rem on the theme's scale or its runtime
    tokens (`--heading-secondary-font-size`, `--reduced-title-font-size`);
    no px font sizes. (SiteFarm also exposes the whole UC Davis brand palette

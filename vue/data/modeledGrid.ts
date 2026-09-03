@@ -26,7 +26,8 @@
 import { S3_BASE } from '../config/endpoints'
 import { gridCache, miscCache, TTL } from '../core/cache'
 import { lakeWallTimeToDate } from '../core/time'
-import { decodeGrid, type GridVariable, type ScalarGrid } from './gridDecode'
+import { decodeGrid } from './decodeHost'
+import type { GridVariable, ScalarGrid } from './gridDecode'
 
 export type { GridVariable, ScalarGrid }
 

@@ -8,5 +8,6 @@ export default defineConfig({
   test: {
     include: ['vue/**/__tests__/**/*.test.ts'],
     environment: 'node',
+    setupFiles: ['vue/test.setup.ts'],
   },
 })

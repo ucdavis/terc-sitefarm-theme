@@ -4,7 +4,7 @@ import { LAKE_GRID_BOUNDS } from '../config/lakeGrid'
 import type { ColorScale } from '../core/colorScale'
 import type { ScalarGrid } from '../data/gridDecode'
 import { MAP_ENGINE_INJECTION_KEY, type MapEngine } from '../map/engine'
-import { renderFieldImage } from '../map/fieldImage'
+import { renderFieldUrl } from '../map/fieldRenderer'
 
 /**
  * Renders a scalar grid as an image overlay on the hosting LakeMap
@@ -22,20 +22,41 @@ const props = withDefaults(
 const OVERLAY_ID = 'scalar-field'
 const engineRef = inject<ShallowRef<MapEngine | null> | null>(MAP_ENGINE_INJECTION_KEY, null)
 
-function render() {
+// Rendering is async now (it may run in the grid worker, TERC-47), so a
+// fast step or a playback tick can outrun an earlier render. Only the
+// newest request may touch the map (non-negotiable #6).
+let renderGen = 0
+
+async function render() {
   const engine = engineRef?.value
   if (!engine) return
+  const gen = ++renderGen
   if (!props.grid) {
     engine.removeImageOverlay(OVERLAY_ID)
     return
   }
-  const url = renderFieldImage(props.grid, props.scale)
+  let url: string | null
+  try {
+    url = await renderFieldUrl(props.grid, props.scale)
+  } catch (e) {
+    // Only the newest render may act on failure, too: a superseded one
+    // erroring must not tear down the frame that replaced it.
+    if (gen !== renderGen) return
+    // A render that failed outright must not leave the PREVIOUS frame on
+    // the map looking current (PR review finding).
+    engineRef?.value?.removeImageOverlay(OVERLAY_ID)
+    console.warn('[terc] field overlay render failed', e)
+    return
+  }
+  if (gen !== renderGen) return
+  const live = engineRef?.value
+  if (!live) return
   if (url) {
-    engine.setImageOverlay(OVERLAY_ID, url, LAKE_GRID_BOUNDS, props.opacity)
+    live.setImageOverlay(OVERLAY_ID, url, LAKE_GRID_BOUNDS, props.opacity)
   } else {
-    // Canvas 2D unavailable (or render failed): don't leave the PREVIOUS
+    // Canvas unavailable (or render failed): don't leave the PREVIOUS
     // frame's image on the map looking current (PR review finding).
-    engine.removeImageOverlay(OVERLAY_ID)
+    live.removeImageOverlay(OVERLAY_ID)
   }
 }
 
