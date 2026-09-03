@@ -45,7 +45,7 @@ beforeEach(() => {
 describe('CurrentConditionsShell', () => {
   it('renders the two view tabs, destination selector, badge, and disclaimer', () => {
     const w = mount(CurrentConditionsShell)
-    expect(w.findAll('.cc-tab').map((t) => t.text())).toEqual([
+    expect(w.findAll('[role="tab"]').map((t) => t.text())).toEqual([
       'Plan Your Day',
       'Water Quality',
     ])
@@ -58,8 +58,8 @@ describe('CurrentConditionsShell', () => {
   it('keeps the selected destination when switching views', async () => {
     const w = mount(CurrentConditionsShell)
     await w.findAll('.cc-dest').find((b) => b.text() === 'Homewood')!.trigger('click')
-    await w.findAll('.cc-tab')[1].trigger('click')
-    await w.findAll('.cc-tab')[0].trigger('click')
+    await w.findAll('[role="tab"]')[1].trigger('click')
+    await w.findAll('[role="tab"]')[0].trigger('click')
     expect(w.find('.cc-view h3').text()).toBe('Plan Your Day')
     expect(w.find('.cc-head h2').text()).toContain('for Homewood')
     expect(w.find('plan-your-day-view-stub').exists()).toBe(true)
@@ -69,7 +69,7 @@ describe('CurrentConditionsShell', () => {
     window.history.replaceState(null, '', '/lake-conditions?cc-view=plan-your-day-extended')
     syncFromLocation()
     const w = mount(CurrentConditionsShell)
-    expect(w.find('.cc-tab.active').text()).toBe('Plan Your Day')
+    expect(w.find('[role="tab"][aria-selected="true"]').text()).toBe('Plan Your Day')
   })
 
   it('block-form toggles control the phase chip, source chips, and cache diagnostics', () => {
@@ -124,7 +124,7 @@ describe('CurrentConditionsShell', () => {
 
   it('renders the Water Quality view on its tab (TERC-21)', async () => {
     const w = mount(CurrentConditionsShell)
-    await w.findAll('.cc-tab')[1].trigger('click')
+    await w.findAll('[role="tab"]')[1].trigger('click')
     expect(w.find('.cc-view h3').text()).toBe('Water Quality')
     expect(w.find('water-quality-view-stub').exists()).toBe(true)
   })

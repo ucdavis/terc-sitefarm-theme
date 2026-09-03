@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
+import ViewTabs from './ViewTabs.vue'
+import type { ViewId } from '../composables/useConditionsState'
+import { uniqueId } from '../lib/uniqueId'
 import LakeMap from './LakeMap.vue'
 import PlanYourDayView from './PlanYourDayView.vue'
 import SourceBadge from './SourceBadge.vue'
@@ -51,6 +54,19 @@ const {
 } = useConditionsState()
 
 const { markers } = useLakeOverview()
+
+// Tabs widget wiring (TERC-55). Per-instance ids: the mount layer supports
+// several block instances on one page, and duplicated tab/panel ids would
+// cross-wire aria-controls / aria-labelledby between them. (Not useId():
+// that counter is per Vue app, and each block IS its own app.)
+const idBase = uniqueId('cc')
+const tabItems = views.map((v) => ({ key: v.id, label: v.label }))
+const activeViewLabel = computed(() => views.find((v) => v.id === view.value)?.label ?? '')
+function onSelectView(key: string) {
+  setView(key as ViewId)
+}
+/** Announce view switches to assistive tech, as the Phase 2 shell does. */
+const viewAnnouncement = computed(() => `${activeViewLabel.value} view selected.`)
 
 const focusedStationKey = computed(() =>
   focusedStation.value ? markerKey(focusedStation.value.kind, focusedStation.value.sourceId) : null,
@@ -112,19 +128,17 @@ onMounted(() => {
       />
     </header>
 
-    <nav class="cc-nav" aria-label="Current Conditions views">
-      <button
-        v-for="v in views"
-        :key="v.id"
-        type="button"
-        class="cc-tab"
-        :class="{ active: view === v.id }"
-        :aria-current="view === v.id ? 'page' : undefined"
-        @click="setView(v.id)"
-      >
-        {{ v.label }}
-      </button>
-    </nav>
+    <!-- A full ARIA tabs widget (TERC-55): one tab stop, arrow-key roving,
+         Home/End, and the panel below labelled by the active tab. Shared
+         with the Forecasted Conditions shell. -->
+    <ViewTabs
+      :tabs="tabItems"
+      :model-value="view"
+      :id-base="idBase"
+      list-label="Current Conditions views"
+      variant="underline"
+      @update:model-value="onSelectView"
+    />
 
     <div class="cc-selector">
       <span class="cc-selector-label">Where are you going?</span>
@@ -152,6 +166,7 @@ onMounted(() => {
     </div>
 
     <p class="cc-sr-only" aria-live="polite">{{ selectionAnnouncement }}</p>
+    <p class="cc-sr-only" aria-live="polite">{{ viewAnnouncement }}</p>
 
     <div class="cc-map-region" data-terc-map-slot>
       <LakeMap
@@ -164,13 +179,24 @@ onMounted(() => {
       />
     </div>
 
-    <div class="cc-view" role="region" :aria-label="views.find((v) => v.id === view)?.label">
-      <h3>{{ views.find((v) => v.id === view)?.label }}</h3>
-      <WaterQualityView v-if="view === 'water-quality'" />
-      <PlanYourDayView v-else />
-      <!-- Both Phase 1 views are real now (TERC-21, TERC-58) — the stub
-           machinery from TERC-18 is gone. -->
-
+    <!-- One panel container per tab, always present, so every tab's
+         aria-controls resolves to a real element (the ViewTabs contract);
+         only the active panel is shown and only it mounts content, so the
+         inactive view never fetches or renders (PR review finding). -->
+    <div
+      v-for="v in views"
+      v-show="view === v.id"
+      :id="`${idBase}-panel-${v.id}`"
+      :key="v.id"
+      class="cc-view"
+      role="tabpanel"
+      :aria-labelledby="`${idBase}-tab-${v.id}`"
+    >
+      <template v-if="view === v.id">
+        <h3>{{ v.label }}</h3>
+        <WaterQualityView v-if="v.id === 'water-quality'" />
+        <PlanYourDayView v-else />
+      </template>
     </div>
 
     <!-- Phase-related placeholder: follows the "Show phase indicator"
@@ -221,25 +247,6 @@ onMounted(() => {
   font-size: var(--reduced-title-font-size, 1.375rem);
   line-height: 1.25;
 }
-.cc-nav {
-  display: flex;
-  gap: 0.25rem;
-  border-bottom: 2px solid #d5dde2;
-}
-.cc-tab {
-  border: 0;
-  background: none;
-  padding: 0.5rem 0.9rem;
-  cursor: pointer;
-  font-weight: 600;
-  color: #4a5a64;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
-}
-.cc-tab.active {
-  color: #13322b;
-  border-bottom-color: #1c6b45;
-}
 .cc-selector-label {
   font-weight: 700;
   margin-right: 0.5rem;
@@ -266,8 +273,7 @@ onMounted(() => {
 }
 /* Keyboard focus must be clearly visible on every control (WCAG 2.4.7);
    don't rely on the browser default surviving theme CSS. */
-.cc-dest:focus-visible,
-.cc-tab:focus-visible {
+.cc-dest:focus-visible {
   outline: 3px solid #f0b323;
   outline-offset: 2px;
 }

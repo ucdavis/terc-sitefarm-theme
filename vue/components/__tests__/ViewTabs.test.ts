@@ -59,4 +59,22 @@ describe('ViewTabs (ARIA tabs widget)', () => {
     await list.trigger('keydown', { key: 'Home' })
     expect(w.emitted('update:modelValue')?.[1]).toEqual(['a'])
   })
+
+  it('variant is presentation only: roles and ids are identical, the class differs', () => {
+    // 'underline' keeps the Current Conditions shell's original look
+    // (TERC-55 retrofit); the widget contract must not change with it.
+    const props = {
+      tabs: [{ key: 'a', label: 'A' }, { key: 'b', label: 'B' }],
+      modelValue: 'a',
+      idBase: 'x',
+      listLabel: 'Views',
+    }
+    const pill = mount(ViewTabs, { props })
+    const underline = mount(ViewTabs, { props: { ...props, variant: 'underline' as const } })
+    expect(pill.get('[role="tablist"]').classes()).toContain('view-tabs--pill')
+    expect(underline.get('[role="tablist"]').classes()).toContain('view-tabs--underline')
+    const shape = (w: ReturnType<typeof mount>) =>
+      w.findAll('[role="tab"]').map((t) => [t.attributes('id'), t.attributes('aria-controls'), t.attributes('tabindex')])
+    expect(shape(underline)).toEqual(shape(pill))
+  })
 })
