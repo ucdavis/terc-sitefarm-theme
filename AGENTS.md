@@ -16,9 +16,12 @@ Vue prototype being ported lives at `~/Apps/terc-experiments/terc-proto-1`.
 - **The block lives at `/real-time-conditions`** (a SiteFarm page; block
   `terc_terccurrentconditions` with request-path visibility). **Never place
   it on the homepage.**
-- Phase 2 will be **"Forecasted Conditions"** at `/forecasted-conditions` —
-  forecast-first wording everywhere user-facing; the prototype's "modeled
-  conditions" survives only as a technical term for the grid data.
+- Phase 2 is **"Forecasted Conditions"** at `/forecasted-conditions` (block
+  `terc_tercforecastedconditions`; live on tercdev) — forecast-first wording
+  everywhere user-facing; the prototype's "modeled conditions" survives only
+  as a technical term for the grid data. The two pages cross-link, on
+  editor-configurable paths (`forecastPath` / `realTimePath` block settings),
+  and both shells deep-link their view (`?cc-view=` / `?fc-view=`).
 - This repo deploys into the public docroot on Site Factory. `scripts/` is
   blocked from web access by `.htaccess` (Apache prod; local ddev is nginx
   and ignores it). The GitHub repo is public: **no secrets, ever** —

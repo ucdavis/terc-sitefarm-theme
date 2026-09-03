@@ -84,22 +84,36 @@ describe('CurrentConditionsShell', () => {
     expect(off.find('.phase-chip').exists()).toBe(false)
     expect(off.find('.source-chip').exists()).toBe(false)
     expect(off.find('.source-badge').exists()).toBe(false) // both off -> no badge row at all
-    // The phase toggle also hides the Phase 2 "Forecasted Conditions"
-    // placeholder (TERC-57).
-    expect(off.find('.cc-forecast').exists()).toBe(false)
+    // The Forecasted Conditions link is real navigation now (TERC-12): it
+    // has its own toggle and does NOT follow the phase chip.
+    expect(off.find('.cc-forecast').exists()).toBe(true)
     expect(off.find('cache-diagnostics-stub').exists()).toBe(true)
 
-    // Independent: sources without phase; forecast section follows phase.
+    // Independent: sources without phase; the forecast link is untouched.
     const mixed = mount(CurrentConditionsShell, { showPhase: '0', showSources: '1' })
     expect(mixed.find('.phase-chip').exists()).toBe(false)
     expect(mixed.find('.source-chip').exists()).toBe(true)
-    expect(mixed.find('.cc-forecast').exists()).toBe(false)
+    expect(mixed.find('.cc-forecast').exists()).toBe(true)
+
+    const noLink = mount(CurrentConditionsShell, { showForecastLink: '0' })
+    expect(noLink.find('.cc-forecast').exists()).toBe(false)
   })
 
   it('renders the Plan Your Day view on its tab (TERC-58)', () => {
     const w = mount(CurrentConditionsShell)
     expect(w.find('plan-your-day-view-stub').exists()).toBe(true)
-    expect(w.find('.cc-view-stub').text()).toContain('Phase 2') // only remaining stub note
+    expect(w.find('.cc-view-stub').exists()).toBe(false) // no stubs remain (TERC-12)
+  })
+
+  it('links to the Forecasted Conditions page, on a configurable path (TERC-12)', () => {
+    const def = mount(CurrentConditionsShell)
+    const link = def.get('.cc-forecast a')
+    expect(link.attributes('href')).toBe('/forecasted-conditions')
+    expect(link.text()).toContain('Forecasted Conditions')
+    expect(def.text()).not.toContain('arrive with Phase 2')
+
+    const moved = mount(CurrentConditionsShell, { forecastPath: '/lake/forecast' })
+    expect(moved.get('.cc-forecast a').attributes('href')).toBe('/lake/forecast')
   })
 
   it('names the current selection in the block heading', async () => {

@@ -13,8 +13,18 @@ configuration:
   showPhase:
     type: checkbox
     title: 'Show phase indicator'
-    description: 'Phase-related markers: the "Phase 1/2/3" chip next to the heading AND the "Forecasted Conditions" Phase 2 placeholder section.'
+    description: 'The "Phase 1/2/3" chip next to the heading.'
     default_value: 1
+  showForecastLink:
+    type: checkbox
+    title: 'Show "Forecasted Conditions" link'
+    description: 'The section at the bottom that sends visitors to the Forecasted Conditions page.'
+    default_value: 1
+  forecastPath:
+    type: textfield
+    title: 'Forecasted Conditions page path'
+    description: 'Where the "See Forecasted Conditions" link points. Leave as-is unless that page moves.'
+    default_value: '/forecasted-conditions'
   showSources:
     type: checkbox
     title: 'Show data-source chips'

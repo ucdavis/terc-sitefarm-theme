@@ -37,6 +37,9 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock)
   miscCache.delete('model-manifest')
   resetModelTimeForTests()
+  // The shell writes ?fc-view= to the URL (TERC-12) and happy-dom shares
+  // location across a file's tests — start each one from a clean address.
+  window.history.replaceState(null, '', '/forecasted-conditions')
 })
 afterEach(() => {
   resetModelTimeForTests()
@@ -162,5 +165,35 @@ describe('ForecastedConditionsShell', () => {
     await flush()
     expect(w.find('.source-chip').exists()).toBe(false)
     expect(w.find('cache-diagnostics-stub').exists()).toBe(true)
+  })
+
+  describe('deep-linkable view (TERC-12)', () => {
+    it('defaults to Water Temperature with no param or an unknown one', async () => {
+      window.history.replaceState(null, '', '/forecasted-conditions?fc-view=nonsense')
+      const w = mountShell()
+      await flush()
+      expect(w.get('[role="tab"][aria-selected="true"]').text()).toBe('Water Temperature')
+      // An unknown value is dropped from the URL rather than preserved.
+      expect(new URLSearchParams(window.location.search).get('fc-view')).toBeNull()
+    })
+
+    it('opens the view named in ?fc-view=', async () => {
+      window.history.replaceState(null, '', '/forecasted-conditions?fc-view=currents')
+      const w = mountShell()
+      await flush()
+      expect(w.get('[role="tab"][aria-selected="true"]').text()).toBe('Currents')
+    })
+
+    it('writes the selected view to the URL, and clears it for the default', async () => {
+      window.history.replaceState(null, '', '/forecasted-conditions?other=1')
+      const w = mountShell()
+      await flush()
+      await w.findAll('[role="tab"]')[2].trigger('click')
+      const q = new URLSearchParams(window.location.search)
+      expect(q.get('fc-view')).toBe('wave-height')
+      expect(q.get('other')).toBe('1') // unrelated params survive
+      await w.findAll('[role="tab"]')[0].trigger('click')
+      expect(new URLSearchParams(window.location.search).get('fc-view')).toBeNull()
+    })
   })
 })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Component } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
 import DateHourSelector from './DateHourSelector.vue'
@@ -70,8 +70,41 @@ const VIEWS: ViewDef[] = [
   },
 ]
 
-const activeKey = ref(VIEWS[0].key)
+/**
+ * Deep-linkable view (TERC-12): ?fc-view=currents opens that view, the
+ * same way ?cc-view= does on the Real-Time page. Kiosk shortcuts and the
+ * QR posters (TERC-59) need a URL that lands on a specific layer. The
+ * default — no param, or an unknown one — is Water Temperature, per the
+ * ticket's definition of done.
+ */
+const PARAM_VIEW = 'fc-view'
+function viewFromLocation(): string {
+  const requested = new URLSearchParams(window.location.search).get(PARAM_VIEW)
+  return VIEWS.some((v) => v.key === requested) ? (requested as string) : VIEWS[0].key
+}
+const activeKey = ref(viewFromLocation())
 const activeView = computed(() => VIEWS.find((v) => v.key === activeKey.value) ?? VIEWS[0])
+
+// Immediate so an unknown ?fc-view= is normalised away on mount rather than
+// lingering in a URL that no longer describes what's shown.
+watch(
+  activeKey,
+  (key) => {
+    const url = new URL(window.location.href)
+    if (key === VIEWS[0].key) url.searchParams.delete(PARAM_VIEW)
+    else url.searchParams.set(PARAM_VIEW, key)
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
+  },
+  { immediate: true },
+)
+onMounted(() => {
+  // Back/forward between deep links re-reads the param.
+  const onPop = () => {
+    activeKey.value = viewFromLocation()
+  }
+  window.addEventListener('popstate', onPop)
+  onBeforeUnmount(() => window.removeEventListener('popstate', onPop))
+})
 
 // Per-instance id base: the mount layer supports several block instances on
 // one page, and duplicated tab/panel ids would cross-wire aria-controls /
