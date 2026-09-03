@@ -48,18 +48,26 @@ export function fieldPixels(grid: ScalarGrid, scale: ColorScale): Uint8ClampedAr
 }
 
 /**
- * Full render to a PNG data URL, or null where canvas 2D is unavailable
- * (non-browser test environments) — callers treat null as "nothing to show".
+ * The two-stage paint, on whichever canvas kind the thread has. Returns
+ * the north-aligned output canvas, or null when 2D contexts are missing
+ * (non-browser test environments).
  */
-export function renderFieldImage(grid: ScalarGrid, scale: ColorScale): string | null {
+type AnyCanvas = HTMLCanvasElement | OffscreenCanvas
+
+function paintField(
+  grid: ScalarGrid,
+  scale: ColorScale,
+  makeCanvas: (w: number, h: number) => AnyCanvas,
+): AnyCanvas | null {
   const { rows, cols } = grid
 
   // Stage 1 — one pixel per grid cell, in the grid's own (rotated) frame.
   // After the flips, this canvas's "up" is always grid-north.
-  const cellCanvas = document.createElement('canvas')
-  cellCanvas.width = cols
-  cellCanvas.height = rows
-  const cellCtx = cellCanvas.getContext('2d')
+  const cellCanvas = makeCanvas(cols, rows)
+  const cellCtx = cellCanvas.getContext('2d') as
+    | CanvasRenderingContext2D
+    | OffscreenCanvasRenderingContext2D
+    | null
   if (!cellCtx) return null
   const img = cellCtx.createImageData(cols, rows)
   img.data.set(fieldPixels(grid, scale))
@@ -73,10 +81,11 @@ export function renderFieldImage(grid: ScalarGrid, scale: ColorScale): string | 
   const outW = Math.ceil((2 * LAKE_DOMAIN_AABB.halfWidthM) / metresPerPx)
   const outH = Math.ceil((2 * LAKE_DOMAIN_AABB.halfHeightM) / metresPerPx)
 
-  const out = document.createElement('canvas')
-  out.width = outW
-  out.height = outH
-  const ctx = out.getContext('2d')
+  const out = makeCanvas(outW, outH)
+  const ctx = out.getContext('2d') as
+    | CanvasRenderingContext2D
+    | OffscreenCanvasRenderingContext2D
+    | null
   if (!ctx) return null
   ctx.imageSmoothingEnabled = true
   ctx.translate(outW / 2, outH / 2)
@@ -85,12 +94,39 @@ export function renderFieldImage(grid: ScalarGrid, scale: ColorScale): string | 
   // (grid-north tilting east) becomes a clockwise image rotation.
   ctx.rotate((-LAKE_DOMAIN.rotationDeg * Math.PI) / 180)
   ctx.drawImage(
-    cellCanvas,
+    cellCanvas as CanvasImageSource,
     -LAKE_DOMAIN.widthM / metresPerPx / 2,
     -LAKE_DOMAIN.heightM / metresPerPx / 2,
     LAKE_DOMAIN.widthM / metresPerPx,
     LAKE_DOMAIN.heightM / metresPerPx,
   )
+  return out
+}
 
-  return out.toDataURL('image/png')
+/**
+ * Synchronous render to a PNG data URL on the main thread, or null where
+ * canvas 2D is unavailable — callers treat null as "nothing to show". The
+ * fallback path when there is no worker (TERC-47).
+ */
+export function renderFieldImage(grid: ScalarGrid, scale: ColorScale): string | null {
+  if (typeof document === 'undefined') return null
+  const out = paintField(grid, scale, (w, h) => {
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
+    return c
+  })
+  return out ? (out as HTMLCanvasElement).toDataURL('image/png') : null
+}
+
+/**
+ * Render to a PNG Blob via OffscreenCanvas — usable from a worker, where
+ * there is no document, and the PNG encode (the heaviest step for a
+ * 695×406 wave grid) leaves the main thread entirely (TERC-47). Null when
+ * OffscreenCanvas is unavailable.
+ */
+export async function renderFieldBlob(grid: ScalarGrid, scale: ColorScale): Promise<Blob | null> {
+  if (typeof OffscreenCanvas === 'undefined') return null
+  const out = paintField(grid, scale, (w, h) => new OffscreenCanvas(w, h))
+  return out ? (out as OffscreenCanvas).convertToBlob({ type: 'image/png' }) : null
 }
