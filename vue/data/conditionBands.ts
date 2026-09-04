@@ -25,6 +25,7 @@
  *                         never a hex from content.
  */
 import { miscCache, TTL } from '../core/cache'
+import { tracedFetch } from '../core/requestLog'
 import { isUsableBrand } from '../config/brandPalette'
 import {
   applyConditionBands,
@@ -136,7 +137,7 @@ export async function fetchConditionBands(): Promise<Partial<Record<QualityMetri
  */
 let brandFieldMissingWarned = false
 async function fetchBandsBody(): Promise<BandsBody> {
-  const withBrands = await fetch(BANDS_WITH_BRANDS_PATH)
+  const withBrands = await tracedFetch(BANDS_WITH_BRANDS_PATH)
   if (withBrands.ok) return withBrands.json()
   if (withBrands.status !== 400) throw new Error(`condition bands HTTP ${withBrands.status}`)
   if (!brandFieldMissingWarned) {
@@ -145,7 +146,7 @@ async function fetchBandsBody(): Promise<BandsBody> {
       `[terc] this site has no ${BRAND_FIELD} on condition_bands yet (run scripts/condition-bands/add-brand-color-field.php); band chips use tone colors`,
     )
   }
-  const plain = await fetch(BANDS_PATH)
+  const plain = await tracedFetch(BANDS_PATH)
   if (!plain.ok) throw new Error(`condition bands HTTP ${plain.status}`)
   return plain.json()
 }

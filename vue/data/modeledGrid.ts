@@ -24,6 +24,7 @@
  * (verified live 2026-09-01, TERC-41) — fetches are direct, no proxy.
  */
 import { S3_BASE } from '../config/endpoints'
+import { tracedFetch } from '../core/requestLog'
 import { gridCache, miscCache, TTL } from '../core/cache'
 import { lakeWallTimeToDate } from '../core/time'
 import { decodeGrid } from './decodeHost'
@@ -71,7 +72,7 @@ export function parseFrameName(filename: string): ModelFrame | null {
 
 export async function fetchModelManifest(): Promise<ModelManifest> {
   return miscCache.getOrFetch('model-manifest', TTL.SHORT, async () => {
-    const res = await fetch(`${S3_BASE}/contents.json`)
+    const res = await tracedFetch(`${S3_BASE}/contents.json`)
     if (!res.ok) throw new Error(`contents.json HTTP ${res.status}`)
     const body = (await res.json()) as { temperature?: string[]; flow?: string[] }
     const toFrames = (names: string[] | undefined) =>
@@ -84,7 +85,7 @@ export async function fetchModelManifest(): Promise<ModelManifest> {
 }
 
 async function fetchGridBytes(path: string): Promise<ArrayBuffer> {
-  const res = await fetch(`${S3_BASE}/${path}`)
+  const res = await tracedFetch(`${S3_BASE}/${path}`)
   if (!res.ok) throw new Error(`${path} HTTP ${res.status}`)
   return res.arrayBuffer()
 }

@@ -106,6 +106,10 @@ drush warning — imported config expecting creds the local site lacks.
    through fake engines/stores/transports; the thin adapters are verified
    live. New heavy dependencies follow suit. Anything posted to the worker
    must be a plain object: Vue's reactive proxies are not cloneable.
+   Every network call in the data layer goes through `tracedFetch`
+   (`vue/core/requestLog.ts`) — a pass-through until a block enables the
+   Endpoint diagnostics panel (TERC-62), which is how editors tell a site
+   bug from an upstream outage. A bare `fetch(` in `vue/data` is a bug.
 8. **Type sizing through SiteFarm**: rem on the theme's scale or its runtime
    tokens (`--heading-secondary-font-size`, `--reduced-title-font-size`);
    no px font sizes. (SiteFarm also exposes the whole UC Davis brand palette

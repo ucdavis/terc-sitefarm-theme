@@ -21,6 +21,7 @@
  *    exactly like the report API's endpoint families.
  */
 import { miscCache, TTL } from '../core/cache'
+import { tracedFetch } from '../core/requestLog'
 import {
   DESTINATIONS,
   type DestinationDef,
@@ -170,7 +171,7 @@ export function staticRegistry(): Registry {
 export async function fetchRegistry(): Promise<Registry> {
   return miscCache.getOrFetch('registry:lake-locations', TTL.SHORT, async () => {
     try {
-      const res = await fetch(`${JSONAPI_BASE}${REGISTRY_PATH}`)
+      const res = await tracedFetch(`${JSONAPI_BASE}${REGISTRY_PATH}`)
       if (!res.ok) throw new Error(`registry HTTP ${res.status}`)
       const registry = adaptRegistry(await res.json())
       // An empty destination list means no content yet — fall back so the

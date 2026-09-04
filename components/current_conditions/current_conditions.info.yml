@@ -35,3 +35,8 @@ configuration:
     title: 'Show cache diagnostics'
     description: 'Overlay live cache hit/miss/join statistics in the corner of the page — for debugging and demos only.'
     default_value: 0
+  endpointDiagnostics:
+    type: checkbox
+    title: 'Show endpoint diagnostics'
+    description: 'Panel listing every API endpoint this block calls — last request, duration, HTTP status, payload size, and the last error — to tell a site problem from an upstream outage. For editors and developers only; leave off on public pages.'
+    default_value: 0

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
+import EndpointDiagnostics from './EndpointDiagnostics.vue'
+import { enableRequestLog } from '../core/requestLog'
 import ViewTabs from './ViewTabs.vue'
 import type { ViewId } from '../composables/useConditionsState'
 import { uniqueId } from '../lib/uniqueId'
@@ -32,6 +34,8 @@ const props = withDefaults(
     showPhase?: boolean | number | string
     showSources?: boolean | number | string
     debug?: boolean | number | string
+    /** Show the endpoint diagnostics panel (TERC-62). */
+    endpointDiagnostics?: boolean | number | string
     /** The "Forecasted Conditions" cross-link section (TERC-12). */
     showForecastLink?: boolean | number | string
     /** Path of the Forecasted Conditions page, for the cross-link (TERC-12). */
@@ -41,6 +45,7 @@ const props = withDefaults(
     showPhase: true,
     showSources: true,
     debug: false,
+    endpointDiagnostics: false,
     showForecastLink: true,
     forecastPath: '/forecasted-conditions',
   },
@@ -53,6 +58,9 @@ const showPhase = asBool(props.showPhase)
 const showForecastLink = asBool(props.showForecastLink)
 const showSources = asBool(props.showSources)
 const showDiagnostics = asBool(props.debug)
+const showEndpoints = asBool(props.endpointDiagnostics)
+// Before any child mounts and starts fetching, so the first requests are logged too.
+if (showEndpoints) enableRequestLog()
 
 const {
   view,
@@ -287,6 +295,7 @@ onMounted(() => {
     </div>
 
     <CacheDiagnostics v-if="showDiagnostics" />
+    <EndpointDiagnostics v-if="showEndpoints" />
 
     <footer class="cc-disclaimer">
       All data are provisional, subject to revision, and provided for research

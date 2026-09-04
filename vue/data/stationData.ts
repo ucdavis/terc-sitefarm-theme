@@ -23,6 +23,7 @@
 import { REPORT_BASE } from '../config/endpoints'
 import { stationCache, TTL } from '../core/cache'
 import { fmtDateParam, parseTmStamp, startOfTodayUtc } from '../core/time'
+import { noteRecords, tracedFetch } from '../core/requestLog'
 import { cToF, mToFt, msToMph, parseReading } from '../core/units'
 
 export interface NearshoreRecord {
@@ -69,7 +70,7 @@ export interface MetRecord {
 }
 
 async function fetchJsonArray(url: string): Promise<Record<string, string>[]> {
-  const res = await fetch(url)
+  const res = await tracedFetch(url)
   if (!res.ok) {
     // Error messages surface in the UI via RequestState — keep the endpoint
     // URL out of them and log it here for diagnostics instead.
@@ -81,6 +82,7 @@ async function fetchJsonArray(url: string): Promise<Record<string, string>[]> {
     console.error('[terc] unexpected station response shape', url)
     throw new Error('Station data response had an unexpected shape')
   }
+  noteRecords(url, body.length)
   return body
 }
 

@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
+import EndpointDiagnostics from './EndpointDiagnostics.vue'
+import { enableRequestLog } from '../core/requestLog'
 import DateHourSelector from './DateHourSelector.vue'
 import SourceBadge from './SourceBadge.vue'
 import CurrentsView from './CurrentsView.vue'
@@ -28,6 +30,8 @@ const props = withDefaults(
   defineProps<{
     showSources?: boolean | number | string
     debug?: boolean | number | string
+    /** Show the endpoint diagnostics panel (TERC-62). */
+    endpointDiagnostics?: boolean | number | string
     /** Path of the Phase 1 block's page, for the cross-link. */
     realTimePath?: string
     /**
@@ -43,6 +47,7 @@ const props = withDefaults(
   {
     showSources: true,
     debug: false,
+    endpointDiagnostics: false,
     realTimePath: '/real-time-conditions',
     introText:
       'Model-based forecasts of lake conditions, updated daily. Pick a date and hour — your selection follows you between views — or press “Next 24 h” to watch conditions evolve.',
@@ -78,6 +83,9 @@ function asBool(v: boolean | number | string): boolean {
 
 const showSources = asBool(props.showSources)
 const showDiagnostics = asBool(props.debug)
+const showEndpoints = asBool(props.endpointDiagnostics)
+// Before any child mounts and starts fetching, so the first requests are logged too.
+if (showEndpoints) enableRequestLog()
 
 interface ViewDef extends ViewTab {
   component: Component
@@ -231,6 +239,7 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
     </p>
 
     <CacheDiagnostics v-if="showDiagnostics" />
+    <EndpointDiagnostics v-if="showEndpoints" />
   </section>
 </template>
 
