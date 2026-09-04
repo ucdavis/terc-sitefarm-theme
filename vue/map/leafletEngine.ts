@@ -14,6 +14,35 @@ import {
   type LatLngBounds,
   type MapEngine,
 } from './engine'
+import { TOOLTIP_GAP, fitTooltipSide, fitTooltipVertical } from './tooltipFit'
+
+/**
+ * Re-place a marker's tooltip each time it opens so it stays inside the
+ * map frame (TERC-63): pick the side with room, cap the width so the
+ * text wraps rather than clips (the unscoped `.leaflet-tooltip` rule in
+ * LakeMap.vue allows wrapping), and nudge it clear of the top/bottom
+ * edges. Runs for hover and for keyboard focus alike — both open the
+ * tooltip through the same event.
+ */
+function keepTooltipInFrame(marker: L.Marker | L.CircleMarker): void {
+  marker.on('tooltipopen', (e) => {
+    const tip = (e as L.TooltipEvent).tooltip
+    const el = tip.getElement()
+    const map = (marker as unknown as { _map?: L.Map })._map
+    if (!el || !map) return
+    const size = map.getSize()
+    const p = map.latLngToContainerPoint(marker.getLatLng())
+    el.style.maxWidth = ''
+    const fit = fitTooltipSide(p.x, size.x, el.offsetWidth)
+    if (fit.maxWidth !== null) el.style.maxWidth = `${fit.maxWidth}px`
+    // Height may have changed once the text wrapped.
+    const dy = fitTooltipVertical(p.y, size.y, el.offsetHeight)
+    tip.options.direction = fit.side
+    // Explicit sides do not mirror the offset the way 'auto' does.
+    tip.options.offset = L.point(fit.side === 'right' ? TOOLTIP_GAP : -TOOLTIP_GAP, dy)
+    tip.update()
+  })
+}
 
 export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapEngine {
   const interactive = opts.interactive !== false
@@ -68,10 +97,8 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
       // (WCAG 2.1.1). Focus also shows the tooltip in Leaflet 1.9.
       const marker = L.marker([o.lat, o.lng], { icon, keyboard: true })
       if (o.onClick) marker.on('click', o.onClick)
-      // direction 'auto' places the tooltip on the side away from the map
-      // edge, so badges near the boundary don't get their tooltip clipped
-      // by the map container's overflow (fixed-'top' did).
-      marker.bindTooltip(o.tooltipHtml, { direction: 'auto', offset: [14, 0] })
+      marker.bindTooltip(o.tooltipHtml, { direction: 'auto', offset: [TOOLTIP_GAP, 0] })
+      keepTooltipInFrame(marker)
       group(name).addLayer(marker)
       const el = marker.getElement()
       if (el) {
@@ -107,7 +134,8 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
       })
       // The contract says tooltip is plain text; Leaflet renders tooltip
       // strings as HTML, so escape here. 'auto' avoids edge clipping.
-      marker.bindTooltip(escapeHtml(o.tooltip), { direction: 'auto', offset: [10, 0] })
+      marker.bindTooltip(escapeHtml(o.tooltip), { direction: 'auto', offset: [TOOLTIP_GAP, 0] })
+      keepTooltipInFrame(marker)
       if (o.onClick) marker.on('click', o.onClick)
       group(name).addLayer(marker)
     },

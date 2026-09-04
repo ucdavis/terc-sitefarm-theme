@@ -3,8 +3,8 @@
     "file": "SourceBadge.css",
     "src": "_SourceBadge.!~{001}~.js"
   },
-  "_SourceBadge.BlQRWc2O.js": {
-    "file": "chunks/SourceBadge.BlQRWc2O.js",
+  "_SourceBadge.CIMxFrkr.js": {
+    "file": "chunks/SourceBadge.CIMxFrkr.js",
     "name": "SourceBadge",
     "css": [
       "SourceBadge.css"
@@ -33,7 +33,7 @@
     "src": "vue/entries/current-conditions.ts",
     "isEntry": true,
     "imports": [
-      "_SourceBadge.BlQRWc2O.js"
+      "_SourceBadge.CIMxFrkr.js"
     ],
     "css": [
       "current-conditions.css"
@@ -45,7 +45,7 @@
     "src": "vue/entries/forecasted-conditions.ts",
     "isEntry": true,
     "imports": [
-      "_SourceBadge.BlQRWc2O.js"
+      "_SourceBadge.CIMxFrkr.js"
     ],
     "css": [
       "forecasted-conditions.css"
