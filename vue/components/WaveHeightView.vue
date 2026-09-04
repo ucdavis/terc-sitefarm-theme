@@ -72,6 +72,7 @@ const caveats = computed(() => {
         scale, not missing.
       </p>
     </template>
+    <template #side><slot name="side" /></template>
   </FieldStage>
 </template>
 

@@ -10,6 +10,10 @@ const fetchMock = vi.fn()
 
 import ForecastedConditionsShell from '../ForecastedConditionsShell.vue'
 
+// Each stub keeps its own element name (as VTU's auto-stubs would) and
+// renders the `side` slot, where the shell's editor-owned text lands (TERC-64).
+const sideSlotStub = (tag: string) => ({ template: `<${tag}><slot name="side" /></${tag}>` })
+
 const mountShell = (props: Record<string, unknown> = {}) =>
   mount(ForecastedConditionsShell, {
     props,
@@ -19,12 +23,13 @@ const mountShell = (props: Record<string, unknown> = {}) =>
       stubs: {
         LakeMap: true,
         CacheDiagnostics: true,
-        WaterTemperatureView: true,
-        CurrentsView: true,
-        WaveHeightView: true,
+        WaterTemperatureView: sideSlotStub('water-temperature-view-stub'),
+        CurrentsView: sideSlotStub('currents-view-stub'),
+        WaveHeightView: sideSlotStub('wave-height-view-stub'),
       },
     },
   })
+
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
 
@@ -88,19 +93,24 @@ describe('ForecastedConditionsShell', () => {
     expect(w.get('[aria-live="polite"]').text()).toContain('Currents view selected.')
   })
 
-  it('renders the editor-owned text beside each panel, defaults included (TERC-9)', async () => {
+  it('renders the editor-owned text in the active view\'s reading column, defaults included (TERC-9)', async () => {
     const w = mountShell()
     await flush()
     const panels = w.findAll('[role="tabpanel"]')
-    const aside = (i: number) => panels[i].get('.fc-panel-aside')
-    expect(aside(0).attributes('aria-label')).toBe('About Water Temperature')
-    expect(aside(0).text()).toContain('cold upwellings')
-    expect(aside(0).text()).toContain('cold-water shock')
-    expect(aside(1).text()).toContain('rip currents')
-    expect(aside(2).text()).toContain('the fetch')
+    const tabs = w.findAll('[role="tab"]')
+    // Only the active view is mounted, so its aside is the only one in the DOM.
+    const aside = () => w.get('.fc-panel-aside')
+    expect(panels[0].find('.fc-panel-aside').exists()).toBe(true)
+    expect(aside().attributes('aria-label')).toBe('About Water Temperature')
+    expect(aside().text()).toContain('cold upwellings')
+    expect(aside().text()).toContain('cold-water shock')
     // Blank lines in the text become paragraphs.
-    expect(aside(0).findAll('p')).toHaveLength(2)
-    expect(panels[0].classes()).toContain('fc-panel--with-aside')
+    expect(aside().findAll('p')).toHaveLength(2)
+    await tabs[1].trigger('click')
+    expect(panels[1].get('.fc-panel-aside').text()).toContain('rip currents')
+    await tabs[2].trigger('click')
+    expect(panels[2].get('.fc-panel-aside').text()).toContain('the fetch')
+    expect(w.findAll('.fc-panel-aside')).toHaveLength(1)
     // The views themselves no longer carry the copy.
     expect(w.find('.wt-safety, .cv-safety, .wv-safety').exists()).toBe(false)
   })
@@ -114,9 +124,10 @@ describe('ForecastedConditionsShell', () => {
     const intro = w.get('.fc-intro')
     expect(intro.findAll('p').map((p) => p.text())).toEqual(['Custom intro.', 'Second paragraph.'])
     const panels = w.findAll('[role="tabpanel"]')
-    expect(panels[1].get('.fc-panel-aside').text()).toBe('Editors wrote this about currents.')
     // Unconfigured views keep their defaults.
     expect(panels[0].get('.fc-panel-aside').text()).toContain('cold-water shock')
+    await w.findAll('[role="tab"]')[1].trigger('click')
+    expect(panels[1].get('.fc-panel-aside').text()).toBe('Editors wrote this about currents.')
   })
 
   it('loads the manifest itself and shows the selected lake time in the caption', async () => {
