@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import TimeSeriesChart, { type ChartSeries } from './TimeSeriesChart.vue'
 import LoadingState from './LoadingState.vue'
+import { bandChipStyle } from '../config/brandPalette'
 import { useConditionsState } from '../composables/useConditionsState'
 import {
   assessMetric,
@@ -330,7 +331,7 @@ const visibleCharts = computed(() =>
                   v-for="r in c.assessRows"
                   :key="r.name"
                   class="wq-chip"
-                  :class="`tone-${r.assessment.tone}`"
+                  :style="bandChipStyle(r.assessment)"
                 >
                   {{ c.assessRows.length > 1 ? `${r.name} · ` : '' }}{{ r.assessment.label }}
                 </span>
@@ -494,27 +495,14 @@ const visibleCharts = computed(() =>
   gap: 6px;
   flex-wrap: wrap;
 }
+/* Colors come from config/brandPalette.ts via custom properties (TERC-60). */
 .wq-chip {
+  background: var(--band-bg);
+  color: var(--band-fg);
   font-size: .8125rem;
   font-weight: 600;
   border-radius: 99px;
   padding: 3px 9px;
-}
-.tone-good {
-  background: #e3f0e9;
-  color: #1c6b45;
-}
-.tone-fair {
-  background: #fdf3e0;
-  color: #8f6614;
-}
-.tone-caution {
-  background: #fbe9e5;
-  color: #a03a22;
-}
-.tone-info {
-  background: #e4ecf7;
-  color: #24558f;
 }
 .wq-sentence {
   margin: 7px 0 0;

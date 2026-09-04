@@ -120,10 +120,17 @@ drush warning — imported config expecting creds the local site lacks.
   differs by endpoint (fetchers re-sort). Sentinel −9.0 = "no reading"
   (`parseReading` is field-aware: valid sub-−9 °C air temps survive).
 - **JSON:API**: registry at `/jsonapi/node/lake_locations?include=field_stations`;
-  bands at `/jsonapi/taxonomy_term/condition_bands`. Decimal fields
-  serialize as **strings** — always `Number()` before comparing/sorting.
+  bands at `/jsonapi/taxonomy_term/condition_bands?include=field_band_brand_color`
+  (the include is the optional TERC-60 brand-color reference to an
+  `sf_branding` term; `scripts/condition-bands/` adds the field). Decimal
+  fields serialize as **strings** — always `Number()` before
+  comparing/sorting.
   Taxonomy terms default published; nodes needed a published-by-default
   bundle override.
+- **Band chip colors** come from ONE place, `vue/config/brandPalette.ts`:
+  tone defaults plus SiteFarm brand identifiers → computed, test-audited
+  AA chip treatments. Components read `var(--band-bg)`/`var(--band-fg)`
+  and own no color hexes. Content supplies identifiers only, never hexes.
 - **Seeder** (`scripts/registry-sync/`, own README): idempotent upserts from
   curated JSON. `--dry-run` first, always. **Never re-run the bands sync
   after editors take ownership** — it overwrites their words and duplicates

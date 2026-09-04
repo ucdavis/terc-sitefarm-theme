@@ -37,6 +37,12 @@ export interface QualityAssessment {
   label: string
   sentence: string
   tone: QualityTone
+  /**
+   * SiteFarm brand identifier the web team assigned to this band
+   * (TERC-60), e.g. "tahoe"; resolved to chip colors by
+   * config/brandPalette.ts. Absent = the tone's default colors.
+   */
+  brand?: string
 }
 
 export interface Band extends QualityAssessment {
@@ -328,5 +334,5 @@ export function assessMetric(
   const bands = activeBands.value[metric]
   if (!bands || bands.length === 0) return null
   const band = bands.find((b) => value < b.max) ?? bands[bands.length - 1]
-  return { label: band.label, sentence: band.sentence, tone: band.tone }
+  return { label: band.label, sentence: band.sentence, tone: band.tone, brand: band.brand }
 }
