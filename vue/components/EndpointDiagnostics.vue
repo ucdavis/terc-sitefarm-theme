@@ -10,6 +10,7 @@ const ownerId = moduleRef<symbol | null>(null)
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { requestLog, type RequestEntry } from '../core/requestLog'
 import { fmtLakeTime } from '../core/time'
+import { useMovablePanel } from '../composables/useMovablePanel'
 
 /**
  * Endpoint diagnostics panel (TERC-62): one row per endpoint family the
@@ -21,6 +22,13 @@ import { fmtLakeTime } from '../core/time'
  * until a block enables it).
  */
 const collapsed = ref(false)
+const panelEl = ref<HTMLElement | null>(null)
+// Movable by its handle (drag, arrow keys, Home to reset) and resizable by
+// its corner, so it can be parked wherever it covers the least (TERC-65).
+const { position, reset, handle } = useMovablePanel(panelEl, 'terc-endpoint-panel-pos')
+const panelStyle = computed(() =>
+  position.value ? { left: `${position.value.left}px`, top: `${position.value.top}px`, bottom: 'auto' } : undefined,
+)
 const me = Symbol('endpoint-panel')
 roster.push(me)
 if (ownerId.value === null) ownerId.value = me
@@ -81,20 +89,42 @@ const summary = computed(() =>
 </script>
 
 <template>
-  <section v-if="owner" class="ep-panel" :class="{ collapsed }" aria-label="Endpoint diagnostics">
-    <button type="button" class="ep-toggle" :aria-expanded="!collapsed" @click="collapsed = !collapsed">
-      endpoints {{ collapsed ? '▸' : '▾' }}
-      <span class="mini">{{ totals.requests }} req · {{ totals.failed }} failed</span>
-    </button>
+  <section
+    v-if="owner"
+    ref="panelEl"
+    class="ep-panel"
+    :class="{ collapsed, moved: position !== null }"
+    :style="panelStyle"
+    aria-label="Endpoint diagnostics"
+  >
+    <div class="ep-head">
+      <button
+        type="button"
+        class="ep-handle"
+        aria-label="Move panel. Drag it, or use the arrow keys; Home puts it back in the corner."
+        title="Drag to move · arrow keys · Home resets"
+        @pointerdown="handle.onPointerDown"
+        @pointermove="handle.onPointerMove"
+        @pointerup="handle.onPointerUp"
+        @pointercancel="handle.onPointerUp"
+        @keydown="handle.onKeyDown"
+      >⠿</button>
+      <button type="button" class="ep-toggle" :aria-expanded="!collapsed" @click="collapsed = !collapsed">
+        endpoints {{ collapsed ? '▸' : '▾' }}
+        <span class="mini">{{ totals.requests }} req · {{ totals.failed }} failed</span>
+      </button>
+      <button v-if="position" type="button" class="ep-reset" @click="reset">Reset position</button>
+    </div>
     <p class="ep-sr-only" role="status" aria-live="polite">{{ summary }}</p>
     <div v-if="!collapsed" class="ep-body">
       <p v-if="rows.length === 0" class="ep-empty">No requests yet.</p>
       <div v-else class="ep-scroll">
         <table class="ep-table">
-          <caption class="ep-sr-only">Latest request per endpoint, with totals since the page loaded</caption>
+          <caption class="ep-sr-only">Latest request per endpoint, with its URL and totals since the page loaded</caption>
           <thead>
             <tr>
               <th scope="col">Endpoint</th>
+              <th scope="col">URL</th>
               <th scope="col">Last</th>
               <th scope="col">Time</th>
               <th scope="col">Result</th>
@@ -106,6 +136,7 @@ const summary = computed(() =>
           <tbody>
             <tr v-for="r in rows" :key="r.endpoint" :class="`ph-${r.last.phase}`">
               <th scope="row">{{ r.endpoint }}</th>
+              <td class="url"><code>{{ r.last.url }}</code></td>
               <td>{{ fmtLakeTime(r.last.startedAt) }}</td>
               <td class="num">{{ r.last.ms === null ? '…' : `${r.last.ms} ms` }}</td>
               <td class="result">{{ outcome(r.last) }}</td>
@@ -137,8 +168,46 @@ const summary = computed(() =>
 .ep-panel.collapsed {
   width: auto;
 }
+.ep-panel.moved {
+  /* Once moved, position comes from inline left/top (see panelStyle). */
+  right: auto;
+}
+.ep-head {
+  display: flex;
+  align-items: center;
+}
+.ep-handle {
+  background: none;
+  border: none;
+  color: #7f96a3;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 8px 6px 8px 10px;
+  cursor: grab;
+  touch-action: none;
+}
+.ep-handle:active {
+  cursor: grabbing;
+}
+.ep-handle:focus-visible,
+.ep-reset:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: -3px;
+}
+.ep-reset {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  color: #cfe0ea;
+  font: inherit;
+  padding: 2px 8px;
+  margin-right: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
 .ep-toggle {
-  width: 100%;
+  flex: 1;
   text-align: left;
   background: none;
   border: none;
@@ -165,8 +234,14 @@ const summary = computed(() =>
   color: #9fb2bd;
 }
 .ep-scroll {
+  /* Resizable from its corner; the table scrolls inside. */
   overflow: auto;
-  max-height: 40vh;
+  resize: both;
+  max-height: 80vh;
+  height: min(40vh, 320px);
+  min-width: 260px;
+  min-height: 80px;
+  max-width: calc(100vw - 56px);
 }
 .ep-table {
   border-collapse: collapse;
@@ -208,6 +283,19 @@ const summary = computed(() =>
   max-width: 260px;
   white-space: normal;
   color: #f2b8b8;
+}
+.url {
+  /* break-all makes the auto table layout think this cell can be one
+     character wide — pin a real width so the URL wraps at a readable size. */
+  min-width: 340px;
+  max-width: 340px;
+  white-space: normal;
+  word-break: break-all;
+  color: #9fb2bd;
+}
+.url code {
+  font: inherit;
+  user-select: all;
 }
 .ep-sr-only {
   position: absolute;
