@@ -286,6 +286,18 @@ onBeforeUnmount(() => {
   background: none;
   border: none;
 }
+/* Tooltips wrap so the adapter can cap their width to the room available
+   inside the frame (TERC-63) instead of Leaflet's nowrap default clipping
+   them at the map edge. */
+/* `width: max-content` matters: the tooltip is absolutely positioned in a
+   zero-width pane, so with wrapping allowed it would otherwise shrink to
+   its longest word. */
+.leaflet-tooltip {
+  white-space: normal;
+  width: max-content;
+  max-width: 280px;
+  line-height: 1.35;
+}
 /* Keyboard focus must be visible (WCAG 2.4.7); the anchor is the tabbable
    element, so paint the ring on its badge child. */
 .terc-badge-anchor:focus {
