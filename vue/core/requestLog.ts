@@ -53,10 +53,6 @@ export function resetRequestLogForTests(): void {
   requestLog.value = []
 }
 
-function publish(): void {
-  requestLog.value = [...requestLog.value]
-}
-
 function update(id: number, patch: Partial<RequestEntry>): void {
   const i = requestLog.value.findIndex((e) => e.id === id)
   if (i === -1) return
@@ -120,12 +116,11 @@ export async function tracedFetch(url: string, init?: RequestInit): Promise<Resp
   const t0 = performance.now()
   try {
     const res = await fetch(url, init)
-    const len = res.headers.get('content-length')
     update(id, {
       ms: Math.round(performance.now() - t0),
       status: res.status,
       phase: res.ok ? 'ok' : 'http-error',
-      bytes: len ? Number(len) : null,
+      bytes: contentLength(res),
       error: res.ok ? null : `HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}`,
     })
     return res
@@ -139,10 +134,20 @@ export async function tracedFetch(url: string, init?: RequestInit): Promise<Resp
   }
 }
 
-/** Attach a parsed record count to the newest entry for `url`. */
+/** Content-Length as a number, or null when absent or not a plain integer. */
+function contentLength(res: Response): number | null {
+  const len = res.headers.get('content-length')
+  return len !== null && /^\d+$/.test(len.trim()) ? Number(len) : null
+}
+
+/**
+ * Attach a parsed record count to the request it came from: the newest
+ * SETTLED entry for `url` that has no count yet. Matching by URL alone
+ * could hand the count to a newer, still-pending request for the same
+ * URL (the parse of one finishes while the next is in flight).
+ */
 export function noteRecords(url: string, records: number): void {
   if (!enabled) return
-  const e = requestLog.value.find((x) => x.url === url)
+  const e = requestLog.value.find((x) => x.url === url && x.phase !== 'pending' && x.records === null)
   if (e) update(e.id, { records })
-  else publish()
 }

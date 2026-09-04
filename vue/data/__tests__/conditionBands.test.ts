@@ -13,6 +13,7 @@ import {
   resetBandsForTests,
 } from '../../config/qualitative'
 import { miscCache } from '../../core/cache'
+import { brandChipColors } from '../../config/brandPalette'
 
 beforeEach(() => {
   resetConditionBandsForTests()
@@ -135,5 +136,95 @@ describe('site bands wired into assessMetric', () => {
     await loadConditionBands()
     expect(bandsFromSite.value).toBe(false)
     expect(assessMetric('turbidity', 0.5)?.label).toBe('Crystal clear') // static
+  })
+})
+
+/** A minimal bands body with one term that references a brand term. */
+const TAHOE_UUID = 'aaaaaaaa-0000-4000-8000-000000000001'
+const bodyWithBrand = (brandRef: { id: string } | null, included: unknown[] = []) => ({
+  data: [
+    {
+      id: 'bbbbbbbb-0000-4000-8000-000000000001',
+      attributes: {
+        name: 'Pleasant',
+        field_metric_key: 'water_temp',
+        field_band_max_value: null,
+        field_band_tone: 'good',
+        field_band_sentence: 'Comfortable swimming.',
+      },
+      relationships: { field_band_brand_color: { data: brandRef ? { type: 'taxonomy_term--sf_branding', ...brandRef } : null } },
+    },
+  ],
+  included: included as never[],
+})
+const tahoeTerm = { type: 'taxonomy_term--sf_branding', id: TAHOE_UUID, attributes: { name: 'Tahoe', field_sf_brand_color: 'tahoe' } }
+
+describe('brand colors on bands (TERC-60)', () => {
+  it('reads the referenced brand term\'s identifier and carries it on the band', () => {
+    const bands = adaptConditionBands(bodyWithBrand({ id: TAHOE_UUID }, [tahoeTerm]))
+    expect(bands.waterTemp?.[0].brand).toBe('tahoe')
+    applyConditionBands(bands)
+    expect(assessMetric('waterTemp', 70)?.brand).toBe('tahoe')
+  })
+
+  it('no reference = no brand (tone default), with no noise', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const bands = adaptConditionBands(bodyWithBrand(null))
+    expect(bands.waterTemp?.[0]).not.toHaveProperty('brand')
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('warns, naming the band, and falls back when the identifier is not in the audited palette', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const offPalette = { ...tahoeTerm, attributes: { field_sf_brand_color: 'neon-lime' } }
+    const bands = adaptConditionBands(bodyWithBrand({ id: TAHOE_UUID }, [offPalette]))
+    expect(bands.waterTemp?.[0].brand).toBeUndefined()
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0][0])).toContain('"Pleasant"')
+    expect(String(warn.mock.calls[0][0])).toContain('"neon-lime"')
+    warn.mockRestore()
+  })
+
+  it('warns and falls back when the referenced term did not come back in `included`', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const bands = adaptConditionBands(bodyWithBrand({ id: TAHOE_UUID }))
+    expect(bands.waterTemp?.[0].brand).toBeUndefined()
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
+  })
+
+  it('never takes a hex from content — only identifiers resolve', () => {
+    const hexTerm = { ...tahoeTerm, attributes: { field_sf_brand_color: '#ff0000' } }
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const bands = adaptConditionBands(bodyWithBrand({ id: TAHOE_UUID }, [hexTerm]))
+    expect(bands.waterTemp?.[0].brand).toBeUndefined()
+    expect(brandChipColors('#ff0000')).toBeNull()
+    vi.restoreAllMocks()
+  })
+
+  it('asks for the brand terms with the bands, and falls back to a plain request on a site without the field', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 400 }) // include rejected: field not there yet
+      .mockResolvedValueOnce({ ok: true, json: async () => fixture })
+    vi.stubGlobal('fetch', fetchMock)
+    await loadConditionBands()
+    expect(bandsFromSite.value).toBe(true)
+    expect(String(fetchMock.mock.calls[0][0])).toContain('include=field_band_brand_color')
+    expect(String(fetchMock.mock.calls[1][0])).not.toContain('include=')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0][0])).toContain('add-brand-color-field.php')
+    warn.mockRestore()
+  })
+
+  it('any other failure of the include request is a real failure, not a silent downgrade', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await loadConditionBands()
+    expect(bandsFromSite.value).toBe(false)
+    expect(error).toHaveBeenCalled()
+    error.mockRestore()
   })
 })

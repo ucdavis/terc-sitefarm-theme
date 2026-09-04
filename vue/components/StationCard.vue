@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { bandChipStyle } from '../config/brandPalette'
 import type { QualityAssessment } from '../config/qualitative'
 import { fmtLakeTime } from '../core/time'
 
@@ -51,7 +52,7 @@ const timeLabel = computed(() =>
     <div v-if="suspect && display !== null" class="suspect-note">
       {{ suspectNote ?? 'Outside expected range — shown as reported, flagged as suspect.' }}
     </div>
-    <div v-if="assessment && display !== null && !suspect" class="assess" :class="`tone-${assessment.tone}`">
+    <div v-if="assessment && display !== null && !suspect" class="assess" :style="bandChipStyle(assessment)">
       <span class="assess-label">{{ assessment.label }}</span>
       <p class="assess-text">{{ assessment.sentence }}</p>
     </div>
@@ -119,7 +120,11 @@ const timeLabel = computed(() =>
   border-top: 1px solid #d5dde2;
   padding-top: 7px;
 }
+/* Colors arrive as custom properties from config/brandPalette.ts — the one
+   source for tone defaults and brand treatments (TERC-60). */
 .assess-label {
+  background: var(--band-bg);
+  color: var(--band-fg);
   display: inline-block;
   font-size: .65625rem;
   font-weight: 700;
@@ -133,21 +138,5 @@ const timeLabel = computed(() =>
   font-size: .8125rem;
   line-height: 1.45;
   color: #4a5a64;
-}
-.tone-good .assess-label {
-  background: #e3f0e9;
-  color: #1c6b45;
-}
-.tone-fair .assess-label {
-  background: #fdf3e0;
-  color: #8f6614;
-}
-.tone-caution .assess-label {
-  background: #fbe9e5;
-  color: #a03a22;
-}
-.tone-info .assess-label {
-  background: #e4ecf7;
-  color: #24558f;
 }
 </style>

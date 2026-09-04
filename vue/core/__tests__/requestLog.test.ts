@@ -54,6 +54,38 @@ describe('tracedFetch', () => {
     expect(e.error).toBeNull()
   })
 
+  it('ignores a malformed Content-Length instead of showing NaN', async () => {
+    enableRequestLog()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse('[]', { 'content-length': 'abc' })))
+    await tracedFetch('/jsonapi/x')
+    expect(requestLog.value[0].bytes).toBeNull()
+  })
+
+  it('attaches a record count to the settled request it belongs to, not to a newer pending one', async () => {
+    enableRequestLog()
+    let releaseSecond: (r: Response) => void = () => {}
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(okResponse('[1,2,3]'))
+        .mockImplementationOnce(() => new Promise<Response>((res) => (releaseSecond = res))),
+    )
+    const url = 'https://h/v1/report/ns-station-range?id=4'
+    await tracedFetch(url) // settles first
+    const second = tracedFetch(url) // same URL, still in flight
+    noteRecords(url, 3) // the FIRST request's parse finishing
+    const settled = requestLog.value.find((e) => e.phase === 'ok')!
+    const pending = requestLog.value.find((e) => e.phase === 'pending')!
+    expect(settled.records).toBe(3)
+    expect(pending.records).toBeNull()
+    releaseSecond(okResponse('[1]'))
+    await second
+    noteRecords(url, 1)
+    expect(requestLog.value.find((e) => e.id === pending.id)!.records).toBe(1)
+    expect(requestLog.value.find((e) => e.id === settled.id)!.records).toBe(3) // untouched
+  })
+
   it('records an HTTP error with its status and still returns the response', async () => {
     enableRequestLog()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 503, statusText: 'Service Unavailable' })))
