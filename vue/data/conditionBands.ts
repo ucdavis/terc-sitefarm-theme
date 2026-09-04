@@ -168,4 +168,5 @@ export async function loadConditionBands(): Promise<void> {
 /** Test hook. */
 export function resetConditionBandsForTests(): void {
   loadStarted = false
+  brandFieldMissingWarned = false
 }
