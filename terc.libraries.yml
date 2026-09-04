@@ -23,3 +23,8 @@ vue-forecasted-conditions:
   vite: true
   js:
     vue/entries/forecasted-conditions.ts: { attributes: { type: 'module' } }
+
+vue-weather-alerts:
+  vite: true
+  js:
+    vue/entries/weather-alerts.ts: { attributes: { type: 'module' } }

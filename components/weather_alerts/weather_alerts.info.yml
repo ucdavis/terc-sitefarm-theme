@@ -1,0 +1,8 @@
+name: 'TERC Weather Alerts'
+machine_name: weather-alerts
+type: pdb
+description: 'Current Lake Tahoe weather-alert conditions from the National Weather Service.'
+core_version_requirement: ^9 || ^10 || ^11
+presentation: vue
+category: 'TERC Lake Conditions'
+template: template.html

@@ -1,14 +1,21 @@
 {
-  "_SourceBadge.!~{001}~.js": {
+  "_SourceBadge.!~{002}~.js": {
     "file": "SourceBadge.css",
-    "src": "_SourceBadge.!~{001}~.js"
+    "src": "_SourceBadge.!~{002}~.js"
   },
-  "_SourceBadge.CcvpuD5w.js": {
-    "file": "chunks/SourceBadge.CcvpuD5w.js",
+  "_SourceBadge.Cxg3kJZd.js": {
+    "file": "chunks/SourceBadge.Cxg3kJZd.js",
     "name": "SourceBadge",
+    "imports": [
+      "__plugin-vue_export-helper.BdTGSe9N.js"
+    ],
     "css": [
       "SourceBadge.css"
     ]
+  },
+  "__plugin-vue_export-helper.BdTGSe9N.js": {
+    "file": "chunks/_plugin-vue_export-helper.BdTGSe9N.js",
+    "name": "_plugin-vue_export-helper"
   },
   "js/main.js": {
     "file": "main.js",
@@ -33,7 +40,8 @@
     "src": "vue/entries/current-conditions.ts",
     "isEntry": true,
     "imports": [
-      "_SourceBadge.CcvpuD5w.js"
+      "__plugin-vue_export-helper.BdTGSe9N.js",
+      "_SourceBadge.Cxg3kJZd.js"
     ],
     "css": [
       "current-conditions.css"
@@ -45,10 +53,23 @@
     "src": "vue/entries/forecasted-conditions.ts",
     "isEntry": true,
     "imports": [
-      "_SourceBadge.CcvpuD5w.js"
+      "__plugin-vue_export-helper.BdTGSe9N.js",
+      "_SourceBadge.Cxg3kJZd.js"
     ],
     "css": [
       "forecasted-conditions.css"
+    ]
+  },
+  "vue/entries/weather-alerts.ts": {
+    "file": "weather-alerts.js",
+    "name": "weather-alerts",
+    "src": "vue/entries/weather-alerts.ts",
+    "isEntry": true,
+    "imports": [
+      "__plugin-vue_export-helper.BdTGSe9N.js"
+    ],
+    "css": [
+      "weather-alerts.css"
     ]
   }
 }

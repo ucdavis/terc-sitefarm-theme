@@ -6,7 +6,8 @@
  * core/requestState, future data modules) are factored into common chunks by
  * the build and instantiated once per page, so all blocks share one cache.
  *
- * Future entries: forecasted-conditions.ts, weather-alerts.ts.
+ * Weather alerts and forecasted conditions have their own entries so pages
+ * load only the feature bundles they use.
  */
 import { registerBlocks, mountRegistered } from '../lib/mount'
 import HelloLake from '../components/HelloLake.vue'
