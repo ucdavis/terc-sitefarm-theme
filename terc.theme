@@ -39,6 +39,7 @@ function terc_preprocess_block(array &$variables) {
     'vue_component:hello_lake' => 'terc/vue-current-conditions',
     'vue_component:current_conditions' => 'terc/vue-current-conditions',
     'vue_component:forecasted_conditions' => 'terc/vue-forecasted-conditions',
+    'vue_component:weather_alerts' => 'terc/vue-weather-alerts',
   ];
   $plugin_id = $variables['plugin_id'] ?? '';
   if (isset($pdb_component_libraries[$plugin_id])) {

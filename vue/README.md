@@ -18,7 +18,8 @@ vue/
   entries/       One .ts entry per BLOCK GROUP. Each is registered as its own
                  Drupal library in ../terc.libraries.yml (vite: true).
                  current-conditions.ts   -> terc/vue-current-conditions
-                 (future) forecasted-conditions.ts, weather-alerts.ts
+                 forecasted-conditions.ts -> terc/vue-forecasted-conditions
+                 weather-alerts.ts       -> terc/vue-weather-alerts
   components/    Vue SFCs. Top-level blocks (CurrentConditionsShell) and
                  their children (LakeMap, PlanYourDayView, WaterQualityView,
                  StationCard, TimeSeriesChart, SourceBadge, LoadingState,
