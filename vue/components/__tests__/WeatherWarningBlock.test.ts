@@ -59,6 +59,13 @@ describe('WeatherWarningBlock', () => {
     expect(wrapper.text()).toContain('Highest severity: Severe')
   })
 
+  it('treats a null or non-object JSON body as an invalid response, not a crash', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => null })
+    const wrapper = mount(WeatherWarningBlock)
+    await flushPromises()
+    expect(wrapper.text()).toMatch(/unavailable|failed|could not/i)
+  })
+
   it('shows failures honestly and allows another refresh', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 503 })
     const wrapper = mount(WeatherWarningBlock)

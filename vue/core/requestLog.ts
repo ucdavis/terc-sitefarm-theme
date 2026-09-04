@@ -82,7 +82,7 @@ export function describeEndpoint(url: string): string {
     const resource = path.split('/jsonapi/')[1].replace(/\/$/, '')
     return `site · ${resource}`
   }
-  if (u.hostname.includes('api.weather.gov')) return 'noaa · gridpoint forecast'
+  if (u.hostname.includes('api.weather.gov')) return path.includes('/alerts') ? 'noaa · weather alerts' : 'noaa · gridpoint forecast'
   if (u.hostname.includes('lake-tahoe-conditions')) {
     if (path.endsWith('/contents.json')) return 's3 · manifest'
     if (path.includes('/waveheight/')) return 's3 · wave bucket'

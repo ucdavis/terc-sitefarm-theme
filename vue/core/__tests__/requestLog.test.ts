@@ -25,6 +25,7 @@ describe('describeEndpoint', () => {
     expect(describeEndpoint('https://lake-tahoe-conditions.s3.us-west-2.amazonaws.com/temperature/2026-09-01_1200.npy')).toBe('s3 · grid temperature')
     expect(describeEndpoint('https://lake-tahoe-conditions.s3.us-west-2.amazonaws.com/waveheight/H_ws3_wd90.json')).toBe('s3 · wave bucket')
     expect(describeEndpoint('https://api.weather.gov/gridpoints/REV/33,87')).toBe('noaa · gridpoint forecast')
+    expect(describeEndpoint('https://api.weather.gov/alerts/active?zone=CAZ072')).toBe('noaa · weather alerts')
   })
 })
 
