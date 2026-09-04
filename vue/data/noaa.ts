@@ -20,6 +20,7 @@
  * have no wind forecast at all — see MAX_WIND_HOUR_OFFSET.
  */
 import { NOAA_GRIDPOINT } from '../config/endpoints'
+import { tracedFetch } from '../core/requestLog'
 import { miscCache, TTL } from '../core/cache'
 import { kmhToMs, msToMph } from '../core/units'
 
@@ -96,7 +97,7 @@ export async function fetchWindTimeline(): Promise<WindTimeline> {
   return miscCache.getOrFetch('noaa-wind', TTL.SHORT, async () => {
     // Browsers set User-Agent automatically. Any Node-side fetch of this
     // URL must set a descriptive one or NOAA rejects it.
-    const res = await fetch(NOAA_GRIDPOINT, { headers: { Accept: 'application/geo+json' } })
+    const res = await tracedFetch(NOAA_GRIDPOINT, { headers: { Accept: 'application/geo+json' } })
     if (!res.ok) throw new Error(`NOAA gridpoints HTTP ${res.status}`)
     const body = await res.json()
     const speedProp = body?.properties?.windSpeed

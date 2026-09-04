@@ -20,6 +20,7 @@
  *   field_band_sentence   one-line plain-language explanation
  */
 import { miscCache, TTL } from '../core/cache'
+import { tracedFetch } from '../core/requestLog'
 import {
   applyConditionBands,
   type Band,
@@ -78,7 +79,7 @@ export function adaptConditionBands(body: {
 
 export async function fetchConditionBands(): Promise<Partial<Record<QualityMetric, Band[]>>> {
   return miscCache.getOrFetch('condition-bands', TTL.SHORT, async () => {
-    const res = await fetch(BANDS_PATH)
+    const res = await tracedFetch(BANDS_PATH)
     if (!res.ok) throw new Error(`condition bands HTTP ${res.status}`)
     return adaptConditionBands(await res.json())
   })

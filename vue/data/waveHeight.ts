@@ -33,6 +33,7 @@
  * flat at 0 ft, instead of the whole lake disappearing.
  */
 import { S3_BASE } from '../config/endpoints'
+import { tracedFetch } from '../core/requestLog'
 import { gridCache, TTL } from '../core/cache'
 import { decodeWave } from './decodeHost'
 import type { ScalarGrid } from './gridDecode'
@@ -88,7 +89,7 @@ function isBucketMissing(e: unknown): boolean {
  * one (TERC-47).
  */
 async function fetchBucketBytes(b: WaveBucket): Promise<ArrayBuffer> {
-  const res = await fetch(`${S3_BASE}/waveheight/${bucketFile(b)}`)
+  const res = await tracedFetch(`${S3_BASE}/waveheight/${bucketFile(b)}`)
   if (res.status === 403 || res.status === 404) {
     throw new BucketMissingError(`wave bucket ${bucketFile(b)} not in S3 (HTTP ${res.status})`)
   }
