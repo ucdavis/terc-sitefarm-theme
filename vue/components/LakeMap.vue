@@ -4,7 +4,7 @@ import type { DestinationDef } from '../config/destinations'
 import { LAKE_GRID_BOUNDS } from '../config/lakeGrid'
 import { LAKE_CENTER, LAKE_DEFAULT_ZOOM, STATION_FOCUS_ZOOM, TILE_LAYERS, type BasemapId } from '../config/lakeView'
 import { fmtLakeTime } from '../core/time'
-import { escapeHtml, MAP_ENGINE_INJECTION_KEY, type MapEngine, type MapEngineFactory } from '../map/engine'
+import { escapeHtml, MAP_ENGINE_INJECTION_KEY, type LatLng, type MapEngine, type MapEngineFactory } from '../map/engine'
 import { createLeafletEngine } from '../map/leafletEngine'
 import type { OverviewMarker } from '../composables/useLakeOverview'
 
@@ -67,6 +67,8 @@ const emit = defineEmits<{
 const container = ref<HTMLElement | null>(null)
 const engine = shallowRef<MapEngine | null>(null)
 let resizeObserver: ResizeObserver | null = null
+/** Whether the container has ever reported a non-zero box. */
+let hadRealSize = false
 // Overlay children in the default slot (FieldOverlay, TERC-23) draw through
 // the same engine seam rather than importing a map library.
 provide(MAP_ENGINE_INJECTION_KEY, engine)
@@ -155,7 +157,9 @@ onMounted(() => {
     attribution: tiles.attribution,
     maxZoom: tiles.maxZoom,
     interactive: !props.staticMap,
-    fitBounds: props.fitLake ? LAKE_GRID_BOUNDS : undefined,
+    // Fit the whole lake only when opening on the whole lake: a deep link
+    // to a destination or station keeps its own framing.
+    fitBounds: props.fitLake && !focused && !preselected ? LAKE_GRID_BOUNDS : undefined,
   })
   drawDestinations()
   drawOverview()
@@ -176,10 +180,17 @@ onMounted(() => {
       lastW = box.width
       lastH = box.height
       engine.value?.invalidateSize()
-      // The initial fit was computed against the wrong box; redo it.
-      // Only for the data-canvas maps — refitting an interactive map
-      // would yank the view out from under the visitor.
-      if (props.fitLake) engine.value?.fitBounds(LAKE_GRID_BOUNDS)
+      // The initial fit may have been computed against the wrong box (a
+      // panel still hidden at mount): redo it on the FIRST real size for
+      // any lake-fitting map that is showing the whole lake. After that,
+      // only the data-canvas maps keep refitting — refitting an
+      // interactive map would yank the view out from under a visitor who
+      // has panned or picked a destination.
+      const atRest = !props.selectedDestinationId && !props.focusedStationKey
+      if (props.fitLake && (props.staticMap || (!hadRealSize && atRest))) {
+        engine.value?.fitBounds(LAKE_GRID_BOUNDS)
+      }
+      hadRealSize = true
     })
     resizeObserver.observe(container.value)
   }
@@ -194,27 +205,47 @@ watch(() => props.overviewMarkers, drawOverview, { deep: true })
 
 watch(
   () => props.focusedStationKey,
-  (key) => {
-    drawOverview() // re-render badges so the focus ring moves
-    const m = props.overviewMarkers.find((x) => x.key === key)
-    if (m) engine.value?.flyTo([m.lat, m.lng], STATION_FOCUS_ZOOM)
-    // Focus cleared with no destination selected -> back to the whole lake.
-    else if (!key && !props.selectedDestinationId) resetView()
-  },
+  () => drawOverview(), // re-render badges so the focus ring moves
 )
+
+/**
+ * What the map should be framing, keyed on the RESOLVED selection rather
+ * than the requested id. A deep link (`?cc-dest=` / `?cc-station=`) can
+ * name a destination or station that only arrives with the site registry
+ * or the first marker seed, after this map mounted on the static registry;
+ * watching the ids alone would leave such a link on the whole lake. Marker
+ * polls and registry swaps that re-deliver the same entry produce the same
+ * key, so they never re-fly (and never yank a visitor who has panned).
+ */
+const framingTarget = computed(() => {
+  if (props.focusedStationKey) {
+    const m = props.overviewMarkers.find((x) => x.key === props.focusedStationKey)
+    return m ? { key: `station:${m.key}`, center: [m.lat, m.lng] as LatLng, zoom: STATION_FOCUS_ZOOM } : { key: 'pending' }
+  }
+  if (props.selectedDestinationId) {
+    const d = props.destinations.find((x) => x.id === props.selectedDestinationId)
+    return d ? { key: `destination:${d.id}`, center: [d.lat, d.lng] as LatLng, zoom: d.zoom } : { key: 'pending' }
+  }
+  return { key: 'lake' }
+})
 
 watch(
-  () => props.selectedDestinationId,
-  (id) => {
-    const d = props.destinations.find((x) => x.id === id)
-    if (d) engine.value?.flyTo([d.lat, d.lng], d.zoom)
-    // Cleared selection with no station focus -> back to the whole lake.
-    else if (!props.focusedStationKey) resetView()
+  () => framingTarget.value.key,
+  () => {
+    const t = framingTarget.value
+    if (t.center) engine.value?.flyTo(t.center, t.zoom)
+    // Selection cleared (no destination, no station) -> the whole lake.
+    // A selection that has not resolved yet ('pending') leaves the view
+    // alone until its entry arrives.
+    else if (t.key === 'lake') resetView()
   },
 )
 
+/** "Whole lake": refit the lake box when this map frames the lake, else the
+ *  classic centre + zoom. */
 function resetView() {
-  engine.value?.flyTo(LAKE_CENTER, LAKE_DEFAULT_ZOOM)
+  if (props.fitLake) engine.value?.fitBounds(LAKE_GRID_BOUNDS)
+  else engine.value?.flyTo(LAKE_CENTER, LAKE_DEFAULT_ZOOM)
 }
 defineExpose({ resetView })
 
@@ -254,6 +285,18 @@ onBeforeUnmount(() => {
 .terc-badge-anchor {
   background: none;
   border: none;
+}
+/* Tooltips wrap so the adapter can cap their width to the room available
+   inside the frame (TERC-63) instead of Leaflet's nowrap default clipping
+   them at the map edge. */
+/* `width: max-content` matters: the tooltip is absolutely positioned in a
+   zero-width pane, so with wrapping allowed it would otherwise shrink to
+   its longest word. */
+.leaflet-tooltip {
+  white-space: normal;
+  width: max-content;
+  max-width: 280px;
+  line-height: 1.35;
 }
 /* Keyboard focus must be visible (WCAG 2.4.7); the anchor is the tabbable
    element, so paint the ring on its badge child. */

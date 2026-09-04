@@ -16,9 +16,12 @@ Vue prototype being ported lives at `~/Apps/terc-experiments/terc-proto-1`.
 - **The block lives at `/real-time-conditions`** (a SiteFarm page; block
   `terc_terccurrentconditions` with request-path visibility). **Never place
   it on the homepage.**
-- Phase 2 will be **"Forecasted Conditions"** at `/forecasted-conditions` —
-  forecast-first wording everywhere user-facing; the prototype's "modeled
-  conditions" survives only as a technical term for the grid data.
+- Phase 2 is **"Forecasted Conditions"** at `/forecasted-conditions` (block
+  `terc_tercforecastedconditions`; live on tercdev) — forecast-first wording
+  everywhere user-facing; the prototype's "modeled conditions" survives only
+  as a technical term for the grid data. The two pages cross-link, on
+  editor-configurable paths (`forecastPath` / `realTimePath` block settings),
+  and both shells deep-link their view (`?cc-view=` / `?fc-view=`).
 - This repo deploys into the public docroot on Site Factory. `scripts/` is
   blocked from web access by `.htaccess` (Apache prod; local ddev is nginx
   and ignores it). The GitHub repo is public: **no secrets, ever** —
@@ -96,8 +99,17 @@ drush warning — imported config expecting creds the local site lacks.
 6. **Guard async races** with generation tokens wherever fast selection
    changes trigger loads.
 7. **Library seams**: Leaflet lives only in `vue/map/leafletEngine.ts`,
-   Chart.js only in `vue/components/TimeSeriesChart.vue`. Tests drive
-   components through fake engines. New heavy dependencies follow suit.
+   Chart.js only in `vue/components/TimeSeriesChart.vue`, IndexedDB only
+   in `vue/core/indexedDbStore.ts`, and the Web Worker only in
+   `vue/core/gridWorker.ts` (+ `vue/workers/grid.worker.ts`, which imports
+   pure modules only — no Vue, no cache, no DOM). Tests drive components
+   through fake engines/stores/transports; the thin adapters are verified
+   live. New heavy dependencies follow suit. Anything posted to the worker
+   must be a plain object: Vue's reactive proxies are not cloneable.
+   Every network call in the data layer goes through `tracedFetch`
+   (`vue/core/requestLog.ts`) — a pass-through until a block enables the
+   Endpoint diagnostics panel (TERC-62), which is how editors tell a site
+   bug from an upstream outage. A bare `fetch(` in `vue/data` is a bug.
 8. **Type sizing through SiteFarm**: rem on the theme's scale or its runtime
    tokens (`--heading-secondary-font-size`, `--reduced-title-font-size`);
    no px font sizes. (SiteFarm also exposes the whole UC Davis brand palette
@@ -112,10 +124,17 @@ drush warning — imported config expecting creds the local site lacks.
   differs by endpoint (fetchers re-sort). Sentinel −9.0 = "no reading"
   (`parseReading` is field-aware: valid sub-−9 °C air temps survive).
 - **JSON:API**: registry at `/jsonapi/node/lake_locations?include=field_stations`;
-  bands at `/jsonapi/taxonomy_term/condition_bands`. Decimal fields
-  serialize as **strings** — always `Number()` before comparing/sorting.
+  bands at `/jsonapi/taxonomy_term/condition_bands?include=field_band_brand_color`
+  (the include is the optional TERC-60 brand-color reference to an
+  `sf_branding` term; `scripts/condition-bands/` adds the field). Decimal
+  fields serialize as **strings** — always `Number()` before
+  comparing/sorting.
   Taxonomy terms default published; nodes needed a published-by-default
   bundle override.
+- **Band chip colors** come from ONE place, `vue/config/brandPalette.ts`:
+  tone defaults plus SiteFarm brand identifiers → computed, test-audited
+  AA chip treatments. Components read `var(--band-bg)`/`var(--band-fg)`
+  and own no color hexes. Content supplies identifiers only, never hexes.
 - **Seeder** (`scripts/registry-sync/`, own README): idempotent upserts from
   curated JSON. `--dry-run` first, always. **Never re-run the bands sync
   after editors take ownership** — it overwrites their words and duplicates
@@ -133,7 +152,11 @@ drush warning — imported config expecting creds the local site lacks.
 
 Plan Your Day defaults to temp/wave/turbidity with a "show more data"
 toggle; Water Quality is all-charts, no tiles (Climate Impacts page dropped
-into it); cold-water-shock messaging always shows with water temperature;
-one `condition_bands` vocabulary (not per-parameter); ~30-min auto-refresh
+into it); cold-water-shock messaging should accompany water temperature —
+it does by default on both pages, but it is not a hard requirement: the
+Forecasted Conditions block's intro and per-view copy are editor-owned
+block settings (TERC-9), so an editor may reword or drop it, and code must
+not re-add it unconditionally there; one `condition_bands` vocabulary (not
+per-parameter); ~30-min auto-refresh
 for kiosks is a pending story; QR posters (TERC-59) and brand-palette band
 colors (TERC-60) are specced in the backlog.

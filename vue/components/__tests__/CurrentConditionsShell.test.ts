@@ -6,7 +6,8 @@ import { ref } from 'vue'
 // The lake map has its own suite (LakeMap.test.ts) and the overview
 // composable fetches live station data — stub both so shell tests stay
 // network-free and focused on shell behavior.
-vi.mock('../../composables/useLakeOverview', () => ({
+vi.mock('../../composables/useLakeOverview', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../composables/useLakeOverview')>()),
   useLakeOverview: () => ({ markers: ref([]), reload: () => {} }),
   markerKey: (kind: string, id: number) => `${kind}:${id}`,
 }))
@@ -45,7 +46,7 @@ beforeEach(() => {
 describe('CurrentConditionsShell', () => {
   it('renders the two view tabs, destination selector, badge, and disclaimer', () => {
     const w = mount(CurrentConditionsShell)
-    expect(w.findAll('.cc-tab').map((t) => t.text())).toEqual([
+    expect(w.findAll('[role="tab"]').map((t) => t.text())).toEqual([
       'Plan Your Day',
       'Water Quality',
     ])
@@ -58,8 +59,8 @@ describe('CurrentConditionsShell', () => {
   it('keeps the selected destination when switching views', async () => {
     const w = mount(CurrentConditionsShell)
     await w.findAll('.cc-dest').find((b) => b.text() === 'Homewood')!.trigger('click')
-    await w.findAll('.cc-tab')[1].trigger('click')
-    await w.findAll('.cc-tab')[0].trigger('click')
+    await w.findAll('[role="tab"]')[1].trigger('click')
+    await w.findAll('[role="tab"]')[0].trigger('click')
     expect(w.find('.cc-view h3').text()).toBe('Plan Your Day')
     expect(w.find('.cc-head h2').text()).toContain('for Homewood')
     expect(w.find('plan-your-day-view-stub').exists()).toBe(true)
@@ -69,7 +70,7 @@ describe('CurrentConditionsShell', () => {
     window.history.replaceState(null, '', '/lake-conditions?cc-view=plan-your-day-extended')
     syncFromLocation()
     const w = mount(CurrentConditionsShell)
-    expect(w.find('.cc-tab.active').text()).toBe('Plan Your Day')
+    expect(w.find('[role="tab"][aria-selected="true"]').text()).toBe('Plan Your Day')
   })
 
   it('block-form toggles control the phase chip, source chips, and cache diagnostics', () => {
@@ -84,22 +85,36 @@ describe('CurrentConditionsShell', () => {
     expect(off.find('.phase-chip').exists()).toBe(false)
     expect(off.find('.source-chip').exists()).toBe(false)
     expect(off.find('.source-badge').exists()).toBe(false) // both off -> no badge row at all
-    // The phase toggle also hides the Phase 2 "Forecasted Conditions"
-    // placeholder (TERC-57).
-    expect(off.find('.cc-forecast').exists()).toBe(false)
+    // The Forecasted Conditions link is real navigation now (TERC-12): it
+    // has its own toggle and does NOT follow the phase chip.
+    expect(off.find('.cc-forecast').exists()).toBe(true)
     expect(off.find('cache-diagnostics-stub').exists()).toBe(true)
 
-    // Independent: sources without phase; forecast section follows phase.
+    // Independent: sources without phase; the forecast link is untouched.
     const mixed = mount(CurrentConditionsShell, { showPhase: '0', showSources: '1' })
     expect(mixed.find('.phase-chip').exists()).toBe(false)
     expect(mixed.find('.source-chip').exists()).toBe(true)
-    expect(mixed.find('.cc-forecast').exists()).toBe(false)
+    expect(mixed.find('.cc-forecast').exists()).toBe(true)
+
+    const noLink = mount(CurrentConditionsShell, { showForecastLink: '0' })
+    expect(noLink.find('.cc-forecast').exists()).toBe(false)
   })
 
   it('renders the Plan Your Day view on its tab (TERC-58)', () => {
     const w = mount(CurrentConditionsShell)
     expect(w.find('plan-your-day-view-stub').exists()).toBe(true)
-    expect(w.find('.cc-view-stub').text()).toContain('Phase 2') // only remaining stub note
+    expect(w.find('.cc-view-stub').exists()).toBe(false) // no stubs remain (TERC-12)
+  })
+
+  it('links to the Forecasted Conditions page, on a configurable path (TERC-12)', () => {
+    const def = mount(CurrentConditionsShell)
+    const link = def.get('.cc-forecast a')
+    expect(link.attributes('href')).toBe('/forecasted-conditions')
+    expect(link.text()).toContain('Forecasted Conditions')
+    expect(def.text()).not.toContain('arrive with Phase 2')
+
+    const moved = mount(CurrentConditionsShell, { forecastPath: '/lake/forecast' })
+    expect(moved.get('.cc-forecast a').attributes('href')).toBe('/lake/forecast')
   })
 
   it('names the current selection in the block heading', async () => {
@@ -124,7 +139,7 @@ describe('CurrentConditionsShell', () => {
 
   it('renders the Water Quality view on its tab (TERC-21)', async () => {
     const w = mount(CurrentConditionsShell)
-    await w.findAll('.cc-tab')[1].trigger('click')
+    await w.findAll('[role="tab"]')[1].trigger('click')
     expect(w.find('.cc-view h3').text()).toBe('Water Quality')
     expect(w.find('water-quality-view-stub').exists()).toBe(true)
   })

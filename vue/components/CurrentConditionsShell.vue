@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
+import EndpointDiagnostics from './EndpointDiagnostics.vue'
+import { enableRequestLog } from '../core/requestLog'
+import ViewTabs from './ViewTabs.vue'
+import type { ViewId } from '../composables/useConditionsState'
+import { uniqueId } from '../lib/uniqueId'
 import LakeMap from './LakeMap.vue'
 import PlanYourDayView from './PlanYourDayView.vue'
 import SourceBadge from './SourceBadge.vue'
 import WaterQualityView from './WaterQualityView.vue'
 import { loadRegistry, syncFromLocation, useConditionsState } from '../composables/useConditionsState'
 import { loadConditionBands } from '../data/conditionBands'
-import { markerKey, useLakeOverview } from '../composables/useLakeOverview'
+import {
+  markerKey,
+  reportingDestinationNames as reportingDestinations,
+  useLakeOverview,
+} from '../composables/useLakeOverview'
 
 /**
  * Current Conditions shell (TERC-18): shared navigation, destination
@@ -25,16 +34,33 @@ const props = withDefaults(
     showPhase?: boolean | number | string
     showSources?: boolean | number | string
     debug?: boolean | number | string
+    /** Show the endpoint diagnostics panel (TERC-62). */
+    endpointDiagnostics?: boolean | number | string
+    /** The "Forecasted Conditions" cross-link section (TERC-12). */
+    showForecastLink?: boolean | number | string
+    /** Path of the Forecasted Conditions page, for the cross-link (TERC-12). */
+    forecastPath?: string
   }>(),
-  { showPhase: true, showSources: true, debug: false },
+  {
+    showPhase: true,
+    showSources: true,
+    debug: false,
+    endpointDiagnostics: false,
+    showForecastLink: true,
+    forecastPath: '/forecasted-conditions',
+  },
 )
 
 function asBool(v: boolean | number | string): boolean {
   return v === true || v === 1 || v === '1'
 }
 const showPhase = asBool(props.showPhase)
+const showForecastLink = asBool(props.showForecastLink)
 const showSources = asBool(props.showSources)
 const showDiagnostics = asBool(props.debug)
+const showEndpoints = asBool(props.endpointDiagnostics)
+// Before any child mounts and starts fetching, so the first requests are logged too.
+if (showEndpoints) enableRequestLog()
 
 const {
   view,
@@ -51,6 +77,36 @@ const {
 } = useConditionsState()
 
 const { markers } = useLakeOverview()
+
+// Tabs widget wiring (TERC-55). Per-instance ids: the mount layer supports
+// several block instances on one page, and duplicated tab/panel ids would
+// cross-wire aria-controls / aria-labelledby between them. (Not useId():
+// that counter is per Vue app, and each block IS its own app.)
+const idBase = uniqueId('cc')
+const tabItems = views.map((v) => ({ key: v.id, label: v.label }))
+const activeViewLabel = computed(() => views.find((v) => v.id === view.value)?.label ?? '')
+function onSelectView(key: string) {
+  setView(key as ViewId)
+}
+/** Announce view switches to assistive tech, as the Phase 2 shell does. */
+const viewAnnouncement = computed(() => `${activeViewLabel.value} view selected.`)
+
+/**
+ * What sits beside the map: the selected destination's editor-written
+ * description when there is one, the whole-lake welcome when nothing is
+ * selected, nothing otherwise (an undescribed destination, or a focused
+ * station — its card set below is the content).
+ */
+const asideMode = computed<'description' | 'welcome' | null>(() => {
+  if (destination.value?.description) return 'description'
+  if (!hasSelection.value) return 'welcome'
+  return null
+})
+
+/** The welcome's hint: derived from live markers, never a hard-coded list. */
+const reportingDestinationNames = computed(() =>
+  reportingDestinations(markers.value, destinations.value),
+)
 
 const focusedStationKey = computed(() =>
   focusedStation.value ? markerKey(focusedStation.value.kind, focusedStation.value.sourceId) : null,
@@ -112,19 +168,17 @@ onMounted(() => {
       />
     </header>
 
-    <nav class="cc-nav" aria-label="Current Conditions views">
-      <button
-        v-for="v in views"
-        :key="v.id"
-        type="button"
-        class="cc-tab"
-        :class="{ active: view === v.id }"
-        :aria-current="view === v.id ? 'page' : undefined"
-        @click="setView(v.id)"
-      >
-        {{ v.label }}
-      </button>
-    </nav>
+    <!-- A full ARIA tabs widget (TERC-55): one tab stop, arrow-key roving,
+         Home/End, and the panel below labelled by the active tab. Shared
+         with the Forecasted Conditions shell. -->
+    <ViewTabs
+      :tabs="tabItems"
+      :model-value="view"
+      :id-base="idBase"
+      list-label="Current Conditions views"
+      variant="underline"
+      @update:model-value="onSelectView"
+    />
 
     <div class="cc-selector">
       <span class="cc-selector-label">Where are you going?</span>
@@ -152,36 +206,96 @@ onMounted(() => {
     </div>
 
     <p class="cc-sr-only" aria-live="polite">{{ selectionAnnouncement }}</p>
+    <p class="cc-sr-only" aria-live="polite">{{ viewAnnouncement }}</p>
 
-    <div class="cc-map-region" data-terc-map-slot>
-      <LakeMap
-        :destinations="destinations"
-        :selected-destination-id="destinationId"
-        :overview-markers="markers"
-        :focused-station-key="focusedStationKey"
-        @select-destination="selectDestination"
-        @select-station="onSelectStation"
-      />
+    <!-- Map, with the selected destination's editor-written description
+         beside it (TERC-9). Only site content carries a description, so
+         the aside simply doesn't exist for the static fallback or for a
+         place nobody has written up yet. -->
+    <!-- Layout: a tall, lake-framing map column on the left (Lake Tahoe is a
+         tall lake; a portrait frame is what lets it fill the map) with the
+         description/welcome and the view panels in a reading column on the
+         right from 900px; below that everything stacks — map, then
+         description, then the panels. --cc-map-height drives the map's
+         height per breakpoint. -->
+    <div class="cc-map-row" :class="{ 'cc-map-row--with-aside': asideMode !== null }">
+      <div class="cc-map-region" data-terc-map-slot>
+        <LakeMap
+          fit-lake
+          height="var(--cc-map-height, 470px)"
+          :destinations="destinations"
+          :selected-destination-id="destinationId"
+          :overview-markers="markers"
+          :focused-station-key="focusedStationKey"
+          @select-destination="selectDestination"
+          @select-station="onSelectStation"
+        />
+      </div>
+      <div class="cc-side">
+      <aside
+        v-if="asideMode === 'description' && destination"
+        class="cc-location-desc"
+        :aria-label="`About ${destination.name}`"
+      >
+        <h3>{{ destination.name }}</h3>
+        <!-- Drupal-filtered HTML (the field's `processed` output), not raw
+             editor input — see locations.ts. -->
+        <div class="cc-location-desc-body" v-html="destination.description" />
+      </aside>
+      <!-- Whole lake, nothing selected: the welcome lives here, in the same
+           slot the descriptions use, rather than down in the Plan Your Day
+           panel (TERC-9 follow-up). -->
+      <aside v-else-if="asideMode === 'welcome'" class="cc-location-desc cc-welcome" aria-label="Welcome to Lake Tahoe">
+        <h3>Welcome to Lake Tahoe.</h3>
+        <p>
+          Pick a destination above — or click any station badge on the map — to
+          see current water conditions for where you're headed.
+        </p>
+        <p v-if="reportingDestinationNames.length" class="cc-welcome-hint">
+          Destinations with reporting stations right now:
+          {{ reportingDestinationNames.join(', ') }}.
+        </p>
+      </aside>
+
+      <!-- The view panels share the reading column with the description.
+           One panel container per tab, always present, so every tab's
+           aria-controls resolves to a real element (the ViewTabs contract);
+           only the active panel is shown and only it mounts content, so the
+           inactive view never fetches or renders (PR review finding). -->
+      <div
+        v-for="v in views"
+        v-show="view === v.id"
+        :id="`${idBase}-panel-${v.id}`"
+        :key="v.id"
+        class="cc-view"
+        role="tabpanel"
+        :aria-labelledby="`${idBase}-tab-${v.id}`"
+      >
+        <template v-if="view === v.id">
+          <h3>{{ v.label }}</h3>
+          <WaterQualityView v-if="v.id === 'water-quality'" />
+          <PlanYourDayView v-else />
+        </template>
+      </div>
+      </div>
     </div>
 
-    <div class="cc-view" role="region" :aria-label="views.find((v) => v.id === view)?.label">
-      <h3>{{ views.find((v) => v.id === view)?.label }}</h3>
-      <WaterQualityView v-if="view === 'water-quality'" />
-      <PlanYourDayView v-else />
-      <!-- Both Phase 1 views are real now (TERC-21, TERC-58) — the stub
-           machinery from TERC-18 is gone. -->
-
-    </div>
-
-    <!-- Phase-related placeholder: follows the "Show phase indicator"
-         block toggle, so a placement that hides phase chips also hides
-         the forward-looking Phase 2 note (TERC-57). -->
-    <div v-if="showPhase" class="cc-forecast">
+    <!-- Phase 2 is live (TERC-12): the placeholder is now the cross-link to
+         the Forecasted Conditions page. It has its own block toggle rather
+         than riding on "Show phase indicator" — that toggle hid a
+         placeholder (TERC-57), but this is real navigation, and hiding
+         phase chips must not silently remove it. -->
+    <div v-if="showForecastLink" class="cc-forecast">
       <h3>Forecasted Conditions</h3>
-      <p class="cc-view-stub">Forecast summaries arrive with Phase 2 (TERC-12).</p>
+      <p class="cc-forecast-link">
+        Planning ahead? <a :href="forecastPath">See Forecasted Conditions</a> —
+        model-based forecasts of surface temperature, currents, and wave
+        height for the next few days.
+      </p>
     </div>
 
     <CacheDiagnostics v-if="showDiagnostics" />
+    <EndpointDiagnostics v-if="showEndpoints" />
 
     <footer class="cc-disclaimer">
       All data are provisional, subject to revision, and provided for research
@@ -221,25 +335,6 @@ onMounted(() => {
   font-size: var(--reduced-title-font-size, 1.375rem);
   line-height: 1.25;
 }
-.cc-nav {
-  display: flex;
-  gap: 0.25rem;
-  border-bottom: 2px solid #d5dde2;
-}
-.cc-tab {
-  border: 0;
-  background: none;
-  padding: 0.5rem 0.9rem;
-  cursor: pointer;
-  font-weight: 600;
-  color: #4a5a64;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
-}
-.cc-tab.active {
-  color: #13322b;
-  border-bottom-color: #1c6b45;
-}
 .cc-selector-label {
   font-weight: 700;
   margin-right: 0.5rem;
@@ -266,8 +361,7 @@ onMounted(() => {
 }
 /* Keyboard focus must be clearly visible on every control (WCAG 2.4.7);
    don't rely on the browser default surviving theme CSS. */
-.cc-dest:focus-visible,
-.cc-tab:focus-visible {
+.cc-dest:focus-visible {
   outline: 3px solid #f0b323;
   outline-offset: 2px;
 }
@@ -283,9 +377,77 @@ onMounted(() => {
   white-space: nowrap;
   border: 0;
 }
-.cc-view-stub {
-  color: #4a5a64;
-  font-style: italic;
+.cc-forecast-link {
+  margin: 0;
+}
+.cc-forecast-link a {
+  color: #1c6b45;
+  font-weight: 600;
+}
+.cc-forecast-link a:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
+}
+/* Map + description: side by side where there's room, the description
+   under the map otherwise. The map keeps most of the width — it is the
+   navigation surface; the description is context. */
+/* Phones and narrow windows: map, then description, then the panels,
+   each full width. From 900px: a 420px tall map column that frames the
+   lake end to end, with the reading column beside it. The map sticks
+   while the reading column scrolls, so the badges stay in view next to
+   the cards they belong to. */
+.cc-map-row {
+  --cc-map-height: 470px;
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+.cc-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .cc-map-row {
+    --cc-map-height: 780px;
+    grid-template-columns: 420px minmax(0, 1fr);
+  }
+  .cc-map-region {
+    position: sticky;
+    top: 1rem;
+  }
+}
+.cc-location-desc {
+  padding: 0.9rem 1.1rem;
+  border: 1px solid #d5dde2;
+  border-radius: 8px;
+  background: #f6f9fa;
+}
+.cc-location-desc h3 {
+  margin: 0 0 0.5rem;
+  font-size: var(--reduced-title-font-size, 1.375rem);
+  line-height: 1.25;
+}
+.cc-location-desc-body :deep(p) {
+  margin: 0 0 0.75rem;
+}
+.cc-location-desc-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+.cc-location-desc-body :deep(a:focus-visible) {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
+}
+.cc-welcome p {
+  margin: 0 0 0.75rem;
+}
+.cc-welcome p:last-child {
+  margin-bottom: 0;
+}
+.cc-welcome-hint {
+  font-size: 0.8125rem;
+  color: #5f6e77;
 }
 .cc-view h3,
 .cc-forecast h3 {

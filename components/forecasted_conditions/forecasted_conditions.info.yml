@@ -20,3 +20,44 @@ configuration:
     title: 'Show cache diagnostics'
     description: 'Overlay live cache hit/miss/join statistics in the corner of the page — for debugging and demos only.'
     default_value: 0
+  endpointDiagnostics:
+    type: checkbox
+    title: 'Show endpoint diagnostics'
+    description: 'Panel listing every API endpoint this block calls — last request, duration, HTTP status, payload size, and the last error — to tell a site problem from an upstream outage. For editors and developers only; leave off on public pages.'
+    default_value: 0
+  realTimePath:
+    type: textfield
+    title: 'Real-Time Conditions page path'
+    description: 'Where the "See Real-Time Conditions" link points. Leave as-is unless that page moves.'
+    default_value: '/real-time-conditions'
+  # Editor-owned copy (TERC-9). Plain text; a blank line starts a new
+  # paragraph. Leaving a field empty restores the default text.
+  introText:
+    type: textarea
+    title: 'Introduction'
+    description: 'Shown under the block heading, above the view tabs. A blank line starts a new paragraph.'
+    default_value: 'Model-based forecasts of lake conditions, updated daily. Pick a date and hour — your selection follows you between views — or press “Next 24 h” to watch conditions evolve.'
+  waterTemperatureText:
+    type: textarea
+    title: 'Water Temperature description'
+    description: 'Shown beside the Water Temperature view (below it on small screens). A blank line starts a new paragraph.'
+    default_value: |-
+      Lake-wide forecasted surface temperature. The lake is not one temperature — cold upwellings can chill a shoreline overnight.
+
+      The lake is never one temperature — wind can pull deep, cold water to the surface overnight (an upwelling), chilling a shoreline that was comfortable the day before. Even on warm days, water below the surface layer stays dangerously cold — sudden immersion can cause cold-water shock. Enter gradually, stay close to shore, and wear a life vest on any craft.
+  currentsText:
+    type: textarea
+    title: 'Currents description'
+    description: 'Shown beside the Currents view (below it on small screens). A blank line starts a new paragraph.'
+    default_value: |-
+      Forecasted water movement across the lake, including the gyres and rip currents that matter to swimmers and paddleboarders.
+
+      Lake Tahoe's water is always moving. Large, slow gyres circulate the whole lake, and wind pushes surface water toward shore where it returns as fast, narrow outflows, the same rip currents that catch swimmers and paddleboarders off guard. Fast water is invisible from the beach: check here before you go in, stay close to shore, and wear a life vest on any craft.
+  waveHeightText:
+    type: textarea
+    title: 'Wave Height description'
+    description: 'Shown beside the Wave Height view (below it on small screens). A blank line starts a new paragraph.'
+    default_value: |-
+      Forecasted wave heights driven by the wind forecast, lake-wide.
+
+      Waves here are driven by wind: how hard it blows, how far it blows across open water (the fetch), and how deep that water is. The same wind builds much bigger waves on a long, exposed shore than in a sheltered bay, which is why the east and south shores can be rough while the west shore stays calm.

@@ -21,6 +21,7 @@
  *    exactly like the report API's endpoint families.
  */
 import { miscCache, TTL } from '../core/cache'
+import { tracedFetch } from '../core/requestLog'
 import {
   DESTINATIONS,
   type DestinationDef,
@@ -86,6 +87,19 @@ function adaptStation(res: JsonApiResource): RegistryStation | null {
   }
 }
 
+/**
+ * The node body as Drupal rendered it. JSON:API serialises a formatted
+ * text field as { value, format, processed, summary }; `processed` is the
+ * output of the field's text format — the same filtered HTML the node
+ * page shows — which is why it, and never `value`, is what gets rendered.
+ * Empty/whitespace-only bodies count as absent (TERC-9).
+ */
+function processedBody(raw: unknown): string | undefined {
+  const html = (raw as { processed?: unknown } | null)?.processed
+  const text = typeof html === 'string' ? html.trim() : ''
+  return text ? text : undefined
+}
+
 export function adaptRegistry(body: {
   data: JsonApiResource[]
   included?: JsonApiResource[]
@@ -107,10 +121,12 @@ export function adaptRegistry(body: {
     const stations = refs
       .map((r) => stationsByUuid.get(r.id))
       .filter((s): s is RegistryStation => s !== undefined)
+    const description = processedBody(res.attributes.body)
     destinations.push({
       id: slug,
       name: String(res.attributes.title ?? slug),
       ...g,
+      ...(description ? { description } : {}),
       // No zoom field on the content type yet — destination-level default.
       zoom: 13,
       stationIds: stations.filter((s) => s.kind === 'nearshore' && s.sourceId !== null).map((s) => s.sourceId as number),
@@ -155,7 +171,7 @@ export function staticRegistry(): Registry {
 export async function fetchRegistry(): Promise<Registry> {
   return miscCache.getOrFetch('registry:lake-locations', TTL.SHORT, async () => {
     try {
-      const res = await fetch(`${JSONAPI_BASE}${REGISTRY_PATH}`)
+      const res = await tracedFetch(`${JSONAPI_BASE}${REGISTRY_PATH}`)
       if (!res.ok) throw new Error(`registry HTTP ${res.status}`)
       const registry = adaptRegistry(await res.json())
       // An empty destination list means no content yet — fall back so the

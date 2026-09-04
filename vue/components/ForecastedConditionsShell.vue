@@ -1,12 +1,9 @@
-<script lang="ts">
-/** Module-scope shell counter — one per mounted instance (see idBase). */
-let shellSeq = 0
-</script>
-
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import CacheDiagnostics from './CacheDiagnostics.vue'
+import EndpointDiagnostics from './EndpointDiagnostics.vue'
+import { enableRequestLog } from '../core/requestLog'
 import DateHourSelector from './DateHourSelector.vue'
 import SourceBadge from './SourceBadge.vue'
 import CurrentsView from './CurrentsView.vue'
@@ -15,6 +12,7 @@ import WaterTemperatureView from './WaterTemperatureView.vue'
 import WaveHeightView from './WaveHeightView.vue'
 import { useModelTime } from '../composables/useModelTime'
 import { fmtLakeTime } from '../core/time'
+import { uniqueId } from '../lib/uniqueId'
 
 /**
  * Forecasted Conditions shell (TERC-22): the wrapper for the Phase 2
@@ -32,11 +30,52 @@ const props = withDefaults(
   defineProps<{
     showSources?: boolean | number | string
     debug?: boolean | number | string
+    /** Show the endpoint diagnostics panel (TERC-62). */
+    endpointDiagnostics?: boolean | number | string
     /** Path of the Phase 1 block's page, for the cross-link. */
     realTimePath?: string
+    /**
+     * Editor-owned copy (TERC-9): the intro under the heading and one text
+     * per view, shown beside that view's panel. Plain text; blank lines
+     * separate paragraphs. Defaults are the copy the views shipped with.
+     */
+    introText?: string
+    waterTemperatureText?: string
+    currentsText?: string
+    waveHeightText?: string
   }>(),
-  { showSources: true, debug: false, realTimePath: '/real-time-conditions' },
+  {
+    showSources: true,
+    debug: false,
+    endpointDiagnostics: false,
+    realTimePath: '/real-time-conditions',
+    introText:
+      'Model-based forecasts of lake conditions, updated daily. Pick a date and hour — your selection follows you between views — or press “Next 24 h” to watch conditions evolve.',
+    waterTemperatureText:
+      'Lake-wide forecasted surface temperature. The lake is not one temperature — cold upwellings can chill a shoreline overnight.\n\n' +
+      'The lake is never one temperature — wind can pull deep, cold water to the surface overnight (an upwelling), chilling a shoreline that was comfortable the day before. Even on warm days, water below the surface layer stays dangerously cold — sudden immersion can cause cold-water shock. Enter gradually, stay close to shore, and wear a life vest on any craft.',
+    currentsText:
+      'Forecasted water movement across the lake, including the gyres and rip currents that matter to swimmers and paddleboarders.\n\n' +
+      "Lake Tahoe's water is always moving. Large, slow gyres circulate the whole lake, and wind pushes surface water toward shore where it returns as fast, narrow outflows, the same rip currents that catch swimmers and paddleboarders off guard. Fast water is invisible from the beach: check here before you go in, stay close to shore, and wear a life vest on any craft.",
+    waveHeightText:
+      'Forecasted wave heights driven by the wind forecast, lake-wide.\n\n' +
+      'Waves here are driven by wind: how hard it blows, how far it blows across open water (the fetch), and how deep that water is. The same wind builds much bigger waves on a long, exposed shore than in a sheltered bay, which is why the east and south shores can be rough while the west shore stays calm.',
+  },
 )
+
+/** Plain text -> paragraphs: blank lines separate, stray whitespace dropped. */
+function paragraphs(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((p) => p.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+}
+const introParagraphs = computed(() => paragraphs(props.introText))
+const viewTexts = computed<Record<string, string[]>>(() => ({
+  'water-temperature': paragraphs(props.waterTemperatureText),
+  currents: paragraphs(props.currentsText),
+  'wave-height': paragraphs(props.waveHeightText),
+}))
 
 function asBool(v: boolean | number | string): boolean {
   return v === true || v === 1 || v === '1'
@@ -44,45 +83,73 @@ function asBool(v: boolean | number | string): boolean {
 
 const showSources = asBool(props.showSources)
 const showDiagnostics = asBool(props.debug)
+const showEndpoints = asBool(props.endpointDiagnostics)
+// Before any child mounts and starts fetching, so the first requests are logged too.
+if (showEndpoints) enableRequestLog()
 
 interface ViewDef extends ViewTab {
-  /** One-line visitor-facing description shown in the panel. */
-  blurb: string
   component: Component
 }
 
+/** The visitor-facing text for each view lives in the block form — see
+ *  the *Text props — so this registry is only key, label, and component. */
 const VIEWS: ViewDef[] = [
-  {
-    key: 'water-temperature',
-    label: 'Water Temperature',
-    blurb:
-      'Lake-wide forecasted surface temperature. The lake is not one temperature — cold upwellings can chill a shoreline overnight.',
-    component: WaterTemperatureView,
-  },
-  {
-    key: 'currents',
-    label: 'Currents',
-    blurb:
-      'Forecasted water movement across the lake, including the gyres and rip currents that matter to swimmers and paddleboarders.',
-    component: CurrentsView,
-  },
-  {
-    key: 'wave-height',
-    label: 'Wave Height',
-    blurb: 'Forecasted wave heights driven by the wind forecast, lake-wide.',
-    component: WaveHeightView,
-  },
+  { key: 'water-temperature', label: 'Water Temperature', component: WaterTemperatureView },
+  { key: 'currents', label: 'Currents', component: CurrentsView },
+  { key: 'wave-height', label: 'Wave Height', component: WaveHeightView },
 ]
 
-const activeKey = ref(VIEWS[0].key)
+/**
+ * Deep-linkable view (TERC-12): ?fc-view=currents opens that view, the
+ * same way ?cc-view= does on the Real-Time page. Kiosk shortcuts and the
+ * QR posters (TERC-59) need a URL that lands on a specific layer. The
+ * default — no param, or an unknown one — is Water Temperature, per the
+ * ticket's definition of done.
+ */
+const PARAM_VIEW = 'fc-view'
+function viewFromLocation(): string {
+  const requested = new URLSearchParams(window.location.search).get(PARAM_VIEW)
+  return VIEWS.some((v) => v.key === requested) ? (requested as string) : VIEWS[0].key
+}
+const activeKey = ref(viewFromLocation())
 const activeView = computed(() => VIEWS.find((v) => v.key === activeKey.value) ?? VIEWS[0])
+
+/** The page URL describing `key` — no param for the default view. */
+function urlForView(key: string): URL {
+  const url = new URL(window.location.href)
+  if (key === VIEWS[0].key) url.searchParams.delete(PARAM_VIEW)
+  else url.searchParams.set(PARAM_VIEW, key)
+  return url
+}
+
+// History discipline, matching the Real-Time page (useConditionsState):
+//  - a user's tab choice PUSHES, so Back walks the views they visited;
+//  - an unknown ?fc-view= is REPLACED away on mount, so the URL never
+//    describes something other than what's shown, without adding an entry;
+//  - popstate only reads — writing there would clobber the entry the
+//    browser just restored.
+function onSelectView(key: string) {
+  if (key === activeKey.value) return
+  activeKey.value = key
+  window.history.pushState(null, '', urlForView(key))
+}
+const normalised = urlForView(activeKey.value)
+if (normalised.href !== window.location.href) window.history.replaceState(window.history.state, '', normalised)
+
+onMounted(() => {
+  const onPop = () => {
+    activeKey.value = viewFromLocation()
+  }
+  window.addEventListener('popstate', onPop)
+  onBeforeUnmount(() => window.removeEventListener('popstate', onPop))
+})
 
 // Per-instance id base: the mount layer supports several block instances on
 // one page, and duplicated tab/panel ids would cross-wire aria-controls /
-// aria-labelledby between them (PR review finding). A module-level counter
+// aria-labelledby between them (PR review finding). A page-level counter
 // rather than useId(): each placeholder mounts as its OWN Vue app
-// (lib/mount.ts), and useId only dedupes within one app.
-const idBase = `fc-${++shellSeq}`
+// (lib/mount.ts), and useId only dedupes within one app — see lib/uniqueId.
+const idBase = uniqueId('fc')
 
 const { selectedFrame, manifestError, ensureManifest } = useModelTime()
 // The shell loads the manifest itself rather than relying on whichever
@@ -116,15 +183,14 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
         :show-sources="showSources"
       />
     </header>
-    <p class="fc-intro">
-      Model-based forecasts of lake conditions, updated daily. Pick a date and
-      hour — your selection follows you between views — or press
-      “Next&nbsp;24&nbsp;h” to watch conditions evolve.
-    </p>
+    <div class="fc-intro">
+      <p v-for="(p, i) in introParagraphs" :key="i">{{ p }}</p>
+    </div>
 
     <ViewTabs
-      v-model="activeKey"
+      :model-value="activeKey"
       :tabs="VIEWS"
+      @update:model-value="onSelectView"
       :id-base="idBase"
       list-label="Forecasted conditions views"
     />
@@ -147,12 +213,23 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
       role="tabpanel"
       :aria-labelledby="`${idBase}-tab-${v.key}`"
       class="fc-panel"
+      :class="{ 'fc-panel--with-aside': viewTexts[v.key]?.length }"
     >
-      <p class="fc-caption">{{ frameCaption }}</p>
-      <p class="fc-blurb">{{ v.blurb }}</p>
-      <!-- Only the active view mounts: each brings its own map, and an
-           offscreen one would fetch grids nobody is looking at. -->
-      <component :is="v.component" v-if="v.key === activeKey" />
+      <div class="fc-panel-main">
+        <p class="fc-caption">{{ frameCaption }}</p>
+        <!-- Only the active view mounts: each brings its own map, and an
+             offscreen one would fetch grids nobody is looking at. -->
+        <component :is="v.component" v-if="v.key === activeKey" />
+      </div>
+      <!-- Editor-owned description and safety copy for this view (TERC-9):
+           beside the panel content from desktop widths, below it otherwise. -->
+      <aside
+        v-if="viewTexts[v.key]?.length"
+        class="fc-panel-aside"
+        :aria-label="`About ${v.label}`"
+      >
+        <p v-for="(p, i) in viewTexts[v.key]" :key="i">{{ p }}</p>
+      </aside>
     </div>
 
     <p class="fc-realtime">
@@ -162,6 +239,7 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
     </p>
 
     <CacheDiagnostics v-if="showDiagnostics" />
+    <EndpointDiagnostics v-if="showEndpoints" />
   </section>
 </template>
 
@@ -183,9 +261,14 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
   margin: 0;
 }
 .fc-intro {
-  margin: 0;
   color: #5f6e77;
   max-width: 62ch;
+}
+.fc-intro p {
+  margin: 0 0 0.5rem;
+}
+.fc-intro p:last-child {
+  margin-bottom: 0;
 }
 .fc-selector {
   align-self: flex-start;
@@ -214,19 +297,41 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
   outline: 3px solid #f0b323;
   outline-offset: 2px;
 }
+/* Panel = the view (caption + map stage) with the editor's text beside it
+   from desktop widths; the text moves under the view below that. The view
+   keeps most of the width — it is the subject; the text is context. */
 .fc-panel {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .fc-panel--with-aside {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  }
+}
+.fc-panel-main {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+.fc-panel-aside {
+  padding: 0.9rem 1.1rem;
+  border: 1px solid #d5dde2;
+  border-radius: 8px;
+  background: #f6f9fa;
+  color: #22343c;
+}
+.fc-panel-aside p {
+  margin: 0 0 0.75rem;
+}
+.fc-panel-aside p:last-child {
+  margin-bottom: 0;
 }
 .fc-caption {
   margin: 0;
   font-weight: 600;
-}
-.fc-blurb {
-  margin: 0;
-  color: #5f6e77;
-  max-width: 70ch;
 }
 .fc-realtime {
   margin: 0;

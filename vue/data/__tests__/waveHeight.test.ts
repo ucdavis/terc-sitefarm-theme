@@ -39,7 +39,11 @@ afterEach(() => {
 })
 
 /** STWAVE files are nested arrays in metres; 0 encodes land. */
-const ok = (nested: (number | null)[][]) => ({ ok: true, json: async () => nested })
+// The loader reads raw bytes now (the JSON parse moves to the worker, TERC-47).
+const ok = (nested: (number | null)[][]) => ({
+  ok: true,
+  arrayBuffer: async () => new TextEncoder().encode(JSON.stringify(nested)).buffer,
+})
 const missing = { ok: false, status: 403 }
 
 describe('bucketFile / snapToBucket', () => {

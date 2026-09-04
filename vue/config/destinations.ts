@@ -25,6 +25,12 @@ export interface DestinationDef {
   buoyIds?: number[]
   /** Whether tc-homewood applies (it has no id param). */
   includesHomewood?: boolean
+  /**
+   * Editor-written description of the place (TERC-9): the node's `body`,
+   * as Drupal's text format already rendered it (`processed`, so filtered
+   * HTML). Only site content carries this — the static fallback never does.
+   */
+  description?: string
 }
 
 export const DESTINATIONS: DestinationDef[] = [

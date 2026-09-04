@@ -1,4 +1,5 @@
 import { effectScope, ref, watch, type EffectScope } from 'vue'
+import type { DestinationDef } from '../config/destinations'
 import type { Registry, RegistryStation } from '../data/locations'
 import {
   fetchHomewood,
@@ -174,4 +175,30 @@ export function resetLakeOverviewForTests(): void {
   scope = null
   markers.value = []
   started = false
+}
+
+/**
+ * Names of the destinations with at least one reporting station right now,
+ * derived from the live overview markers — never a hard-coded list. Shared
+ * by the shell's whole-lake welcome and Plan Your Day's quiet-station hint.
+ */
+export function reportingDestinationNames(
+  markers: OverviewMarker[],
+  destinations: DestinationDef[],
+): string[] {
+  const reportingNearshore = new Set(
+    markers.filter((m) => m.kind === 'nearshore' && m.status === 'reporting').map((m) => m.sourceId),
+  )
+  const reportingBuoyIds = new Set(
+    markers.filter((m) => m.kind === 'buoy' && m.status === 'reporting').map((m) => m.sourceId),
+  )
+  const homewoodUp = markers.some((m) => m.kind === 'homewood' && m.status === 'reporting')
+  return destinations
+    .filter(
+      (d) =>
+        d.stationIds.some((id) => reportingNearshore.has(id)) ||
+        (d.buoyIds ?? []).some((id) => reportingBuoyIds.has(id)) ||
+        (d.includesHomewood === true && homewoodUp),
+    )
+    .map((d) => d.name)
 }

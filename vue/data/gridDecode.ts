@@ -1,22 +1,24 @@
 /**
  * Grid decoding — raw S3 bytes to normalized, render-ready grids (TERC-38).
  *
- * THE WORKER SEAM (TERC-47): everything in this module is pure — no Vue, no
- * DOM, no module state beyond a one-shot diagnostic flag — so a Web Worker
- * can import it unchanged. `decodeGrid()` is the single dispatch point:
- * today it decodes synchronously on the calling thread; TERC-47 replaces its
- * body with a postMessage round-trip to a worker pool, and no caller changes.
+ * PURE, ON PURPOSE (TERC-47): no Vue, no DOM, no module state beyond a
+ * one-shot diagnostic flag — so the grid worker imports this module as-is
+ * and runs the identical code off the main thread. Main-thread callers go
+ * through decodeHost.ts, which decides WHERE a decode runs; nothing here
+ * knows or cares.
  *
  * Grids are returned NORMALIZED: temperature already in °F, flow already
- * reduced to speed in ft/min. Cache hits (see modeledGrid.ts) never
- * re-parse bytes or re-convert units.
+ * reduced to speed in ft/min, waves already in feet. Cache hits (see
+ * modeledGrid.ts) never re-parse bytes or re-convert units.
  */
 import {
   GRID_FLIP_HORIZONTAL,
   GRID_FLIP_VERTICAL,
+  WAVE_GRID_FLIP_HORIZONTAL,
+  WAVE_GRID_FLIP_VERTICAL,
 } from '../config/lakeGrid'
 import { parseNpy } from '../core/npy'
-import { cToF, msToFtPerMin } from '../core/units'
+import { cToF, mToFt, msToFtPerMin } from '../core/units'
 
 export interface ScalarGrid {
   rows: number
@@ -117,14 +119,42 @@ function logFlowLayoutOnce(shape: number[], layout: string) {
   console.info(`[gridDecode] flow layout: shape (${shape.join(',')}) = ${layout}.`)
 }
 
-/**
- * The one decode entry point callers use. Async by contract even though the
- * current implementation is synchronous — TERC-47 swaps this body for a
- * worker-pool postMessage without touching any caller.
- */
-export async function decodeGrid(
-  variable: GridVariable,
-  buf: ArrayBuffer,
-): Promise<ScalarGrid> {
+/** Synchronous dispatch by variable — what runs on whichever thread. */
+export function decodeGridSync(variable: GridVariable, buf: ArrayBuffer): ScalarGrid {
   return variable === 'temperature' ? decodeTemperatureGrid(buf) : decodeCurrentSpeedGrid(buf)
+}
+
+/**
+ * Decode a STWAVE wave-height bucket (TERC-24) from its raw JSON bytes: a
+ * nested 695×406 array of metres. Takes bytes rather than a parsed array
+ * so the JSON.parse — the expensive part, ~1.3 MB of text — happens on
+ * the same thread as the conversion, i.e. in the worker when there is one.
+ *
+ * Exact 0 encodes LAND in these files (verified: every ws>=1 bucket has
+ * the identical 198,910 non-zero water cells), so 0 -> NaN unless the
+ * caller only wants the grid for its shape.
+ */
+export function decodeWaveGrid(bytes: ArrayBuffer, zeroIsWater: boolean): ScalarGrid {
+  const nested = JSON.parse(new TextDecoder().decode(bytes)) as (number | null)[][]
+  const rows = nested.length
+  const cols = nested[0]?.length ?? 0
+  const values = new Float64Array(rows * cols)
+  for (let r = 0; r < rows; r++) {
+    const row = nested[r]
+    for (let c = 0; c < cols; c++) {
+      const v = row[c]
+      values[r * cols + c] =
+        v === null || v === undefined ? NaN : v === 0 ? (zeroIsWater ? 0 : NaN) : mToFt(v)
+    }
+  }
+  // STWAVE grids are stored NORTH-first, the opposite of the .npy model
+  // grids, so they must NOT be flipped — see lakeGrid.ts.
+  return {
+    rows,
+    cols,
+    values,
+    unit: 'ft',
+    flipVertical: WAVE_GRID_FLIP_VERTICAL,
+    flipHorizontal: WAVE_GRID_FLIP_HORIZONTAL,
+  }
 }

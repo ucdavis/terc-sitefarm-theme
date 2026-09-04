@@ -33,9 +33,9 @@
  * flat at 0 ft, instead of the whole lake disappearing.
  */
 import { S3_BASE } from '../config/endpoints'
-import { WAVE_GRID_FLIP_HORIZONTAL, WAVE_GRID_FLIP_VERTICAL } from '../config/lakeGrid'
+import { tracedFetch } from '../core/requestLog'
 import { gridCache, TTL } from '../core/cache'
-import { mToFt } from '../core/units'
+import { decodeWave } from './decodeHost'
 import type { ScalarGrid } from './gridDecode'
 
 export interface WaveBucket {
@@ -69,32 +69,6 @@ export interface WaveGridResult {
   substituted: boolean
 }
 
-function toGrid(nested: (number | null)[][], zeroIsWater: boolean): ScalarGrid {
-  const rows = nested.length
-  const cols = nested[0]?.length ?? 0
-  const values = new Float64Array(rows * cols)
-  for (let r = 0; r < rows; r++) {
-    const row = nested[r]
-    for (let c = 0; c < cols; c++) {
-      const v = row[c]
-      // 0 = land (see module docs), except when the caller knows this grid
-      // is only being used for its shape.
-      values[r * cols + c] =
-        v === null || v === undefined ? NaN : v === 0 ? (zeroIsWater ? 0 : NaN) : mToFt(v)
-    }
-  }
-  // STWAVE grids are stored NORTH-first, the opposite of the .npy model
-  // grids, so they must NOT be flipped — see lakeGrid.ts.
-  return {
-    rows,
-    cols,
-    values,
-    unit: 'ft',
-    flipVertical: WAVE_GRID_FLIP_VERTICAL,
-    flipHorizontal: WAVE_GRID_FLIP_HORIZONTAL,
-  }
-}
-
 /**
  * A bucket that isn't in S3. S3 answers 403 (not 404) for missing keys —
  * see module docs. Distinguishing this from a network blip or a bad
@@ -109,13 +83,18 @@ function isBucketMissing(e: unknown): boolean {
   return e instanceof BucketMissingError
 }
 
-async function fetchBucketJson(b: WaveBucket): Promise<(number | null)[][]> {
-  const res = await fetch(`${S3_BASE}/waveheight/${bucketFile(b)}`)
+/**
+ * Raw bytes, not `res.json()`: parsing 1.3 MB of nested JSON is the
+ * expensive part, and decodeWave() does it on the worker when there is
+ * one (TERC-47).
+ */
+async function fetchBucketBytes(b: WaveBucket): Promise<ArrayBuffer> {
+  const res = await tracedFetch(`${S3_BASE}/waveheight/${bucketFile(b)}`)
   if (res.status === 403 || res.status === 404) {
     throw new BucketMissingError(`wave bucket ${bucketFile(b)} not in S3 (HTTP ${res.status})`)
   }
   if (!res.ok) throw new Error(`wave bucket ${bucketFile(b)} HTTP ${res.status}`)
-  return (await res.json()) as (number | null)[][]
+  return res.arrayBuffer()
 }
 
 /** Cache key — the calm variant is derived, so it gets its own. */
@@ -126,7 +105,7 @@ function cacheKey(b: WaveBucket): string {
 /** One bucket, decoded and cached. Past solutions never change. */
 function loadBucket(b: WaveBucket): Promise<ScalarGrid> {
   return gridCache.getOrFetch(cacheKey(b), TTL.FOREVER, async () =>
-    toGrid(await fetchBucketJson(b), false),
+    decodeWave(await fetchBucketBytes(b), false),
   )
 }
 

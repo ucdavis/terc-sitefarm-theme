@@ -16,14 +16,24 @@ export interface ViewTab {
   label: string
 }
 
-const props = defineProps<{
-  tabs: ViewTab[]
-  modelValue: string
-  /** Prefix tying tab ids to the host's panel ids. */
-  idBase: string
-  /** Accessible name for the tablist, e.g. "Forecasted conditions views". */
-  listLabel: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    tabs: ViewTab[]
+    modelValue: string
+    /** Prefix tying tab ids to the host's panel ids. */
+    idBase: string
+    /** Accessible name for the tablist, e.g. "Forecasted conditions views". */
+    listLabel: string
+    /**
+     * Visual treatment only — the widget's roles, keyboard behaviour, and
+     * id contract are identical. 'pill' is the Forecasted Conditions look;
+     * 'underline' keeps the Current Conditions shell's original tab bar
+     * (TERC-55 retrofit, no visual change for a client-approved surface).
+     */
+    variant?: 'pill' | 'underline'
+  }>(),
+  { variant: 'pill' },
+)
 
 const emit = defineEmits<{ (e: 'update:modelValue', key: string): void }>()
 
@@ -56,7 +66,13 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="view-tabs" role="tablist" :aria-label="listLabel" @keydown="onKeydown">
+  <div
+    class="view-tabs"
+    :class="`view-tabs--${variant}`"
+    role="tablist"
+    :aria-label="listLabel"
+    @keydown="onKeydown"
+  >
     <button
       v-for="(tab, i) in tabs"
       :id="`${idBase}-tab-${tab.key}`"
@@ -103,5 +119,29 @@ function onKeydown(e: KeyboardEvent) {
 .view-tab:focus-visible {
   outline: 3px solid #f0b323;
   outline-offset: 2px;
+}
+
+/* Underline variant: the Current Conditions shell's original tab bar. */
+.view-tabs--underline {
+  gap: 0.25rem;
+  border-bottom: 2px solid #d5dde2;
+}
+.view-tabs--underline .view-tab {
+  border: 0;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  padding: 0.5rem 0.9rem;
+  background: none;
+  color: #4a5a64;
+}
+.view-tabs--underline .view-tab:hover {
+  background: none;
+  color: #13322b;
+}
+.view-tabs--underline .view-tab[aria-selected='true'] {
+  background: none;
+  color: #13322b;
+  border-bottom-color: #1c6b45;
 }
 </style>

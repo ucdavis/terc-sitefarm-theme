@@ -72,10 +72,12 @@ const cardLabels = (w: ReturnType<typeof mount>) =>
   w.findAll('.pyd-grid')[0].findAll('.card-label').map((n) => n.text())
 
 describe('PlanYourDayView', () => {
-  it('welcomes with no selection and always shows the cold-water-shock note', () => {
+  it('always shows the cold-water-shock note; the whole-lake welcome now lives beside the map', () => {
     const w = mount(PlanYourDayView)
-    expect(w.text()).toContain('Welcome to Lake Tahoe')
     expect(w.find('.pyd-cold-note').text()).toBe(COLD_WATER_SHOCK_NOTE)
+    // The welcome moved to the shell's map aside (TERC-9 follow-up).
+    expect(w.text()).not.toContain('Welcome to Lake Tahoe')
+    expect(w.find('.pyd-welcome').exists()).toBe(false)
   })
 
   it('defaults each station card set to temp, wave height, and turbidity (demo decision)', async () => {
@@ -186,7 +188,7 @@ describe('PlanYourDayView', () => {
     w.unmount()
   })
 
-  it('shows lake weather from the met station, flagged when the request fails', async () => {
+  it('shows lake weather from the met station, flagged when the request fails, with a retry', async () => {
     metStation.mockResolvedValue([
       { time: new Date(), airTemp: 75, waterTemp: null, windSpeed: 6, windGust: null, windDir: null, humidity: null, pressure: null },
     ])
@@ -198,6 +200,51 @@ describe('PlanYourDayView', () => {
     metStation.mockRejectedValue(new Error('boom'))
     const w2 = mount(PlanYourDayView)
     await flushPromises()
+    expect(w2.get('.pyd-met-state').attributes('role')).toBe('status')
     expect(w2.text()).toContain('Lake weather is temporarily unavailable')
+    expect(w2.find('.skeleton').exists()).toBe(false)
+
+    // Retry re-asks and recovers.
+    metStation.mockResolvedValue([
+      { time: new Date(), airTemp: 61, waterTemp: null, windSpeed: 2, windGust: null, windDir: null, humidity: null, pressure: null },
+    ])
+    await w2.get('.pyd-retry').trigger('click')
+    await flushPromises()
+    expect(w2.text()).toContain('61.0')
+    expect(w2.find('.pyd-retry').exists()).toBe(false)
+  })
+
+  it('an empty recent window is "no data", dated by the last reading it can find — never an endless skeleton', async () => {
+    // Last 24 h: nothing. 30-day lookback: the station\'s last reading.
+    const lastSeen = new Date('2026-09-02T19:40:00Z') // 12:40 lake time (PDT)
+    metStation.mockImplementation((start: Date, end: Date) =>
+      Promise.resolve(
+        end.getTime() - start.getTime() > 2 * 86_400_000
+          ? [{ time: lastSeen, airTemp: 70, waterTemp: null, windSpeed: 3, windGust: null, windDir: null, humidity: null, pressure: null }]
+          : [],
+      ),
+    )
+    const w = mount(PlanYourDayView)
+    await flushPromises()
+    expect(w.find('.skeleton').exists()).toBe(false)
+    expect(w.text()).toContain('No lake weather in the last 24 hours')
+    expect(w.text()).toContain('last reported Sep 2, 12:40 PM lake time')
+    expect(w.find('.pyd-retry').exists()).toBe(false) // empty is not an error
+
+    metStation.mockResolvedValue([])
+    const w2 = mount(PlanYourDayView)
+    await flushPromises()
+    expect(w2.text()).toContain('No lake weather from the USCG met station in the last 30 days')
+  })
+
+  it('a hung request resolves to a timeout message with a retry instead of loading forever', async () => {
+    vi.useFakeTimers()
+    metStation.mockImplementation(() => new Promise(() => {}))
+    const w = mount(PlanYourDayView)
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(w.text()).toContain('taking too long to load')
+    expect(w.text()).toContain('20 seconds')
+    expect(w.find('.pyd-retry').exists()).toBe(true)
+    vi.useRealTimers()
   })
 })

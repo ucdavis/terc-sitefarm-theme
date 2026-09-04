@@ -47,7 +47,10 @@ const WIND_BODY = {
   }),
 }
 
-const waveBody = (nested: (number | null)[][]) => ({ ok: true, json: async () => nested })
+const waveBody = (nested: (number | null)[][]) => ({
+  ok: true,
+  arrayBuffer: async () => new TextEncoder().encode(JSON.stringify(nested)).buffer,
+})
 
 /** Route by URL so request ordering doesn't matter. */
 function route(over: { wind?: unknown; wave?: () => unknown } = {}) {

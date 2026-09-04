@@ -5,13 +5,18 @@ import LoadingState from './LoadingState.vue'
 import { useConditionsState } from '../composables/useConditionsState'
 import { useDestinationData } from '../composables/useDestinationData'
 import { useFocusedStation } from '../composables/useFocusedStation'
-import { useLakeOverview } from '../composables/useLakeOverview'
+import {
+  reportingDestinationNames as reportingDestinations,
+  useLakeOverview,
+} from '../composables/useLakeOverview'
 import {
   fetchMetStation,
   latestRecord,
   type MetRecord,
   type NearshoreRecord,
 } from '../data/stationData'
+import { fmtLakeTime } from '../core/time'
+import { TimeoutError, withTimeout } from '../core/timeout'
 import { isPlausible } from '../core/units'
 import { assessMetric, COLD_WATER_SHOCK_NOTE } from '../config/qualitative'
 
@@ -138,41 +143,79 @@ const focusedName = computed(() => {
   return f.name || `${f.kind} station ${f.sourceId}`
 })
 
-/**
- * Which destinations have at least one reporting station right now —
- * derived from the live overview markers instead of the prototype's
- * hard-coded hint list.
- */
-const reportingDestinationNames = computed(() => {
-  const reportingNearshore = new Set(
-    markers.value.filter((m) => m.kind === 'nearshore' && m.status === 'reporting').map((m) => m.sourceId),
-  )
-  const reportingBuoyIds = new Set(
-    markers.value.filter((m) => m.kind === 'buoy' && m.status === 'reporting').map((m) => m.sourceId),
-  )
-  const homewoodUp = markers.value.some((m) => m.kind === 'homewood' && m.status === 'reporting')
-  return registry.value.destinations
-    .filter(
-      (d) =>
-        d.stationIds.some((id) => reportingNearshore.has(id)) ||
-        (d.buoyIds ?? []).some((id) => reportingBuoyIds.has(id)) ||
-        (d.includesHomewood === true && homewoodUp),
-    )
-    .map((d) => d.name)
-})
+/** Destinations reporting right now — derived from the live markers
+ *  (shared helper; the shell's welcome uses the same one). */
+const reportingDestinationNames = computed(() =>
+  reportingDestinations(markers.value, registry.value.destinations),
+)
 
-/** Lake weather: the USCG met station — the one fetch unique to this view. */
-const met = ref<MetRecord | null>(null)
-const metFailed = ref(false)
-onMounted(async () => {
+/**
+ * Lake weather: the USCG met station — the one fetch unique to this view.
+ * Four honest outcomes (TERC-62), never an endless skeleton: a reading;
+ * an empty window (the station has been silent — say since when); a
+ * failed request; or no answer inside the timeout. Empty is normal data
+ * (the station goes dark for maintenance), failure is a data problem.
+ */
+type MetState =
+  | { kind: 'loading' }
+  | { kind: 'ready'; record: MetRecord }
+  | { kind: 'empty'; lastSeen: Date | null }
+  | { kind: 'failed'; reason: 'error' | 'timeout' }
+const MET_TIMEOUT_MS = 20_000
+/** How far back to look for the station's last reading when the recent
+ *  window is empty — in stages, since a month of readings is ~1.3 MB. */
+const MET_LOOKBACK_DAYS = [7, 30]
+const metState = ref<MetState>({ kind: 'loading' })
+let metGeneration = 0
+
+async function loadMet(): Promise<void> {
+  const gen = ++metGeneration
+  metState.value = { kind: 'loading' }
+  const end = new Date()
+  const recentStart = new Date(end)
+  recentStart.setDate(recentStart.getDate() - 1)
   try {
-    const end = new Date()
-    const start = new Date()
-    start.setDate(start.getDate() - 1)
-    met.value = latestRecord(await fetchMetStation(start, end))
-  } catch {
-    metFailed.value = true
+    const recent = latestRecord(await withTimeout(fetchMetStation(recentStart, end), MET_TIMEOUT_MS))
+    if (gen !== metGeneration) return
+    if (recent) {
+      metState.value = { kind: 'ready', record: recent }
+      return
+    }
+    // Nothing in the last day: find the last time it did report, so the
+    // message carries a date instead of a shrug.
+    let lastSeen: Date | null = null
+    for (const days of MET_LOOKBACK_DAYS) {
+      const farStart = new Date(end)
+      farStart.setDate(farStart.getDate() - days)
+      const older = latestRecord(await withTimeout(fetchMetStation(farStart, end), MET_TIMEOUT_MS))
+      if (gen !== metGeneration) return
+      if (older) {
+        lastSeen = older.time
+        break
+      }
+    }
+    metState.value = { kind: 'empty', lastSeen }
+  } catch (err) {
+    if (gen !== metGeneration) return
+    metState.value = { kind: 'failed', reason: err instanceof TimeoutError ? 'timeout' : 'error' }
   }
+}
+onMounted(loadMet)
+
+const met = computed(() => (metState.value.kind === 'ready' ? metState.value.record : null))
+const metMessage = computed(() => {
+  const st = metState.value
+  if (st.kind === 'empty') {
+    return st.lastSeen
+      ? `No lake weather in the last 24 hours — the USCG met station last reported ${fmtLakeTime(st.lastSeen)} lake time.`
+      : `No lake weather from the USCG met station in the last ${MET_LOOKBACK_DAYS[MET_LOOKBACK_DAYS.length - 1]} days.`
+  }
+  if (st.kind === 'failed') {
+    return st.reason === 'timeout'
+      ? `Lake weather is taking too long to load — no answer from the met station after ${MET_TIMEOUT_MS / 1000} seconds.`
+      : 'Lake weather is temporarily unavailable (met station request failed).'
+  }
+  return null
 })
 </script>
 
@@ -242,17 +285,9 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-else-if="!destination" class="pyd-panel pyd-welcome">
-      <strong>Welcome to Lake Tahoe.</strong>
-      <p>
-        Pick a destination above — or click any station badge on the map — to
-        see current water conditions for where you're headed.
-      </p>
-      <p v-if="reportingDestinationNames.length" class="pyd-hint">
-        Destinations with reporting stations right now:
-        {{ reportingDestinationNames.join(', ') }}.
-      </p>
-    </div>
+    <!-- Whole lake, nothing selected: the welcome now sits beside the map in
+         the shell (TERC-9 follow-up); this view has nothing to add. -->
+    <template v-else-if="!destination" />
 
     <template v-else>
       <template v-if="reportingStations.length || reportingBuoys.length">
@@ -320,7 +355,10 @@ onMounted(async () => {
         <StationCard label="Wind" :value="met.windSpeed" unit="mph"
           :timestamp="met.time" :assessment="assessMetric('windSpeed', met.windSpeed)" />
       </div>
-      <p v-else-if="metFailed" class="pyd-note">Lake weather is temporarily unavailable (met station request failed).</p>
+      <div v-else-if="metMessage" class="pyd-met-state" role="status">
+        <p class="pyd-note pyd-met-msg">{{ metMessage }}</p>
+        <button v-if="metState.kind === 'failed'" type="button" class="pyd-retry" @click="loadMet">Try again</button>
+      </div>
       <LoadingState v-else :lines="2" />
     </section>
   </div>
@@ -428,10 +466,6 @@ onMounted(async () => {
 .pyd-panel p {
   margin: 6px 0 0;
 }
-.pyd-welcome strong {
-  font-size: 1rem;
-  color: #13322b;
-}
 .pyd-hint {
   font-size: .8125rem;
   color: #5f6e77;
@@ -451,6 +485,33 @@ onMounted(async () => {
 .pyd-met {
   border-top: 1px solid #d5dde2;
   padding-top: 8px;
+}
+.pyd-met-state {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.pyd-met-msg {
+  margin: 0;
+}
+.pyd-retry {
+  font: inherit;
+  font-size: .8125rem;
+  font-weight: 600;
+  padding: 3px 12px;
+  border-radius: 99px;
+  border: 1px solid #1c6b45;
+  background: #fff;
+  color: #1c6b45;
+  cursor: pointer;
+}
+.pyd-retry:hover {
+  background: #eef4f6;
+}
+.pyd-retry:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
 }
 .pyd-met-src {
   font-size: .625rem;
