@@ -74,4 +74,43 @@ describe('WeatherWarningBlock', () => {
     expect(wrapper.text()).toContain('Weather alerts unavailable')
     expect(wrapper.find('button').attributes('disabled')).toBeUndefined()
   })
+
+  describe('sample alert (TERC-66)', () => {
+    it('renders the archived advisory without touching the network, labelled as a sample', async () => {
+      const wrapper = mount(WeatherWarningBlock, { props: { sampleAlert: 1 } })
+      await flushPromises()
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(wrapper.text()).toContain('Sample alert — not live')
+      expect(wrapper.text()).toContain('1 active alert')
+      expect(wrapper.text()).toContain('Highest severity: Moderate')
+      expect(wrapper.get('section').attributes('aria-label')).toContain('sample alert, not live')
+      expect(wrapper.get('section').classes()).toContain('weather-warning--sample')
+      // Refresh stays in sample mode.
+      await wrapper.get('.weather-warning__refresh').trigger('click')
+      await flushPromises()
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(wrapper.text()).toContain('Sample alert — not live')
+    })
+
+    it('is off by default and accepts the checkbox forms PDB sends', async () => {
+      fetchMock.mockResolvedValue(response(['Minor']))
+      const live = mount(WeatherWarningBlock)
+      await flushPromises()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(live.text()).not.toContain('Sample alert')
+      for (const off of [0, '0', false]) {
+        fetchMock.mockClear()
+        mount(WeatherWarningBlock, { props: { sampleAlert: off } })
+        await flushPromises()
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+      }
+      for (const on of ['1', true]) {
+        fetchMock.mockClear()
+        const w = mount(WeatherWarningBlock, { props: { sampleAlert: on } })
+        await flushPromises()
+        expect(fetchMock).not.toHaveBeenCalled()
+        expect(w.text()).toContain('Sample alert')
+      }
+    })
+  })
 })
