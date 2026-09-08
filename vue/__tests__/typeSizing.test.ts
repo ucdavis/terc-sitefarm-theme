@@ -18,6 +18,6 @@ describe('type sizing', () => {
 
   it.each(Object.entries(sources))('%s sets no px font sizes', (_file, src) => {
     const styles = [...src.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n')
-    expect(styles.match(/font-size:\s*[\d.]+px/g)).toBeNull()
+    expect(styles.match(/font-size\s*:[^;}]*?(?:\d*\.?\d+)px\b/gi)).toBeNull()
   })
 })
