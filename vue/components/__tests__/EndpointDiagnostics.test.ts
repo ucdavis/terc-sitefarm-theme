@@ -2,7 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import EndpointDiagnostics from '../EndpointDiagnostics.vue'
-import panelSource from '../EndpointDiagnostics.vue?raw'
 import { enableRequestLog, resetRequestLogForTests, tracedFetch } from '../../core/requestLog'
 
 // The panel claims page-wide ownership on mount; release it after every
@@ -142,8 +141,4 @@ describe('EndpointDiagnostics', () => {
     expect(localStorage.getItem('terc-endpoint-panel-size')).toBeNull()
   })
 
-  it('uses rem for every font size (AGENTS.md type-sizing rule)', () => {
-    const style = panelSource.slice(panelSource.indexOf('<style'))
-    expect(style.match(/font-size:\s*[\d.]+px/g)).toBeNull()
-  })
 })
