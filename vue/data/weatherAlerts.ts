@@ -38,7 +38,11 @@ export async function fetchWeatherAlerts(signal?: AbortSignal): Promise<WeatherA
 
   // response.json() can return null or a non-object, so read `features`
   // with optional chaining instead of assuming there is an object.
-  const body = (await response.json()) as NwsAlertCollection | null
+  return adaptWeatherAlerts((await response.json()) as NwsAlertCollection | null)
+}
+
+/** The block's view of an NWS alert collection; throws on a bad shape. */
+export function adaptWeatherAlerts(body: NwsAlertCollection | null): WeatherAlert[] {
   const features = body?.features
   if (!Array.isArray(features)) throw new Error('NWS alerts response is invalid')
 
@@ -49,4 +53,18 @@ export async function fetchWeatherAlerts(signal?: AbortSignal): Promise<WeatherA
       severity: text(feature.properties.severity) || 'Unknown',
     }]
   })
+}
+
+/**
+ * A real advisory for testing the display when nothing is in effect
+ * (TERC-66): the Lake Wind Advisory NWS Reno issued 2026-09-04 02:02 PDT
+ * for the Tahoe zones, captured from the NWS alerts archive
+ * (`/alerts?zone=CAZ072,NVZ002&start=…`), so every field is genuine.
+ * Served only when the block's "Show a sample alert" setting is on — and
+ * the block labels it as a sample. The fixture is loaded on demand (its
+ * own chunk), so visitors on the live path never download it.
+ */
+export async function sampleWeatherAlerts(): Promise<WeatherAlert[]> {
+  const { default: body } = await import('./nws-sample-alert.json')
+  return adaptWeatherAlerts(body as NwsAlertCollection)
 }

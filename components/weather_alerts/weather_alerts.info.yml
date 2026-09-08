@@ -6,3 +6,9 @@ core_version_requirement: ^9 || ^10 || ^11
 presentation: vue
 category: 'TERC Lake Conditions'
 template: template.html
+configuration:
+  sampleAlert:
+    type: checkbox
+    title: 'Show a sample alert (testing only)'
+    description: 'Render a real, archived Lake Wind Advisory instead of asking the National Weather Service, so the display can be checked when no advisory is in effect. Clearly labelled as a sample. Never leave this on for visitors.'
+    default_value: 0

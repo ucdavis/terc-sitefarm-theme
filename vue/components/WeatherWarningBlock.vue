@@ -1,6 +1,20 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { fetchWeatherAlerts, type WeatherAlert } from '../data/weatherAlerts'
+import { fetchWeatherAlerts, sampleWeatherAlerts, type WeatherAlert } from '../data/weatherAlerts'
+import { blockBool } from '../lib/blockBool'
+
+const props = withDefaults(
+  defineProps<{
+    /**
+     * "Show a sample alert (testing only)" block setting (TERC-66): render
+     * a real, archived advisory instead of asking the NWS, so the display
+     * can be checked when nothing is in effect. Always labelled as such.
+     */
+    sampleAlert?: boolean | number | string
+  }>(),
+  { sampleAlert: false },
+)
+const isSample = blockBool(props.sampleAlert)
 
 const alerts = ref<WeatherAlert[]>([])
 const status = ref<'loading' | 'ready' | 'error'>('loading')
@@ -24,6 +38,16 @@ let controller: AbortController | null = null
 async function refresh(): Promise<void> {
   const currentGeneration = ++generation
   controller?.abort()
+  if (isSample) {
+    // Sample mode never asks the NWS — the point is testing the display,
+    // not the API. (The fixture itself arrives as a lazily loaded chunk.)
+    status.value = 'loading'
+    const sample = await sampleWeatherAlerts()
+    if (currentGeneration !== generation) return
+    alerts.value = sample
+    status.value = 'ready'
+    return
+  }
   controller = new AbortController()
   status.value = 'loading'
 
@@ -43,9 +67,15 @@ onBeforeUnmount(() => controller?.abort())
 </script>
 
 <template>
-  <section class="alert alert--warning alert--icon weather-warning" aria-label="Lake Tahoe weather alerts">
+  <section
+    class="alert alert--warning alert--icon weather-warning"
+    :class="{ 'weather-warning--sample': isSample }"
+    :aria-label="isSample ? 'Lake Tahoe weather alerts (sample alert, not live)' : 'Lake Tahoe weather alerts'"
+  >
     <div class="alert__inner weather-warning__inner">
       <div class="weather-warning__summary" aria-live="polite">
+        <!-- A sample must never pass for a real advisory: say so first. -->
+        <span v-if="isSample" class="weather-warning__sample">Sample alert — not live</span>
         <template v-if="status === 'ready'">
           <strong>{{ alerts.length }} active {{ alerts.length === 1 ? 'alert' : 'alerts' }}</strong>
           <span v-if="alerts.length">Highest severity: {{ highestSeverity }}</span>
@@ -86,6 +116,17 @@ onBeforeUnmount(() => controller?.abort())
 }
 .weather-warning__summary strong {
   font-size: 1.125rem;
+}
+.weather-warning__sample {
+  justify-self: start;
+  margin-bottom: 0.25rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 99px;
+  border: 1px dashed currentColor;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .weather-warning__refresh {
   min-width: 7rem;

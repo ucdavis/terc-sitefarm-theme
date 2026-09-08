@@ -34,6 +34,12 @@
     "src": "sass/style.scss",
     "isEntry": true
   },
+  "vue/data/nws-sample-alert.json": {
+    "file": "chunks/nws-sample-alert.DyrFGXQ4.js",
+    "name": "nws-sample-alert",
+    "src": "vue/data/nws-sample-alert.json",
+    "isDynamicEntry": true
+  },
   "vue/entries/current-conditions.ts": {
     "file": "current-conditions.js",
     "name": "current-conditions",
@@ -67,6 +73,9 @@
     "isEntry": true,
     "imports": [
       "__plugin-vue_export-helper.BdTGSe9N.js"
+    ],
+    "dynamicImports": [
+      "vue/data/nws-sample-alert.json"
     ],
     "css": [
       "weather-alerts.css"
