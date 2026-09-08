@@ -29,6 +29,70 @@ const { position, reset, handle } = useMovablePanel(panelEl, 'terc-endpoint-pane
 const panelStyle = computed(() =>
   position.value ? { left: `${position.value.left}px`, top: `${position.value.top}px`, bottom: 'auto' } : undefined,
 )
+
+/**
+ * Keyboard path for resizing (AGENTS.md: a keyboard path for every pointer
+ * interaction). The CSS resize grip is pointer-only, so a focusable
+ * control sets the same inline width/height the grip would: arrow keys
+ * grow/shrink by 24px (72px with Shift), Home restores the default size.
+ * Remembered in the browser like the position.
+ */
+const SIZE_KEY = 'terc-endpoint-panel-size'
+const SIZE_STEP = 24
+const SIZE_BIG_STEP = 72
+const SIZE_MIN = { w: 260, h: 80 }
+const size = ref<{ w: number; h: number } | null>(readSize())
+const scrollEl = ref<HTMLElement | null>(null)
+const scrollStyle = computed(() => (size.value ? { width: `${size.value.w}px`, height: `${size.value.h}px` } : undefined))
+
+function readSize(): { w: number; h: number } | null {
+  try {
+    const raw = localStorage.getItem(SIZE_KEY)
+    const v = raw ? (JSON.parse(raw) as { w?: unknown; h?: unknown }) : null
+    return v && typeof v.w === 'number' && typeof v.h === 'number' ? { w: v.w, h: v.h } : null
+  } catch {
+    return null
+  }
+}
+function writeSize(v: { w: number; h: number } | null): void {
+  try {
+    v ? localStorage.setItem(SIZE_KEY, JSON.stringify(v)) : localStorage.removeItem(SIZE_KEY)
+  } catch {
+    /* no persistence in private mode — fine */
+  }
+}
+function resizeBy(dw: number, dh: number): void {
+  const el = scrollEl.value
+  // A zero measurement (not laid out yet) counts as unknown -> defaults.
+  const cur = size.value ?? { w: el?.offsetWidth || 480, h: el?.offsetHeight || 240 }
+  const maxW = Math.max(SIZE_MIN.w, window.innerWidth - 56)
+  const maxH = Math.max(SIZE_MIN.h, Math.round(window.innerHeight * 0.8))
+  size.value = {
+    w: Math.min(maxW, Math.max(SIZE_MIN.w, cur.w + dw)),
+    h: Math.min(maxH, Math.max(SIZE_MIN.h, cur.h + dh)),
+  }
+  writeSize(size.value)
+}
+function resetSize(): void {
+  size.value = null
+  writeSize(null)
+}
+function onResizeKey(e: KeyboardEvent): void {
+  const step = e.shiftKey ? SIZE_BIG_STEP : SIZE_STEP
+  const moves: Record<string, [number, number]> = {
+    ArrowRight: [step, 0],
+    ArrowLeft: [-step, 0],
+    ArrowDown: [0, step],
+    ArrowUp: [0, -step],
+  }
+  if (e.key === 'Home') {
+    resetSize()
+    e.preventDefault()
+  } else if (moves[e.key]) {
+    resizeBy(...moves[e.key])
+    e.preventDefault()
+  }
+}
 const me = Symbol('endpoint-panel')
 roster.push(me)
 if (ownerId.value === null) ownerId.value = me
@@ -114,11 +178,19 @@ const summary = computed(() =>
         <span class="mini">{{ totals.requests }} req · {{ totals.failed }} failed</span>
       </button>
       <button v-if="position" type="button" class="ep-reset" @click="reset">Reset position</button>
+      <button
+        v-if="!collapsed"
+        type="button"
+        class="ep-resize"
+        aria-label="Resize panel. Use the arrow keys to change its size; Home restores the default."
+        title="Arrow keys resize · Home resets"
+        @keydown="onResizeKey"
+      >⤡</button>
     </div>
     <p class="ep-sr-only" role="status" aria-live="polite">{{ summary }}</p>
     <div v-if="!collapsed" class="ep-body">
       <p v-if="rows.length === 0" class="ep-empty">No requests yet.</p>
-      <div v-else class="ep-scroll">
+      <div v-else ref="scrollEl" class="ep-scroll" :style="scrollStyle">
         <table class="ep-table">
           <caption class="ep-sr-only">Latest request per endpoint, with its URL and totals since the page loaded</caption>
           <thead>
@@ -162,7 +234,7 @@ const summary = computed(() =>
   color: #cfe0ea;
   border-radius: 8px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
+  font-size: 0.6875rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 .ep-panel.collapsed {
@@ -181,7 +253,7 @@ const summary = computed(() =>
   border: none;
   color: #7f96a3;
   font: inherit;
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1;
   padding: 8px 6px 8px 10px;
   cursor: grab;
@@ -190,7 +262,18 @@ const summary = computed(() =>
 .ep-handle:active {
   cursor: grabbing;
 }
+.ep-resize {
+  background: none;
+  border: none;
+  color: #7f96a3;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 8px 10px;
+  cursor: default;
+}
 .ep-handle:focus-visible,
+.ep-resize:focus-visible,
 .ep-reset:focus-visible {
   outline: 3px solid #f0b323;
   outline-offset: -3px;

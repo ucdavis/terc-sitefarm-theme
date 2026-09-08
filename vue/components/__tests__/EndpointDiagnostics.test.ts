@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import EndpointDiagnostics from '../EndpointDiagnostics.vue'
+import panelSource from '../EndpointDiagnostics.vue?raw'
 import { enableRequestLog, resetRequestLogForTests, tracedFetch } from '../../core/requestLog'
 
 // The panel claims page-wide ownership on mount; release it after every
@@ -113,5 +114,36 @@ describe('EndpointDiagnostics', () => {
     await handle.trigger('pointerup')
     expect(w.get('section').attributes('style')).toContain('left: 0px')
     expect(w.get('section').attributes('style')).toContain('top: 0px')
+  })
+
+  it('resizes from the keyboard as well as the pointer grip, remembers the size, Home restores it (Copilot, PR #31)', async () => {
+    // The table area only exists once something has been requested.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('[]', { status: 200 })))
+    await tracedFetch('/jsonapi/node/lake_locations')
+    const w = mountPanel()
+    const grip = w.get('.ep-resize')
+    expect(grip.attributes('aria-label')).toContain('arrow keys')
+    expect(w.get('.ep-scroll').attributes('style') ?? '').toBe('')
+
+    await grip.trigger('keydown', { key: 'ArrowRight' })
+    await grip.trigger('keydown', { key: 'ArrowDown', shiftKey: true })
+    const style = w.get('.ep-scroll').attributes('style')!
+    // happy-dom reports no layout, so growth starts from the code defaults (480×240).
+    expect(style).toContain('width: 504px')
+    expect(style).toContain('height: 312px')
+    expect(JSON.parse(localStorage.getItem('terc-endpoint-panel-size')!)).toEqual({ w: 504, h: 312 })
+
+    // Never smaller than the minimum.
+    for (let i = 0; i < 30; i++) await grip.trigger('keydown', { key: 'ArrowLeft', shiftKey: true })
+    expect(w.get('.ep-scroll').attributes('style')).toContain('width: 260px')
+
+    await grip.trigger('keydown', { key: 'Home' })
+    expect(w.get('.ep-scroll').attributes('style') ?? '').toBe('')
+    expect(localStorage.getItem('terc-endpoint-panel-size')).toBeNull()
+  })
+
+  it('uses rem for every font size (AGENTS.md type-sizing rule)', () => {
+    const style = panelSource.slice(panelSource.indexOf('<style'))
+    expect(style.match(/font-size:\s*[\d.]+px/g)).toBeNull()
   })
 })
