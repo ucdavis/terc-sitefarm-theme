@@ -39,9 +39,12 @@ async function refresh(): Promise<void> {
   const currentGeneration = ++generation
   controller?.abort()
   if (isSample) {
-    // Sample mode never touches the network — the point is testing the
-    // display, not the API.
-    alerts.value = sampleWeatherAlerts()
+    // Sample mode never asks the NWS — the point is testing the display,
+    // not the API. (The fixture itself arrives as a lazily loaded chunk.)
+    status.value = 'loading'
+    const sample = await sampleWeatherAlerts()
+    if (currentGeneration !== generation) return
+    alerts.value = sample
     status.value = 'ready'
     return
   }

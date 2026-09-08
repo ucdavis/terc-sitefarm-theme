@@ -1,6 +1,5 @@
 import { NOAA_ALERTS, TAHOE_ALERT_ZONES } from '../config/endpoints'
 import { tracedFetch } from '../core/requestLog'
-import sampleAlertBody from './nws-sample-alert.json'
 
 interface NwsAlertFeature {
   id?: unknown
@@ -62,8 +61,10 @@ export function adaptWeatherAlerts(body: NwsAlertCollection | null): WeatherAler
  * for the Tahoe zones, captured from the NWS alerts archive
  * (`/alerts?zone=CAZ072,NVZ002&start=…`), so every field is genuine.
  * Served only when the block's "Show a sample alert" setting is on — and
- * the block labels it as a sample. No network involved.
+ * the block labels it as a sample. The fixture is loaded on demand (its
+ * own chunk), so visitors on the live path never download it.
  */
-export function sampleWeatherAlerts(): WeatherAlert[] {
-  return adaptWeatherAlerts(sampleAlertBody as NwsAlertCollection)
+export async function sampleWeatherAlerts(): Promise<WeatherAlert[]> {
+  const { default: body } = await import('./nws-sample-alert.json')
+  return adaptWeatherAlerts(body as NwsAlertCollection)
 }
