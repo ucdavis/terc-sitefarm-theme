@@ -77,6 +77,36 @@ function resetSize(): void {
   size.value = null
   writeSize(null)
 }
+/** Maximize (fill the viewport, within the clamps) or restore the default. */
+function toggleMaximize(): void {
+  if (size.value) resetSize()
+  else resizeBy(10_000, 10_000)
+}
+
+// Pointer drag on the ⤡ control resizes too; a click without movement
+// toggles maximize/restore. Same clamps as the keyboard path.
+let resizeDrag: { x: number; y: number; moved: boolean } | null = null
+function onResizePointerDown(e: PointerEvent): void {
+  if (e.button !== 0) return
+  resizeDrag = { x: e.clientX, y: e.clientY, moved: false }
+  ;(e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId)
+  e.preventDefault()
+}
+function onResizePointerMove(e: PointerEvent): void {
+  if (!resizeDrag) return
+  const dx = e.clientX - resizeDrag.x
+  const dy = e.clientY - resizeDrag.y
+  if (!resizeDrag.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return
+  resizeDrag.moved = true
+  resizeDrag.x = e.clientX
+  resizeDrag.y = e.clientY
+  resizeBy(dx, dy)
+}
+function onResizePointerUp(): void {
+  if (resizeDrag && !resizeDrag.moved) toggleMaximize()
+  resizeDrag = null
+}
+
 function onResizeKey(e: KeyboardEvent): void {
   const step = e.shiftKey ? SIZE_BIG_STEP : SIZE_STEP
   const moves: Record<string, [number, number]> = {
@@ -87,6 +117,9 @@ function onResizeKey(e: KeyboardEvent): void {
   }
   if (e.key === 'Home') {
     resetSize()
+    e.preventDefault()
+  } else if (e.key === 'Enter' || e.key === ' ') {
+    toggleMaximize()
     e.preventDefault()
   } else if (moves[e.key]) {
     resizeBy(...moves[e.key])
@@ -182,8 +215,13 @@ const summary = computed(() =>
         v-if="!collapsed"
         type="button"
         class="ep-resize"
-        aria-label="Resize panel. Use the arrow keys to change its size; Home restores the default."
-        title="Arrow keys resize · Home resets"
+        :aria-label="`Resize panel. Drag it, click to ${size ? 'restore the default size' : 'maximize'}, or use the arrow keys; Home restores the default.`"
+        :aria-pressed="size !== null"
+        title="Drag to resize · click to maximize/restore · arrow keys · Home resets"
+        @pointerdown="onResizePointerDown"
+        @pointermove="onResizePointerMove"
+        @pointerup="onResizePointerUp"
+        @pointercancel="onResizePointerUp"
         @keydown="onResizeKey"
       >⤡</button>
     </div>
@@ -229,7 +267,10 @@ const summary = computed(() =>
   bottom: 14px;
   left: 14px;
   z-index: 2000;
-  max-width: min(720px, calc(100vw - 28px));
+  /* Sized by its content: the table area sets the width (default below,
+     or whatever it was resized to), and the background follows. */
+  width: fit-content;
+  max-width: calc(100vw - 28px);
   background: rgba(18, 28, 36, 0.95);
   color: #cfe0ea;
   border-radius: 8px;
@@ -270,7 +311,11 @@ const summary = computed(() =>
   font-size: 1rem;
   line-height: 1;
   padding: 8px 10px;
-  cursor: default;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.ep-resize[aria-pressed='true'] {
+  color: #cfe0ea;
 }
 .ep-handle:focus-visible,
 .ep-resize:focus-visible,
@@ -317,11 +362,13 @@ const summary = computed(() =>
   color: #9fb2bd;
 }
 .ep-scroll {
-  /* Resizable from its corner; the table scrolls inside. */
+  /* Resizable from its corner (and via the ⤡ control); the table scrolls
+     inside. Inline width/height override these defaults once resized. */
   overflow: auto;
   resize: both;
-  max-height: 80vh;
+  width: min(720px, calc(100vw - 56px));
   height: min(40vh, 320px);
+  max-height: 80vh;
   min-width: 260px;
   min-height: 80px;
   max-width: calc(100vw - 56px);

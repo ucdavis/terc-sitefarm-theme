@@ -141,4 +141,38 @@ describe('EndpointDiagnostics', () => {
     expect(localStorage.getItem('terc-endpoint-panel-size')).toBeNull()
   })
 
+
+  it('the ⤡ control also works with the pointer: drag resizes, a click maximizes and restores (TERC-69)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('[]', { status: 200 })))
+    await tracedFetch('/jsonapi/node/lake_locations')
+    const w = mountPanel()
+    const grip = w.get('.ep-resize')
+    const scroll = () => w.get('.ep-scroll').attributes('style') ?? ''
+
+    // Drag: deltas apply to the default size (480×240 in the test DOM).
+    await grip.trigger('pointerdown', { button: 0, clientX: 100, clientY: 100, pointerId: 1 })
+    await grip.trigger('pointermove', { clientX: 140, clientY: 120 })
+    await grip.trigger('pointerup')
+    expect(scroll()).toContain('width: 520px')
+    expect(scroll()).toContain('height: 260px')
+    expect(grip.attributes('aria-pressed')).toBe('true')
+
+    // Click (no movement) while resized -> restore the default.
+    await grip.trigger('pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 1 })
+    await grip.trigger('pointerup')
+    expect(scroll()).toBe('')
+    expect(grip.attributes('aria-pressed')).toBe('false')
+    expect(grip.attributes('aria-label')).toContain('click to maximize')
+
+    // Click while default -> maximize, clamped to the viewport.
+    await grip.trigger('pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 1 })
+    await grip.trigger('pointerup')
+    expect(scroll()).toContain(`width: ${window.innerWidth - 56}px`)
+    expect(scroll()).toContain(`height: ${Math.round(window.innerHeight * 0.8)}px`)
+    expect(grip.attributes('aria-label')).toContain('restore the default size')
+
+    // Enter does the same from the keyboard.
+    await grip.trigger('keydown', { key: 'Enter' })
+    expect(scroll()).toBe('')
+  })
 })
