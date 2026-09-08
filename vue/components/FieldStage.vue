@@ -73,36 +73,48 @@ const mapLabel = computed(() => {
 
 <template>
   <div class="field-view">
-    <!-- Optional intro copy from the host view; the forecast views' safety
-         text is editor-owned and rendered by the shell instead (TERC-9). -->
-    <div v-if="$slots.default" class="field-intro"><slot /></div>
-
-    <p v-if="summary" class="field-summary" aria-live="polite">{{ summary }}</p>
-    <p v-else-if="noFieldData" class="field-summary" aria-live="polite">{{ emptyMessage }}</p>
-
-    <!-- Extra per-view chrome (e.g. the wind indicator on wave height). -->
-    <slot name="chrome" />
-
-    <div class="field-stage">
-      <div class="field-row">
+    <!-- Two columns from desktop widths (TERC-64), matching the Real-Time
+         page: a tall, lake-framing map on the left and everything that
+         reads about it — summary, per-view chrome, legend, the editor's
+         text — in a column beside it. One stack below that. -->
+    <div class="field-row">
+      <!-- The map block: the map with its vertical colorbar beside it, read
+           together as one figure. -->
+      <div class="field-map-col">
         <LakeMap
           class="field-map"
           static-map
           fit-lake
           basemap="muted"
-          height="640px"
+          height="var(--field-map-height, 470px)"
           :aria-label="mapLabel"
         >
           <FieldOverlay :grid="state.data ?? null" :scale="scale" />
         </LakeMap>
         <GradientLegend :scale="scale" variant="panel" class="field-legend" />
+        <div v-if="state.status === 'loading'" class="field-loading">
+          <LoadingState :lines="2" />
+        </div>
       </div>
-      <div v-if="state.status === 'loading'" class="field-loading">
-        <LoadingState :lines="2" />
+
+      <div class="field-side">
+        <!-- Optional intro copy from the host view; the forecast views'
+             safety text is editor-owned and arrives via the side slot. -->
+        <div v-if="$slots.default" class="field-intro"><slot /></div>
+
+        <p v-if="summary" class="field-summary" aria-live="polite">{{ summary }}</p>
+        <p v-else-if="noFieldData" class="field-summary" aria-live="polite">{{ emptyMessage }}</p>
+
+        <!-- Extra per-view chrome (e.g. the wind indicator on wave height). -->
+        <slot name="chrome" />
+
+        <p v-if="state.status === 'error'" class="field-error" role="alert">
+          {{ errorMessage }}
+        </p>
+
+        <!-- The host's reading matter for this view (the shell's editor-owned text). -->
+        <slot name="side" />
       </div>
-      <p v-if="state.status === 'error'" class="field-error" role="alert">
-        {{ errorMessage }}
-      </p>
     </div>
   </div>
 </template>
@@ -114,19 +126,30 @@ const mapLabel = computed(() => {
   gap: 12px;
 }
 .field-intro {
-  color: #5f6e77;
+  font-size: 0.9375rem;
+  line-height: 1.5;
   max-width: 72ch;
 }
 .field-summary {
   margin: 0;
   font-weight: 600;
 }
-.field-stage {
-  position: relative;
-}
+/* Same numbers as the Real-Time map row (CurrentConditionsShell): one
+   column and a 470px map on phones; from 900px a sticky map block — the
+   480px-wide, 780px-tall map plus its colorbar — beside the reading
+   column. */
 .field-row {
+  --field-map-height: 470px;
+  --field-legend-width: 110px;
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+.field-map-col {
+  position: relative;
+  min-width: 0;
   display: flex;
-  gap: 24px;
+  gap: 16px;
   align-items: stretch;
 }
 .field-map {
@@ -134,20 +157,34 @@ const mapLabel = computed(() => {
   min-width: 0;
 }
 .field-legend {
-  width: 150px;
+  width: var(--field-legend-width);
   flex-shrink: 0;
-  height: 640px;
+  height: var(--field-map-height);
 }
-/* The map is non-interactive (TERC-22) — visitors can't zoom in to
-   compensate for a squeezed layout, so narrow viewports stack the legend
-   under the full-width map instead of leaving it ~150px wide. */
-@media (max-width: 640px) {
-  .field-row {
+/* Phones: the colorbar drops under the map, shorter. */
+@media (max-width: 899px) {
+  .field-map-col {
     flex-direction: column;
   }
   .field-legend {
     width: 100%;
     height: 200px;
+  }
+}
+.field-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .field-row {
+    --field-map-height: 780px;
+    grid-template-columns: calc(480px + 16px + var(--field-legend-width)) minmax(0, 1fr);
+  }
+  .field-map-col {
+    position: sticky;
+    top: 1rem;
   }
 }
 .field-loading {
@@ -158,7 +195,7 @@ const mapLabel = computed(() => {
   width: 220px;
 }
 .field-error {
-  margin-top: 12px;
+  margin: 0;
   background: #fdecea;
   border: 1px solid #f2b8ae;
   color: #8f2a16;

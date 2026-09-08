@@ -28,7 +28,9 @@ const { state } = useModeledField('flow')
     map-description="Map of Lake Tahoe colored by forecast surface current speed."
     empty-message="No forecast current data is available for this hour."
     error-message="The current forecast for this hour could not be loaded. Try another hour, or come back shortly — real-time conditions are unaffected."
-  />
+  >
+    <template #side><slot name="side" /></template>
+  </FieldStage>
   <!-- The gyre/rip-current copy is editor-owned block text, rendered by
        the shell beside this panel (TERC-9). -->
 </template>

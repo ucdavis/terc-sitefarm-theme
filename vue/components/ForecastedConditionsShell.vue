@@ -213,23 +213,23 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
       role="tabpanel"
       :aria-labelledby="`${idBase}-tab-${v.key}`"
       class="fc-panel"
-      :class="{ 'fc-panel--with-aside': viewTexts[v.key]?.length }"
     >
-      <div class="fc-panel-main">
-        <p class="fc-caption">{{ frameCaption }}</p>
-        <!-- Only the active view mounts: each brings its own map, and an
-             offscreen one would fetch grids nobody is looking at. -->
-        <component :is="v.component" v-if="v.key === activeKey" />
-      </div>
-      <!-- Editor-owned description and safety copy for this view (TERC-9):
-           beside the panel content from desktop widths, below it otherwise. -->
-      <aside
-        v-if="viewTexts[v.key]?.length"
-        class="fc-panel-aside"
-        :aria-label="`About ${v.label}`"
-      >
-        <p v-for="(p, i) in viewTexts[v.key]" :key="i">{{ p }}</p>
-      </aside>
+      <p class="fc-caption">{{ frameCaption }}</p>
+      <!-- Only the active view mounts: each brings its own map, and an
+           offscreen one would fetch grids nobody is looking at. The
+           editor-owned description and safety copy (TERC-9) travels into
+           the view's reading column beside the map (TERC-64). -->
+      <component :is="v.component" v-if="v.key === activeKey">
+        <template #side>
+          <aside
+            v-if="viewTexts[v.key]?.length"
+            class="fc-panel-aside"
+            :aria-label="`About ${v.label}`"
+          >
+            <p v-for="(p, i) in viewTexts[v.key]" :key="i">{{ p }}</p>
+          </aside>
+        </template>
+      </component>
     </div>
 
     <p class="fc-realtime">
@@ -297,20 +297,9 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
   outline: 3px solid #f0b323;
   outline-offset: 2px;
 }
-/* Panel = the view (caption + map stage) with the editor's text beside it
-   from desktop widths; the text moves under the view below that. The view
-   keeps most of the width — it is the subject; the text is context. */
+/* Panel = caption + the view; the view lays out its own map column and
+   reading column (FieldStage, TERC-64) — the same split as Real-Time. */
 .fc-panel {
-  display: grid;
-  gap: 1rem;
-  align-items: start;
-}
-@media (min-width: 900px) {
-  .fc-panel--with-aside {
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
-  }
-}
-.fc-panel-main {
   display: flex;
   flex-direction: column;
   gap: 4px;

@@ -24,7 +24,9 @@ const { state } = useModeledField('temperature')
     map-description="Map of Lake Tahoe colored by forecast surface water temperature."
     empty-message="No forecast temperature data is available for this hour."
     error-message="The temperature forecast for this hour could not be loaded. Try another hour, or come back shortly — real-time conditions are unaffected."
-  />
+  >
+    <template #side><slot name="side" /></template>
+  </FieldStage>
   <!-- The cold-water/upwelling copy is editor-owned block text, rendered
        by the shell beside this panel (TERC-9). -->
 </template>
