@@ -7,7 +7,7 @@ const ownerId = moduleRef<symbol | null>(null)
 </script>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { requestLog, type RequestEntry } from '../core/requestLog'
 import { fmtLakeTime } from '../core/time'
 import { useMovablePanel } from '../composables/useMovablePanel'
@@ -25,7 +25,7 @@ const collapsed = ref(false)
 const panelEl = ref<HTMLElement | null>(null)
 // Movable by its handle (drag, arrow keys, Home to reset) and resizable by
 // its corner, so it can be parked wherever it covers the least (TERC-65).
-const { position, reset, handle } = useMovablePanel(panelEl, 'terc-endpoint-panel-pos')
+const { position, moveTo, reset, handle } = useMovablePanel(panelEl, 'terc-endpoint-panel-pos')
 const panelStyle = computed(() =>
   position.value ? { left: `${position.value.left}px`, top: `${position.value.top}px`, bottom: 'auto' } : undefined,
 )
@@ -41,9 +41,18 @@ const SIZE_KEY = 'terc-endpoint-panel-size'
 const SIZE_STEP = 24
 const SIZE_BIG_STEP = 72
 const SIZE_MIN = { w: 260, h: 80 }
-const size = ref<{ w: number; h: number } | null>(readSize())
+/** Breathing room kept between the panel and the viewport edges. */
+const EDGE = 14
+/** Horizontal chrome around the table area (panel body padding). */
+const BODY_PAD_X = 24
+/** Vertical chrome: body bottom padding; the header is measured live. */
+const BODY_PAD_Y = 10
+type Size = { w: number; h: number }
+const size = ref<Size | null>(readSize())
 const scrollEl = ref<HTMLElement | null>(null)
 const scrollStyle = computed(() => (size.value ? { width: `${size.value.w}px`, height: `${size.value.h}px` } : undefined))
+/** True while the ⤡ control holds the panel at its maximized size/place. */
+const maximized = ref(false)
 
 function readSize(): { w: number; h: number } | null {
   try {
@@ -61,22 +70,151 @@ function writeSize(v: { w: number; h: number } | null): void {
     /* no persistence in private mode — fine */
   }
 }
+/**
+ * The largest table area that stays on screen from WHERE THE PANEL IS —
+ * a moved panel has less room than one in the corner. The panel is
+ * left-anchored always; vertically it hangs from its top once moved and
+ * from the bottom edge in its default corner.
+ */
+function maxSize(): Size {
+  const r = scrollEl.value?.getBoundingClientRect()
+  const left = r?.left ?? 0
+  const roomW = window.innerWidth - left - EDGE
+  const roomH = position.value ? window.innerHeight - (r?.top ?? 0) - EDGE : (r?.bottom || window.innerHeight) - EDGE
+  return { w: Math.max(SIZE_MIN.w, Math.round(roomW)), h: Math.max(SIZE_MIN.h, Math.round(roomH)) }
+}
+/**
+ * Set while a size change of OURS is on its way to layout, so the resize
+ * observer below can tell it from the visitor dragging the corner grip.
+ * Cleared by the observation itself, or by a short timer when layout had
+ * nothing to change (same size twice).
+ */
+let expectingOwnResize = false
+let expectingTimer: ReturnType<typeof setTimeout> | null = null
+function applySize(v: Size | null): void {
+  size.value = v
+  writeSize(v)
+  expectingOwnResize = true
+  if (expectingTimer) clearTimeout(expectingTimer)
+  expectingTimer = setTimeout(() => (expectingOwnResize = false), 250)
+}
+function setSize(v: Size): void {
+  const max = maxSize()
+  applySize({ w: Math.min(max.w, Math.max(SIZE_MIN.w, v.w)), h: Math.min(max.h, Math.max(SIZE_MIN.h, v.h)) })
+}
 function resizeBy(dw: number, dh: number): void {
   const el = scrollEl.value
   // A zero measurement (not laid out yet) counts as unknown -> defaults.
   const cur = size.value ?? { w: el?.offsetWidth || 480, h: el?.offsetHeight || 240 }
-  const maxW = Math.max(SIZE_MIN.w, window.innerWidth - 56)
-  const maxH = Math.max(SIZE_MIN.h, Math.round(window.innerHeight * 0.8))
-  size.value = {
-    w: Math.min(maxW, Math.max(SIZE_MIN.w, cur.w + dw)),
-    h: Math.min(maxH, Math.max(SIZE_MIN.h, cur.h + dh)),
-  }
-  writeSize(size.value)
+  maximized.value = false
+  setSize({ w: cur.w + dw, h: cur.h + dh })
 }
 function resetSize(): void {
-  size.value = null
-  writeSize(null)
+  maximized.value = false
+  applySize(null)
 }
+
+/**
+ * Maximize = move the panel to the top-left corner and fill the viewport,
+ * remembering where it was and how big; restore puts both back. Filling
+ * from the panel's current spot would push a moved panel off-screen.
+ */
+let beforeMax: { position: { left: number; top: number } | null; size: Size | null } | null = null
+function toggleMaximize(): void {
+  if (maximized.value) {
+    const prev = beforeMax
+    beforeMax = null
+    maximized.value = false
+    if (prev?.position) moveTo(prev.position)
+    else reset()
+    if (prev?.size) setSize(prev.size)
+    else resetSize()
+    return
+  }
+  beforeMax = { position: position.value, size: size.value }
+  moveTo({ left: EDGE, top: EDGE })
+  const headerH = panelEl.value?.querySelector<HTMLElement>('.ep-head')?.offsetHeight || 34
+  applySize({
+    w: Math.max(SIZE_MIN.w, window.innerWidth - EDGE * 2 - BODY_PAD_X),
+    h: Math.max(SIZE_MIN.h, window.innerHeight - EDGE * 2 - headerH - BODY_PAD_Y),
+  })
+  maximized.value = true
+}
+
+/**
+ * The native corner grip changes the element's size behind Vue's back;
+ * mirror it into `size` so the control's state, persistence and the
+ * keyboard path all agree with what is on screen. Measured as the BORDER
+ * box — the same box the inline width/height set — never contentRect,
+ * which excludes the scrollbars and would shrink the area 15px per
+ * observation in a feedback loop. Our own changes are expected (see
+ * applySize) and only synced, e.g. when a CSS clamp trimmed them; the
+ * default (no inline size) is recognised by its computed value.
+ */
+function defaultSize(): Size {
+  return { w: Math.min(720, window.innerWidth - 52), h: Math.min(Math.round(window.innerHeight * 0.4), 320) }
+}
+let observer: ResizeObserver | null = null
+function onNativeResize(entries: ResizeObserverEntry[]): void {
+  const entry = entries[0]
+  if (!entry) return
+  const bb = entry.borderBoxSize?.[0]
+  const rect = bb ? { w: bb.inlineSize, h: bb.blockSize } : (({ width: w, height: h }) => ({ w, h }))(entry.target.getBoundingClientRect())
+  if (rect.w === 0 || rect.h === 0) return
+  const seen = { w: Math.round(rect.w), h: Math.round(rect.h) }
+  const same = (a: Size) => Math.abs(seen.w - a.w) <= 1 && Math.abs(seen.h - a.h) <= 1
+  if (expectingOwnResize) {
+    expectingOwnResize = false
+    // Layout may have clamped what we asked for: keep state honest, but it
+    // is still our change, so `maximized` stands.
+    if (size.value && !same(size.value)) {
+      size.value = seen
+      writeSize(seen)
+    }
+    return
+  }
+  if (same(size.value ?? defaultSize())) return
+  size.value = seen
+  maximized.value = false
+  writeSize(seen)
+}
+watch(scrollEl, (el) => {
+  observer?.disconnect()
+  observer = null
+  if (el && typeof ResizeObserver !== 'undefined') {
+    observer = new ResizeObserver(onNativeResize)
+    observer.observe(el)
+  }
+})
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  if (expectingTimer) clearTimeout(expectingTimer)
+})
+
+// Pointer drag on the ⤡ control resizes too; a click without movement
+// toggles maximize/restore. Same clamps as the keyboard path.
+let resizeDrag: { x: number; y: number; moved: boolean } | null = null
+function onResizePointerDown(e: PointerEvent): void {
+  if (e.button !== 0) return
+  resizeDrag = { x: e.clientX, y: e.clientY, moved: false }
+  ;(e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId)
+  e.preventDefault()
+}
+function onResizePointerMove(e: PointerEvent): void {
+  if (!resizeDrag) return
+  const dx = e.clientX - resizeDrag.x
+  const dy = e.clientY - resizeDrag.y
+  if (!resizeDrag.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return
+  resizeDrag.moved = true
+  resizeDrag.x = e.clientX
+  resizeDrag.y = e.clientY
+  resizeBy(dx, dy)
+}
+function onResizePointerUp(): void {
+  if (resizeDrag && !resizeDrag.moved) toggleMaximize()
+  resizeDrag = null
+}
+
 function onResizeKey(e: KeyboardEvent): void {
   const step = e.shiftKey ? SIZE_BIG_STEP : SIZE_STEP
   const moves: Record<string, [number, number]> = {
@@ -87,6 +225,9 @@ function onResizeKey(e: KeyboardEvent): void {
   }
   if (e.key === 'Home') {
     resetSize()
+    e.preventDefault()
+  } else if (e.key === 'Enter' || e.key === ' ') {
+    toggleMaximize()
     e.preventDefault()
   } else if (moves[e.key]) {
     resizeBy(...moves[e.key])
@@ -182,8 +323,13 @@ const summary = computed(() =>
         v-if="!collapsed"
         type="button"
         class="ep-resize"
-        aria-label="Resize panel. Use the arrow keys to change its size; Home restores the default."
-        title="Arrow keys resize · Home resets"
+        :aria-label="`Resize panel. Drag it, click to ${maximized ? 'restore its previous size and place' : 'maximize'}, or use the arrow keys; Home restores the default size.`"
+        :aria-pressed="maximized"
+        title="Drag to resize · click to maximize/restore · arrow keys · Home resets"
+        @pointerdown="onResizePointerDown"
+        @pointermove="onResizePointerMove"
+        @pointerup="onResizePointerUp"
+        @pointercancel="onResizePointerUp"
         @keydown="onResizeKey"
       >⤡</button>
     </div>
@@ -229,7 +375,10 @@ const summary = computed(() =>
   bottom: 14px;
   left: 14px;
   z-index: 2000;
-  max-width: min(720px, calc(100vw - 28px));
+  /* Sized by its content: the table area sets the width (default below,
+     or whatever it was resized to), and the background follows. */
+  width: fit-content;
+  max-width: calc(100vw - 28px);
   background: rgba(18, 28, 36, 0.95);
   color: #cfe0ea;
   border-radius: 8px;
@@ -270,7 +419,11 @@ const summary = computed(() =>
   font-size: 1rem;
   line-height: 1;
   padding: 8px 10px;
-  cursor: default;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.ep-resize[aria-pressed='true'] {
+  color: #cfe0ea;
 }
 .ep-handle:focus-visible,
 .ep-resize:focus-visible,
@@ -317,14 +470,16 @@ const summary = computed(() =>
   color: #9fb2bd;
 }
 .ep-scroll {
-  /* Resizable from its corner; the table scrolls inside. */
+  /* Resizable from its corner (and via the ⤡ control); the table scrolls
+     inside. Inline width/height override these defaults once resized. */
   overflow: auto;
   resize: both;
-  max-height: 80vh;
+  width: min(720px, calc(100vw - 52px));
   height: min(40vh, 320px);
+  max-height: calc(100vh - 72px);
   min-width: 260px;
   min-height: 80px;
-  max-width: calc(100vw - 56px);
+  max-width: calc(100vw - 52px);
 }
 .ep-table {
   border-collapse: collapse;

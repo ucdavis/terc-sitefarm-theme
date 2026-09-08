@@ -141,4 +141,120 @@ describe('EndpointDiagnostics', () => {
     expect(localStorage.getItem('terc-endpoint-panel-size')).toBeNull()
   })
 
+
+  it('the ⤡ control also works with the pointer: drag resizes, a click maximizes and restores (TERC-69)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('[]', { status: 200 })))
+    await tracedFetch('/jsonapi/node/lake_locations')
+    const w = mountPanel()
+    const grip = w.get('.ep-resize')
+    const scroll = () => w.get('.ep-scroll').attributes('style') ?? ''
+
+    // Drag: deltas apply to the default size (480×240 in the test DOM).
+    await grip.trigger('pointerdown', { button: 0, clientX: 100, clientY: 100, pointerId: 1 })
+    await grip.trigger('pointermove', { clientX: 140, clientY: 120 })
+    await grip.trigger('pointerup')
+    expect(scroll()).toContain('width: 520px')
+    expect(scroll()).toContain('height: 260px')
+    // A resized-but-not-maximized panel is not "pressed".
+    expect(grip.attributes('aria-pressed')).toBe('false')
+    expect(grip.attributes('aria-label')).toContain('click to maximize')
+
+    // Click (no movement) -> maximize: top-left corner, viewport-sized.
+    await grip.trigger('pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 1 })
+    await grip.trigger('pointerup')
+    expect(scroll()).toContain(`width: ${window.innerWidth - 52}px`)
+    expect(scroll()).toContain(`height: ${window.innerHeight - 72}px`)
+    expect(w.get('section').attributes('style')).toContain('left: 14px')
+    expect(w.get('section').attributes('style')).toContain('top: 14px')
+    expect(grip.attributes('aria-pressed')).toBe('true')
+    expect(grip.attributes('aria-label')).toContain('restore its previous size and place')
+
+    // Click again -> back to the dragged size and the default corner.
+    await grip.trigger('pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 1 })
+    await grip.trigger('pointerup')
+    expect(scroll()).toContain('width: 520px')
+    expect(w.get('section').attributes('style') ?? '').toBe('')
+    expect(grip.attributes('aria-pressed')).toBe('false')
+
+    // Enter maximizes from the keyboard too.
+    await grip.trigger('keydown', { key: 'Enter' })
+    expect(grip.attributes('aria-pressed')).toBe('true')
+  })
+
+  it('maximizing a moved panel parks it top-left and restoring returns it to where it was (Copilot, PR #33)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('[]', { status: 200 })))
+    await tracedFetch('/jsonapi/node/lake_locations')
+    const w = mountPanel()
+    const handle = w.get('.ep-handle')
+    for (let i = 0; i < 30; i++) await handle.trigger('keydown', { key: 'ArrowRight' })
+    await handle.trigger('keydown', { key: 'ArrowDown', shiftKey: true })
+    expect(w.get('section').attributes('style')).toContain('left: 300px')
+    expect(w.get('section').attributes('style')).toContain('top: 50px')
+
+    const grip = w.get('.ep-resize')
+    await grip.trigger('keydown', { key: ' ' })
+    const style = w.get('section').attributes('style')!
+    expect(style).toContain('left: 14px')
+    expect(style).toContain('top: 14px')
+    expect(w.get('.ep-scroll').attributes('style')).toContain(`width: ${window.innerWidth - 52}px`)
+
+    await grip.trigger('keydown', { key: ' ' })
+    expect(w.get('section').attributes('style')).toContain('left: 300px')
+    expect(w.get('section').attributes('style')).toContain('top: 50px')
+    expect(w.get('.ep-scroll').attributes('style') ?? '').toBe('')
+  })
+
+  it('a native corner-grip resize is mirrored into the control state (Copilot, PR #33)', async () => {
+    const callbacks: ResizeObserverCallback[] = []
+    class FakeRO {
+      constructor(cb: ResizeObserverCallback) {
+        callbacks.push(cb)
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    }
+    vi.stubGlobal('ResizeObserver', FakeRO)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('[]', { status: 200 })))
+    await tracedFetch('/jsonapi/node/lake_locations')
+    const w = mountPanel()
+    await w.vm.$nextTick()
+    expect(callbacks).toHaveLength(1)
+    // Real entries carry the border box; contentRect would be 15px smaller per scrollbar.
+    const fire = (width: number, height: number) =>
+      callbacks[0](
+        [{ borderBoxSize: [{ inlineSize: width, blockSize: height }], contentRect: { width: width - 15, height: height - 15 } } as unknown as ResizeObserverEntry],
+        {} as ResizeObserver,
+      )
+
+    // The default size coming back from layout is not a resize.
+    fire(Math.min(720, window.innerWidth - 52), Math.min(Math.round(window.innerHeight * 0.4), 320))
+    await w.vm.$nextTick()
+    expect(w.get('.ep-scroll').attributes('style') ?? '').toBe('')
+
+    // The visitor drags the corner grip: state, persistence and the label follow.
+    fire(600, 300)
+    await w.vm.$nextTick()
+    expect(w.get('.ep-scroll').attributes('style')).toContain('width: 600px')
+    expect(JSON.parse(localStorage.getItem('terc-endpoint-panel-size')!)).toEqual({ w: 600, h: 300 })
+    expect(w.get('.ep-resize').attributes('aria-pressed')).toBe('false')
+    // An observation that merely echoes a size we set must change nothing —
+    // this is the 15px-per-tick shrink loop that contentRect caused.
+    await w.get('.ep-resize').trigger('keydown', { key: 'ArrowRight' })
+    expect(w.get('.ep-scroll').attributes('style')).toContain('width: 624px')
+    fire(624, 300)
+    fire(624, 300)
+    await w.vm.$nextTick()
+    expect(w.get('.ep-scroll').attributes('style')).toContain('width: 624px')
+    // Layout clamping our request is synced silently and keeps maximize state.
+    await w.get('.ep-resize').trigger('keydown', { key: 'Enter' })
+    expect(w.get('.ep-resize').attributes('aria-pressed')).toBe('true')
+    fire(window.innerWidth - 52, 500) // height trimmed by a CSS clamp
+    await w.vm.$nextTick()
+    expect(w.get('.ep-scroll').attributes('style')).toContain('height: 500px')
+    expect(w.get('.ep-resize').attributes('aria-pressed')).toBe('true')
+    // Home from the keyboard still restores the default after a grip resize.
+    await w.get('.ep-resize').trigger('keydown', { key: 'Home' })
+    expect(w.get('.ep-scroll').attributes('style') ?? '').toBe('')
+  })
 })
