@@ -3,8 +3,8 @@
     "file": "SourceBadge.css",
     "src": "_SourceBadge.!~{002}~.js"
   },
-  "_SourceBadge.BkuYJLHs.js": {
-    "file": "chunks/SourceBadge.BkuYJLHs.js",
+  "_SourceBadge.4HyzDdh3.js": {
+    "file": "chunks/SourceBadge.4HyzDdh3.js",
     "name": "SourceBadge",
     "imports": [
       "__plugin-vue_export-helper.BUl8dfwC.js"
@@ -47,7 +47,7 @@
     "isEntry": true,
     "imports": [
       "__plugin-vue_export-helper.BUl8dfwC.js",
-      "_SourceBadge.BkuYJLHs.js"
+      "_SourceBadge.4HyzDdh3.js"
     ],
     "css": [
       "current-conditions.css"
@@ -60,7 +60,7 @@
     "isEntry": true,
     "imports": [
       "__plugin-vue_export-helper.BUl8dfwC.js",
-      "_SourceBadge.BkuYJLHs.js"
+      "_SourceBadge.4HyzDdh3.js"
     ],
     "css": [
       "forecasted-conditions.css"

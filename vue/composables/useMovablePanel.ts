@@ -111,5 +111,5 @@ export function useMovablePanel(panel: Ref<HTMLElement | null>, storageKey: stri
   })
   onBeforeUnmount(() => window.removeEventListener('resize', onResize))
 
-  return { position, reset, handle: { onPointerDown, onPointerMove, onPointerUp, onKeyDown } }
+  return { position, moveTo, reset, handle: { onPointerDown, onPointerMove, onPointerUp, onKeyDown } }
 }
