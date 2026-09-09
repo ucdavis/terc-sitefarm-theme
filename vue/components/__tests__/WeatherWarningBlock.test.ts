@@ -1,12 +1,25 @@
 // @vitest-environment happy-dom
 import { flushPromises, mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const sampleMock = vi.fn()
+
+vi.mock('../../data/weatherAlerts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../data/weatherAlerts')>()
+  return {
+    ...actual,
+    sampleWeatherAlerts: (...args: unknown[]) => sampleMock(...args),
+  }
+})
+
 import WeatherWarningBlock from '../WeatherWarningBlock.vue'
 
 const fetchMock = vi.fn()
 
 beforeEach(() => {
   fetchMock.mockReset()
+  sampleMock.mockReset().mockResolvedValue([])
   vi.stubGlobal('fetch', fetchMock)
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -111,6 +124,42 @@ describe('WeatherWarningBlock', () => {
   it('shows failures honestly and allows another refresh', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 503 })
     const wrapper = mount(WeatherWarningBlock)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Weather alerts unavailable')
+    expect(wrapper.find('button').attributes('disabled')).toBeUndefined()
+  })
+
+  it('hides stale cards while a refresh is in progress or has failed', async () => {
+    let rejectRefresh!: (reason?: unknown) => void
+    const pendingRefresh = new Promise<never>((_, reject) => {
+      rejectRefresh = reject
+    })
+    fetchMock
+      .mockResolvedValueOnce(response(['Severe']))
+      .mockImplementationOnce(() => pendingRefresh)
+
+    const wrapper = mount(WeatherWarningBlock)
+    await flushPromises()
+    expect(wrapper.find('.weather-warning__list').exists()).toBe(true)
+
+    await wrapper.get('button').trigger('click')
+    await nextTick()
+    expect(wrapper.text()).toContain('Checking weather alerts')
+    expect(wrapper.find('.weather-warning__list').exists()).toBe(false)
+    expect(wrapper.find('button').attributes('disabled')).toBeDefined()
+
+    rejectRefresh(new Error('boom'))
+    await flushPromises()
+    expect(wrapper.text()).toContain('Weather alerts unavailable')
+    expect(wrapper.find('.weather-warning__list').exists()).toBe(false)
+    expect(wrapper.find('button').attributes('disabled')).toBeUndefined()
+  })
+
+  it('treats a sample-load failure as an error state', async () => {
+    sampleMock.mockRejectedValueOnce(new Error('sample failed'))
+
+    const wrapper = mount(WeatherWarningBlock, { props: { sampleAlert: true } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Weather alerts unavailable')

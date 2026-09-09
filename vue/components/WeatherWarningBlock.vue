@@ -36,19 +36,12 @@ let controller: AbortController | null = null
 async function refresh(): Promise<void> {
   const currentGeneration = ++generation
   controller?.abort()
-  if (isSample) {
-    status.value = 'loading'
-    const result = await sampleWeatherAlerts()
-    if (currentGeneration !== generation) return
-    alerts.value = result
-    status.value = 'ready'
-    return
-  }
-  controller = new AbortController()
   status.value = 'loading'
 
   try {
-    const result = await fetchWeatherAlerts(controller.signal)
+    const result = isSample
+      ? await sampleWeatherAlerts()
+      : await fetchWeatherAlerts((controller = new AbortController()).signal)
     if (currentGeneration !== generation) return
     alerts.value = result
     status.value = 'ready'
@@ -90,7 +83,7 @@ onBeforeUnmount(() => controller?.abort())
         Refresh
       </button>
 
-      <ul v-if="alerts.length" class="weather-warning__list">
+      <ul v-if="status === 'ready' && alerts.length" class="weather-warning__list">
         <li v-for="alert in alerts" :key="alert.id">
           <WeatherAlertCard :alert="alert" />
         </li>

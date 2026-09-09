@@ -143,7 +143,7 @@ const zoneLabels = computed(() =>
   cursor: pointer;
 }
 .weather-alert-card__toggle:focus-visible {
-  outline: 3px solid #f0b323 !important;
+  outline: 3px solid currentColor !important;
   outline-offset: 2px !important;
 }
 .weather-alert-card__description {
