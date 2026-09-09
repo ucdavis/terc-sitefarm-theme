@@ -16,8 +16,24 @@ function response(severities: string[]) {
     ok: true,
     json: async () => ({
       features: severities.map((severity, index) => ({
-        id: `alert-${index}`,
-        properties: { severity },
+        id: `https://api.weather.gov/alerts/alert-${index}`,
+        properties: {
+          event: 'Winter Storm Warning',
+          severity,
+          headline: 'Heavy snow expected around Lake Tahoe',
+          areaDesc: 'Greater Lake Tahoe Area',
+          affectedZones: [
+            'https://api.weather.gov/zones/forecast/CAZ072',
+            'https://api.weather.gov/zones/forecast/NVZ002',
+          ],
+          description: 'Travel could be very difficult.',
+          instruction: 'Avoid unnecessary travel.',
+          urgency: 'Expected',
+          certainty: 'Likely',
+          onset: '2026-09-08T18:00:00-07:00',
+          ends: '2026-09-09T06:00:00-07:00',
+          senderName: 'NWS Reno NV',
+        },
       })),
     }),
   }
@@ -38,6 +54,35 @@ describe('WeatherWarningBlock', () => {
     expect(wrapper.find('button').text()).toBe('Refresh')
   })
 
+  it('renders an alert card whose full text can be expanded', async () => {
+    fetchMock.mockResolvedValue(response(['Severe']))
+    const wrapper = mount(WeatherWarningBlock)
+    await flushPromises()
+
+    const card = wrapper.get('.weather-alert-card')
+    expect(card.text()).toContain('Winter Storm Warning')
+    const detailsToggle = card.get('.weather-alert-card__details-toggle')
+    expect(detailsToggle.text()).toBe('Show more')
+    expect(detailsToggle.attributes('aria-expanded')).toBe('false')
+    expect(card.find('.weather-alert-card__meta').exists()).toBe(false)
+
+    await detailsToggle.trigger('click')
+    expect(detailsToggle.text()).toBe('Show less')
+    expect(detailsToggle.attributes('aria-expanded')).toBe('true')
+    expect(card.get('.weather-alert-card__meta').text()).toContain('Greater Lake Tahoe Area, California')
+    expect(card.get('.weather-alert-card__meta').text()).toContain('Greater Lake Tahoe Area, Nevada')
+
+    const toggle = card.findAll('.weather-alert-card__toggle')[1]
+    expect(toggle.text()).toBe('Full text')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(card.find('pre').exists()).toBe(false)
+
+    await toggle.trigger('click')
+    expect(toggle.text()).toBe('Hide full text')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(card.get('pre').text()).toContain('Travel could be very difficult.')
+  })
+
   it('chooses the highest severity across all active alerts', async () => {
     fetchMock.mockResolvedValue(response(['Minor', 'Extreme', 'Severe']))
     const wrapper = mount(WeatherWarningBlock)
@@ -47,16 +92,13 @@ describe('WeatherWarningBlock', () => {
     expect(wrapper.text()).toContain('Highest severity: Extreme')
   })
 
-  it('refreshes the data when requested', async () => {
-    fetchMock.mockResolvedValueOnce(response([])).mockResolvedValueOnce(response(['Severe']))
+  it('does not display the block when there are no active alerts', async () => {
+    fetchMock.mockResolvedValue(response([]))
     const wrapper = mount(WeatherWarningBlock)
     await flushPromises()
-    expect(wrapper.text()).toContain('0 active alerts')
 
-    await wrapper.find('button').trigger('click')
-    await flushPromises()
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(wrapper.text()).toContain('Highest severity: Severe')
+    expect(wrapper.find('.weather-warning').exists()).toBe(false)
+    expect(wrapper.find('.weather-warning__list').exists()).toBe(false)
   })
 
   it('treats a null or non-object JSON body as an invalid response, not a crash', async () => {

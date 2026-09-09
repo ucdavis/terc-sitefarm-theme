@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { fetchWeatherAlerts, type WeatherAlert } from '../data/weatherAlerts'
+import WeatherAlertCard from './WeatherAlertCard.vue'
+import { fetchWeatherAlerts, sampleWeatherAlerts, type WeatherAlert } from '../data/weatherAlerts'
+
+const props = withDefaults(
+  defineProps<{ sampleAlert?: boolean | number | string }>(),
+  { sampleAlert: false },
+)
+
+function asBool(value: boolean | number | string): boolean {
+  return value === true || value === 1 || value === '1'
+}
+
+const isSample = asBool(props.sampleAlert)
 
 const alerts = ref<WeatherAlert[]>([])
 const status = ref<'loading' | 'ready' | 'error'>('loading')
@@ -24,6 +36,14 @@ let controller: AbortController | null = null
 async function refresh(): Promise<void> {
   const currentGeneration = ++generation
   controller?.abort()
+  if (isSample) {
+    status.value = 'loading'
+    const result = await sampleWeatherAlerts()
+    if (currentGeneration !== generation) return
+    alerts.value = result
+    status.value = 'ready'
+    return
+  }
   controller = new AbortController()
   status.value = 'loading'
 
@@ -43,13 +63,18 @@ onBeforeUnmount(() => controller?.abort())
 </script>
 
 <template>
-  <section class="alert alert--warning alert--icon weather-warning" aria-label="Lake Tahoe weather alerts">
+  <section
+    v-if="status !== 'ready' || alerts.length"
+    class="alert alert--warning alert--icon weather-warning"
+    :aria-label="isSample ? 'Lake Tahoe weather alerts (sample alert, not live)' : 'Lake Tahoe weather alerts'"
+  >
     <div class="alert__inner weather-warning__inner">
       <div class="weather-warning__summary" aria-live="polite">
+        <span v-if="isSample" class="weather-warning__sample">Sample alert — not live</span>
         <template v-if="status === 'ready'">
-          <strong>{{ alerts.length }} active {{ alerts.length === 1 ? 'alert' : 'alerts' }}</strong>
+          <strong>{{ alerts.length ? `${alerts.length} active ${alerts.length === 1 ? 'alert' : 'alerts'}` : 'No active alerts' }}</strong>
           <span v-if="alerts.length">Highest severity: {{ highestSeverity }}</span>
-          <span v-else>No alerts are currently in effect.</span>
+          <span v-else>Conditions are clear for both Tahoe forecast zones.</span>
         </template>
         <template v-else-if="status === 'error'">
           <strong>Weather alerts unavailable</strong>
@@ -64,6 +89,12 @@ onBeforeUnmount(() => controller?.abort())
       <button class="weather-warning__refresh" type="button" :disabled="status === 'loading'" @click="refresh">
         Refresh
       </button>
+
+      <ul v-if="alerts.length" class="weather-warning__list">
+        <li v-for="alert in alerts" :key="alert.id">
+          <WeatherAlertCard :alert="alert" />
+        </li>
+      </ul>
     </div>
   </section>
 </template>
@@ -74,9 +105,9 @@ onBeforeUnmount(() => controller?.abort())
 }
 .weather-warning__inner {
   width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
 }
 .weather-warning__summary {
@@ -86,6 +117,16 @@ onBeforeUnmount(() => controller?.abort())
 }
 .weather-warning__summary strong {
   font-size: 1.125rem;
+}
+.weather-warning__sample {
+  justify-self: start;
+  margin-bottom: 0.25rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px dashed currentColor;
+  border-radius: 99rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 .weather-warning__refresh {
   min-width: 7rem;
@@ -107,10 +148,23 @@ onBeforeUnmount(() => controller?.abort())
   cursor: wait;
   opacity: 0.65;
 }
+.weather-warning__list {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.875rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 @media (max-width: 32rem) {
   .weather-warning__inner {
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+  .weather-warning__refresh {
+    justify-self: start;
+  }
+  .weather-warning__list {
+    grid-column: 1;
   }
 }
 </style>
