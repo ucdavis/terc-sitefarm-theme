@@ -392,7 +392,7 @@ onMounted(() => {
    under the map otherwise. The map keeps most of the width — it is the
    navigation surface; the description is context. */
 /* Phones and narrow windows: map, then description, then the panels,
-   each full width. From 900px: a 420px tall map column that frames the
+   each full width. From 900px: a 480px tall map column that frames the
    lake end to end, with the reading column beside it. The map sticks
    while the reading column scrolls, so the badges stay in view next to
    the cards they belong to. */
@@ -411,7 +411,7 @@ onMounted(() => {
 @media (min-width: 900px) {
   .cc-map-row {
     --cc-map-height: 780px;
-    grid-template-columns: 420px minmax(0, 1fr);
+    grid-template-columns: 480px minmax(0, 1fr);
   }
   .cc-map-region {
     position: sticky;

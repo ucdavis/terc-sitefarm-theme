@@ -70,7 +70,7 @@ onBeforeUnmount(() => {
   color: #cfe0ea;
   border-radius: 8px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
+  font-size: 0.6875rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 .cache-overlay.collapsed {

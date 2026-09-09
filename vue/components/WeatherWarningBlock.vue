@@ -2,17 +2,20 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import WeatherAlertCard from './WeatherAlertCard.vue'
 import { fetchWeatherAlerts, sampleWeatherAlerts, type WeatherAlert } from '../data/weatherAlerts'
+import { blockBool } from '../lib/blockBool'
 
 const props = withDefaults(
-  defineProps<{ sampleAlert?: boolean | number | string }>(),
+  defineProps<{
+    /**
+     * "Show a sample alert (testing only)" block setting (TERC-66): render
+     * a real, archived advisory instead of asking the NWS, so the display
+     * can be checked when nothing is in effect. Always labelled as such.
+     */
+    sampleAlert?: boolean | number | string
+  }>(),
   { sampleAlert: false },
 )
-
-function asBool(value: boolean | number | string): boolean {
-  return value === true || value === 1 || value === '1'
-}
-
-const isSample = asBool(props.sampleAlert)
+const isSample = blockBool(props.sampleAlert)
 
 const alerts = ref<WeatherAlert[]>([])
 const status = ref<'loading' | 'ready' | 'error'>('loading')
@@ -59,10 +62,12 @@ onBeforeUnmount(() => controller?.abort())
   <section
     v-if="status !== 'ready' || alerts.length"
     class="alert alert--warning alert--icon weather-warning"
+    :class="{ 'weather-warning--sample': isSample }"
     :aria-label="isSample ? 'Lake Tahoe weather alerts (sample alert, not live)' : 'Lake Tahoe weather alerts'"
   >
     <div class="alert__inner weather-warning__inner">
       <div class="weather-warning__summary" aria-live="polite">
+        <!-- A sample must never pass for a real advisory: say so first. -->
         <span v-if="isSample" class="weather-warning__sample">Sample alert — not live</span>
         <template v-if="status === 'ready'">
           <strong>{{ alerts.length ? `${alerts.length} active ${alerts.length === 1 ? 'alert' : 'alerts'}` : 'No active alerts' }}</strong>
@@ -115,10 +120,11 @@ onBeforeUnmount(() => controller?.abort())
   justify-self: start;
   margin-bottom: 0.25rem;
   padding: 0.15rem 0.6rem;
+  border-radius: 99px;
   border: 1px dashed currentColor;
-  border-radius: 99rem;
   font-size: 0.75rem;
   font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 .weather-warning__refresh {

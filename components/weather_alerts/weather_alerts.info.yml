@@ -10,5 +10,5 @@ configuration:
   sampleAlert:
     type: checkbox
     title: 'Show a sample alert (testing only)'
-    description: 'Render an archived Lake Wind Advisory instead of live data. Clearly labelled as a sample. Never leave this on for visitors.'
+    description: 'Render a real, archived Lake Wind Advisory instead of asking the National Weather Service, so the display can be checked when no advisory is in effect. Clearly labelled as a sample. Never leave this on for visitors.'
     default_value: 0

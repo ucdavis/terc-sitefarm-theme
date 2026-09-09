@@ -1,4 +1,12 @@
 {
+  "@context": [
+    "https://geojson.org/geojson-ld/geojson-context.jsonld",
+    {
+      "@version": "1.1",
+      "wx": "https://api.weather.gov/ontology#",
+      "@vocab": "https://api.weather.gov/ontology#"
+    }
+  ],
   "type": "FeatureCollection",
   "features": [
     {
@@ -6,7 +14,39 @@
       "type": "Feature",
       "geometry": null,
       "properties": {
+        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.184b6f59f60a1b6ce9c474c7fe9d182a1203f962.001.1",
+        "@type": "wx:Alert",
+        "id": "urn:oid:2.49.0.1.840.0.184b6f59f60a1b6ce9c474c7fe9d182a1203f962.001.1",
         "areaDesc": "Lassen-Eastern Plumas-Eastern Sierra Counties; Greater Lake Tahoe Area; Mono; Mineral and Southern Lyon Counties; Greater Lake Tahoe Area; Greater Reno-Carson City-Minden Area; Western Nevada Basin and Range including Pyramid Lake",
+        "geocode": {
+          "SAME": [
+            "006035",
+            "006063",
+            "006091",
+            "006003",
+            "006017",
+            "006057",
+            "006061",
+            "006051",
+            "032019",
+            "032021",
+            "032005",
+            "032031",
+            "032510",
+            "032029",
+            "032001",
+            "032027"
+          ],
+          "UGC": [
+            "CAZ071",
+            "CAZ072",
+            "CAZ073",
+            "NVZ001",
+            "NVZ002",
+            "NVZ003",
+            "NVZ004"
+          ]
+        },
         "affectedZones": [
           "https://api.weather.gov/zones/forecast/CAZ071",
           "https://api.weather.gov/zones/forecast/CAZ072",
@@ -16,18 +56,65 @@
           "https://api.weather.gov/zones/forecast/NVZ003",
           "https://api.weather.gov/zones/forecast/NVZ004"
         ],
+        "references": [],
+        "sent": "2026-09-04T02:02:00-07:00",
+        "effective": "2026-09-04T02:02:00-07:00",
         "onset": "2026-09-04T02:02:00-07:00",
+        "expires": "2026-09-04T21:00:00-07:00",
         "ends": "2026-09-04T21:00:00-07:00",
+        "status": "Actual",
+        "messageType": "Alert",
+        "category": "Met",
         "severity": "Moderate",
         "certainty": "Likely",
         "urgency": "Expected",
         "event": "Lake Wind Advisory",
+        "sender": "w-nws.webmaster@noaa.gov",
         "senderName": "NWS Reno NV",
         "headline": "Lake Wind Advisory issued September 4 at 2:02AM PDT until September 4 at 9:00PM PDT by NWS Reno NV",
-        "description": "* WHAT...Southwest winds 15 to 25 mph with gusts up to 35 mph. Wave heights up to 3 feet on Lake Tahoe and Pyramid Lake.\n\n* WHERE...Greater Lake Tahoe Area and surrounding lakes.\n\n* WHEN...Until 9 PM PDT this evening.\n\n* IMPACTS...Strong winds and rough waves will create hazardous conditions for small craft.",
-        "instruction": "Check lake conditions before heading out and be prepared for a sudden increase in winds and wave heights. Consider postponing boating activities on the lake until a day with less wind."
+        "description": "* WHAT...Southwest winds 15 to 25 mph with gusts up to 35 mph. Wave\nheights up to 3 feet on Lake Tahoe and Pyramid Lake.\n\n* WHERE...Greater Lake Tahoe Area, Lassen-Eastern Plumas-Eastern\nSierra Counties, Mono County, Mineral and Southern Lyon Counties,\nGreater Reno-Carson City-Minden Area, and Western Nevada Basin and\nRange including: Honey Lake, Pyramid Lake, Lake Davis, Frenchman\nLake, Stampede, Boca, and Prosser Creek Reservoir, Donner Lake,\nLake Tahoe, Fallen Leaf Lake, Washoe Lake, Lahontan Reservoir,\nTopaz Lake, Walker Lake, Bridgeport Reservoir, Mono Lake, and Lake\nCrowley.\n\n* WHEN...Until 9 PM PDT this evening.\n\n* IMPACTS...Strong winds and rough waves on area lakes will create\nhazardous conditions for small craft.",
+        "instruction": "Check lake conditions before heading out and be prepared for a sudden\nincrease in winds and wave heights. Consider postponing boating\nactivities on the lake until a day with less wind.",
+        "response": "Execute",
+        "note": null,
+        "parameters": {
+          "AWIPSidentifier": [
+            "NPWREV"
+          ],
+          "WMOidentifier": [
+            "WWUS75 KREV 040902"
+          ],
+          "NWSheadline": [
+            "LAKE WIND ADVISORY IN EFFECT UNTIL 9 PM PDT THIS EVENING"
+          ],
+          "BLOCKCHANNEL": [
+            "EAS",
+            "NWEM",
+            "CMAS"
+          ],
+          "VTEC": [
+            "/O.NEW.KREV.LW.Y.0023.260904T0902Z-260905T0400Z/"
+          ],
+          "eventEndingTime": [
+            "2026-09-04T21:00:00-07:00"
+          ]
+        },
+        "scope": "Public",
+        "code": "IPAWSv1.0",
+        "language": "en-US",
+        "web": "http://www.weather.gov",
+        "eventCode": {
+          "SAME": [
+            "NWS"
+          ],
+          "NationalWeatherService": [
+            "LWY"
+          ]
+        },
+        "replacedBy": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.03c0a71b4edb2843a91bc9fb346d94654d6b6570.001.1",
+        "replacedAt": "2026-09-04T20:51:00-07:00"
       }
     }
   ],
-  "title": "Sample: Lake Wind Advisory captured from the NWS alerts archive (zones CAZ072, NVZ002) on 2026-09-08"
+  "title": "Sample: Lake Wind Advisory captured from the NWS alerts archive (zones CAZ072, NVZ002) on 2026-09-08",
+  "updated": "2026-09-05T03:54:27+00:00"
 }

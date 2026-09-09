@@ -165,4 +165,52 @@ describe('WeatherWarningBlock', () => {
     expect(wrapper.text()).toContain('Weather alerts unavailable')
     expect(wrapper.find('button').attributes('disabled')).toBeUndefined()
   })
+
+  describe('sample alert (TERC-66)', () => {
+    // This file mocks sampleWeatherAlerts (see the top); these tests want the
+    // real archived fixture behind it.
+    const useRealSample = async () => {
+      const real = await vi.importActual<typeof import('../../data/weatherAlerts')>('../../data/weatherAlerts')
+      sampleMock.mockImplementation(() => real.sampleWeatherAlerts())
+    }
+
+    it('renders the archived advisory without touching the network, labelled as a sample', async () => {
+      await useRealSample()
+      const wrapper = mount(WeatherWarningBlock, { props: { sampleAlert: 1 } })
+      // The fixture is a lazily loaded chunk, so wait for it rather than for microtasks.
+      await vi.waitFor(() => expect(wrapper.text()).toContain('1 active alert'))
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(wrapper.text()).toContain('Sample alert — not live')
+      expect(wrapper.text()).toContain('Highest severity: Moderate')
+      expect(wrapper.get('section').attributes('aria-label')).toContain('sample alert, not live')
+      expect(wrapper.get('section').classes()).toContain('weather-warning--sample')
+      // Refresh stays in sample mode.
+      await wrapper.get('.weather-warning__refresh').trigger('click')
+      await vi.waitFor(() => expect(wrapper.text()).toContain('1 active alert'))
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(wrapper.text()).toContain('Sample alert — not live')
+    })
+
+    it('is off by default and accepts the checkbox forms PDB sends', async () => {
+      await useRealSample()
+      fetchMock.mockResolvedValue(response(['Minor']))
+      const live = mount(WeatherWarningBlock)
+      await flushPromises()
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(live.text()).not.toContain('Sample alert')
+      for (const off of [0, '0', false]) {
+        fetchMock.mockClear()
+        mount(WeatherWarningBlock, { props: { sampleAlert: off } })
+        await flushPromises()
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+      }
+      for (const on of ['1', true]) {
+        fetchMock.mockClear()
+        const w = mount(WeatherWarningBlock, { props: { sampleAlert: on } })
+        await vi.waitFor(() => expect(w.text()).toContain('1 active alert'))
+        expect(fetchMock).not.toHaveBeenCalled()
+        expect(w.text()).toContain('Sample alert')
+      }
+    })
+  })
 })
