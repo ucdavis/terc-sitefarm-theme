@@ -161,14 +161,15 @@ const mapLabel = computed(() => {
   flex-shrink: 0;
   height: var(--field-map-height);
 }
-/* Phones: the colorbar drops under the map, shorter. */
+/* Phones: the colorbar stays beside the map, narrower, at the map's
+   height — never under it, where its 16 ticks overflowed a short box and
+   ran into the text (TERC-71). The map keeps the remaining width. */
 @media (max-width: 899px) {
-  .field-map-col {
-    flex-direction: column;
+  .field-row {
+    --field-legend-width: 84px;
   }
-  .field-legend {
-    width: 100%;
-    height: 200px;
+  .field-map-col {
+    gap: 10px;
   }
 }
 .field-side {
