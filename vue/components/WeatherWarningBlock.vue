@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
+import WeatherAlertCard from './WeatherAlertCard.vue'
 import { fetchWeatherAlerts, sampleWeatherAlerts, type WeatherAlert } from '../data/weatherAlerts'
 import { blockBool } from '../lib/blockBool'
 
@@ -38,21 +39,12 @@ let controller: AbortController | null = null
 async function refresh(): Promise<void> {
   const currentGeneration = ++generation
   controller?.abort()
-  if (isSample) {
-    // Sample mode never asks the NWS — the point is testing the display,
-    // not the API. (The fixture itself arrives as a lazily loaded chunk.)
-    status.value = 'loading'
-    const sample = await sampleWeatherAlerts()
-    if (currentGeneration !== generation) return
-    alerts.value = sample
-    status.value = 'ready'
-    return
-  }
-  controller = new AbortController()
   status.value = 'loading'
 
   try {
-    const result = await fetchWeatherAlerts(controller.signal)
+    const result = isSample
+      ? await sampleWeatherAlerts()
+      : await fetchWeatherAlerts((controller = new AbortController()).signal)
     if (currentGeneration !== generation) return
     alerts.value = result
     status.value = 'ready'
@@ -68,6 +60,7 @@ onBeforeUnmount(() => controller?.abort())
 
 <template>
   <section
+    v-if="status !== 'ready' || alerts.length"
     class="alert alert--warning alert--icon weather-warning"
     :class="{ 'weather-warning--sample': isSample }"
     :aria-label="isSample ? 'Lake Tahoe weather alerts (sample alert, not live)' : 'Lake Tahoe weather alerts'"
@@ -77,9 +70,9 @@ onBeforeUnmount(() => controller?.abort())
         <!-- A sample must never pass for a real advisory: say so first. -->
         <span v-if="isSample" class="weather-warning__sample">Sample alert — not live</span>
         <template v-if="status === 'ready'">
-          <strong>{{ alerts.length }} active {{ alerts.length === 1 ? 'alert' : 'alerts' }}</strong>
+          <strong>{{ alerts.length ? `${alerts.length} active ${alerts.length === 1 ? 'alert' : 'alerts'}` : 'No active alerts' }}</strong>
           <span v-if="alerts.length">Highest severity: {{ highestSeverity }}</span>
-          <span v-else>No alerts are currently in effect.</span>
+          <span v-else>Conditions are clear for both Tahoe forecast zones.</span>
         </template>
         <template v-else-if="status === 'error'">
           <strong>Weather alerts unavailable</strong>
@@ -94,6 +87,12 @@ onBeforeUnmount(() => controller?.abort())
       <button class="weather-warning__refresh" type="button" :disabled="status === 'loading'" @click="refresh">
         Refresh
       </button>
+
+      <ul v-if="status === 'ready' && alerts.length" class="weather-warning__list">
+        <li v-for="alert in alerts" :key="alert.id">
+          <WeatherAlertCard :alert="alert" />
+        </li>
+      </ul>
     </div>
   </section>
 </template>
@@ -104,9 +103,9 @@ onBeforeUnmount(() => controller?.abort())
 }
 .weather-warning__inner {
   width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
 }
 .weather-warning__summary {
@@ -148,10 +147,23 @@ onBeforeUnmount(() => controller?.abort())
   cursor: wait;
   opacity: 0.65;
 }
+.weather-warning__list {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.875rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 @media (max-width: 32rem) {
   .weather-warning__inner {
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+  .weather-warning__refresh {
+    justify-self: start;
+  }
+  .weather-warning__list {
+    grid-column: 1;
   }
 }
 </style>

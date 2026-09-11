@@ -4,7 +4,18 @@ import { tracedFetch } from '../core/requestLog'
 interface NwsAlertFeature {
   id?: unknown
   properties?: {
+    event?: unknown
     severity?: unknown
+    headline?: unknown
+    areaDesc?: unknown
+    affectedZones?: unknown
+    description?: unknown
+    instruction?: unknown
+    urgency?: unknown
+    certainty?: unknown
+    onset?: unknown
+    ends?: unknown
+    senderName?: unknown
   }
 }
 
@@ -14,11 +25,28 @@ interface NwsAlertCollection {
 
 export interface WeatherAlert {
   id: string
+  event: string
   severity: string
+  headline: string | null
+  description: string
+  instruction: string | null
+  areaDesc: string
+  zones: string[]
+  urgency: string
+  certainty: string
+  onset: Date | null
+  ends: Date | null
+  senderName: string
 }
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function date(value: unknown): Date | null {
+  if (typeof value !== 'string') return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
 export async function fetchWeatherAlerts(signal?: AbortSignal): Promise<WeatherAlert[]> {
@@ -48,9 +76,24 @@ export function adaptWeatherAlerts(body: NwsAlertCollection | null): WeatherAler
 
   return (features as NwsAlertFeature[]).flatMap((feature, index) => {
     if (!feature.properties) return []
+    const properties = feature.properties
+    const zones = Array.isArray(properties.affectedZones)
+      ? properties.affectedZones.map((zone) => text(zone).split('/').pop() ?? '').filter(Boolean)
+      : []
     return [{
       id: text(feature.id) || `weather-alert-${index}`,
-      severity: text(feature.properties.severity) || 'Unknown',
+      event: text(properties.event) || 'Weather alert',
+      severity: text(properties.severity) || 'Unknown',
+      headline: text(properties.headline) || null,
+      description: text(properties.description),
+      instruction: text(properties.instruction) || null,
+      areaDesc: text(properties.areaDesc),
+      zones,
+      urgency: text(properties.urgency) || 'Unknown',
+      certainty: text(properties.certainty) || 'Unknown',
+      onset: date(properties.onset),
+      ends: date(properties.ends),
+      senderName: text(properties.senderName) || 'National Weather Service',
     }]
   })
 }
