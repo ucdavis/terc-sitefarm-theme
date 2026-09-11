@@ -172,6 +172,12 @@ const mapLabel = computed(() => {
     gap: 10px;
   }
 }
+.field-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
 @media (min-width: 900px) {
   .field-row {
     --field-map-height: 780px;
