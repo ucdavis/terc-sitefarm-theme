@@ -202,4 +202,33 @@ describe('DataCache cold tier', () => {
     expect(await cache.getOrFetch('grid:g', TTL.FOREVER, fetcher)).toBe('network')
     expect(fetcher).toHaveBeenCalledOnce()
   })
+
+  describe('last-known rows (TERC-70)', () => {
+    it('remembers a value with its time and reads it back, without ever serving it as fresh', async () => {
+      const { store, rows } = fakeStore()
+      cache.attachPersistence({ store, bytesOf })
+      cache.putStored('last-known:met:1', { airTemp: 66 })
+      await new Promise((r) => setTimeout(r, 0))
+      expect([...rows.keys()]).toEqual(['stored:last-known:met:1'])
+      const back = await cache.readStored<{ airTemp: number }>('last-known:met:1')
+      expect(back?.value).toEqual({ airTemp: 66 })
+      expect(typeof back?.storedAt).toBe('number')
+      // getOrFetch does not consult it: the key is unknown to the cache proper.
+      const fetcher = vi.fn().mockResolvedValue('fresh')
+      expect(await cache.getOrFetch('last-known:met:1', 1000, fetcher)).toBe('fresh')
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    })
+
+    it('is a no-op without a cold tier, and a miss on a failing store', async () => {
+      cache.attachPersistence(null)
+      cache.putStored('x', 1)
+      expect(await cache.readStored('x')).toBeUndefined()
+      const { store } = fakeStore()
+      store.get = async () => {
+        throw new Error('blocked')
+      }
+      cache.attachPersistence({ store, bytesOf })
+      expect(await cache.readStored('x')).toBeUndefined()
+    })
+  })
 })

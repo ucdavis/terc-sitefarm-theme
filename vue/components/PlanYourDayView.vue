@@ -12,6 +12,7 @@ import {
 import {
   fetchMetStation,
   latestRecord,
+  readStoredMet,
   type MetRecord,
   type NearshoreRecord,
 } from '../data/stationData'
@@ -161,22 +162,38 @@ type MetState =
   | { kind: 'ready'; record: MetRecord }
   | { kind: 'empty'; lastSeen: Date | null }
   | { kind: 'failed'; reason: 'error' | 'timeout' }
+  /** The last reading we ever fetched, shown while the live request is queued (TERC-70). */
+  | { kind: 'stale'; record: MetRecord; storedAt: Date; refreshing: boolean; reason: 'error' | 'timeout' | null }
 const MET_TIMEOUT_MS = 20_000
 /** How far back to look for the station's last reading when the recent
  *  window is empty — in stages, since a month of readings is ~1.3 MB. */
 const MET_LOOKBACK_DAYS = [7, 30]
 const metState = ref<MetState>({ kind: 'loading' })
+/** When the live request last succeeded — the quiet "Checked …" stamp. */
+const metCheckedAt = ref<Date | null>(null)
 let metGeneration = 0
 
 async function loadMet(): Promise<void> {
   const gen = ++metGeneration
-  metState.value = { kind: 'loading' }
+  const stale = metState.value.kind === 'stale' || metState.value.kind === 'ready' ? metState.value : null
+  // Retry from a stale state keeps the reading on screen and marks it refreshing.
+  metState.value =
+    stale?.kind === 'stale' ? { ...stale, refreshing: true, reason: null } : { kind: 'loading' }
   const end = new Date()
   const recentStart = new Date(end)
   recentStart.setDate(recentStart.getDate() - 1)
+  // The report API can take many seconds; paint the last reading we ever
+  // fetched right away, dated, while the live request waits in the queue.
+  void readStoredMet().then((stored) => {
+    const last = stored ? latestRecord(stored.value) : null
+    if (gen === metGeneration && metState.value.kind === 'loading' && last) {
+      metState.value = { kind: 'stale', record: last, storedAt: new Date(stored!.storedAt), refreshing: true, reason: null }
+    }
+  })
   try {
-    const recent = latestRecord(await withTimeout(fetchMetStation(recentStart, end), MET_TIMEOUT_MS))
+    const recent = latestRecord(await withTimeout(fetchMetStation(recentStart, end, { priority: 'high' }), MET_TIMEOUT_MS))
     if (gen !== metGeneration) return
+    metCheckedAt.value = new Date()
     if (recent) {
       metState.value = { kind: 'ready', record: recent }
       return
@@ -187,7 +204,7 @@ async function loadMet(): Promise<void> {
     for (const days of MET_LOOKBACK_DAYS) {
       const farStart = new Date(end)
       farStart.setDate(farStart.getDate() - days)
-      const older = latestRecord(await withTimeout(fetchMetStation(farStart, end), MET_TIMEOUT_MS))
+      const older = latestRecord(await withTimeout(fetchMetStation(farStart, end, { priority: 'high' }), MET_TIMEOUT_MS))
       if (gen !== metGeneration) return
       if (older) {
         lastSeen = older.time
@@ -197,12 +214,30 @@ async function loadMet(): Promise<void> {
     metState.value = { kind: 'empty', lastSeen }
   } catch (err) {
     if (gen !== metGeneration) return
-    metState.value = { kind: 'failed', reason: err instanceof TimeoutError ? 'timeout' : 'error' }
+    const reason = err instanceof TimeoutError ? 'timeout' : 'error'
+    // A remembered reading beats an empty error box: keep it, say why it is old.
+    if (metState.value.kind === 'stale') metState.value = { ...metState.value, refreshing: false, reason }
+    else metState.value = { kind: 'failed', reason }
   }
 }
 onMounted(loadMet)
 
-const met = computed(() => (metState.value.kind === 'ready' ? metState.value.record : null))
+const met = computed(() =>
+  metState.value.kind === 'ready' || metState.value.kind === 'stale' ? metState.value.record : null,
+)
+/** Quiet freshness line under the lake-weather cards (TERC-70). */
+const metFreshness = computed(() => {
+  const st = metState.value
+  if (st.kind === 'stale') {
+    const when = `${fmtLakeTime(st.storedAt)} lake time`
+    if (st.refreshing) return `Showing the reading fetched ${when} · updating…`
+    return st.reason === 'timeout'
+      ? `Showing the reading fetched ${when} — no answer from the met station after ${MET_TIMEOUT_MS / 1000} seconds.`
+      : `Showing the reading fetched ${when} — the met station request failed.`
+  }
+  if (st.kind === 'ready' && metCheckedAt.value) return `Checked ${fmtLakeTime(metCheckedAt.value)} lake time`
+  return null
+})
 const metMessage = computed(() => {
   const st = metState.value
   if (st.kind === 'empty') {
@@ -355,6 +390,10 @@ const metMessage = computed(() => {
         <StationCard label="Wind" :value="met.windSpeed" unit="mph"
           :timestamp="met.time" :assessment="assessMetric('windSpeed', met.windSpeed)" />
       </div>
+      <p v-if="met && metFreshness" class="pyd-freshness" :class="{ 'pyd-freshness--stale': metState.kind === 'stale' && !metState.refreshing }" role="status">
+        {{ metFreshness }}
+        <button v-if="metState.kind === 'stale' && !metState.refreshing" type="button" class="pyd-retry" @click="loadMet">Try again</button>
+      </p>
       <div v-else-if="metMessage" class="pyd-met-state" role="status">
         <p class="pyd-note pyd-met-msg">{{ metMessage }}</p>
         <button v-if="metState.kind === 'failed'" type="button" class="pyd-retry" @click="loadMet">Try again</button>
@@ -485,6 +524,18 @@ const metMessage = computed(() => {
 .pyd-met {
   border-top: 1px solid #d5dde2;
   padding-top: 8px;
+}
+.pyd-freshness {
+  margin: 6px 0 0;
+  font-size: .75rem;
+  color: #5f6e77;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.pyd-freshness--stale {
+  color: #8f6614;
 }
 .pyd-met-state {
   display: flex;

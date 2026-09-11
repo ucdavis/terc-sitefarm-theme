@@ -106,6 +106,12 @@ drush warning — imported config expecting creds the local site lacks.
    through fake engines/stores/transports; the thin adapters are verified
    live. New heavy dependencies follow suit. Anything posted to the worker
    must be a plain object: Vue's reactive proxies are not cloneable.
+   Report-API calls also go through `reportQueue` (`vue/core/requestQueue.ts`,
+   TERC-70): at most 4 in flight, `high` for what the visitor is looking
+   at, `low` for the map's overview badges — the API's database saturates
+   and anything still waiting at API Gateway's 29 s comes back 504. Views
+   paint the "last known reading" rows (`DataCache.putStored/readStored`,
+   dated, never served as fresh) while the live request waits.
    Every network call in the data layer goes through `tracedFetch`
    (`vue/core/requestLog.ts`) — a pass-through until a block enables the
    Endpoint diagnostics panel (TERC-62), which is how editors tell a site

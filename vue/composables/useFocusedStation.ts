@@ -40,7 +40,7 @@ export function useFocusedStation(daysBack = 2) {
     if (f.kind === 'buoy') {
       buoyState.value = loading()
       try {
-        const records = await fetchNasaBuoy(f.sourceId, start, end)
+        const records = await fetchNasaBuoy(f.sourceId, start, end, { priority: 'high' })
         if (gen !== loadGen) return
         buoyState.value = records.length ? success(records) : empty()
       } catch (e) {
@@ -53,8 +53,8 @@ export function useFocusedStation(daysBack = 2) {
     try {
       const series =
         f.kind === 'homewood'
-          ? await fetchHomewood(start, end)
-          : await fetchNearshoreRange(f.sourceId, start, end)
+          ? await fetchHomewood(start, end, { priority: 'high' })
+          : await fetchNearshoreRange(f.sourceId, start, end, { priority: 'high' })
       if (gen !== loadGen) return
       nearshoreState.value = series.records.length ? success(series) : empty()
     } catch (e) {

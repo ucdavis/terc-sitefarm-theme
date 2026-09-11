@@ -6,6 +6,9 @@ import {
   fetchNasaBuoy,
   fetchNearshoreRange,
   latestRecord,
+  readStoredBuoy,
+  readStoredHomewood,
+  readStoredNearshore,
 } from '../data/stationData'
 import { useConditionsState, type StationFocus } from './useConditionsState'
 
@@ -128,16 +131,34 @@ function load(): void {
     // refresh must not carry a stale temperature into 'offline'.
     const offline = () => update(m.key, { status: 'offline', waterTemp: null, time: null })
 
+    // Badges are the lowest priority on the page (TERC-70): the selected
+    // destination and lake weather go first through the request queue.
+    // While a badge waits, the last reading we ever fetched for it paints
+    // immediately — the badge carries its own timestamp, so nothing is
+    // passed off as newer than it is.
+    const paintStored = (stored: { value: { records?: unknown } | unknown[] } | undefined) => {
+      if (!stored) return
+      const records = (Array.isArray(stored.value) ? stored.value : (stored.value as { records: unknown[] }).records) as {
+        waterTemp: number | null
+        time: Date
+      }[]
+      const m2 = markers.value.find((x) => x.key === m.key)
+      if (m2?.status === 'loading') done(latestRecord(records))
+    }
+    const low = { priority: 'low' as const }
     if (m.kind === 'nearshore') {
-      fetchNearshoreRange(m.sourceId, start, end)
+      void readStoredNearshore(m.sourceId).then(paintStored)
+      fetchNearshoreRange(m.sourceId, start, end, low)
         .then((series) => done(latestRecord(series.records)))
         .catch(offline)
     } else if (m.kind === 'buoy') {
-      fetchNasaBuoy(m.sourceId, start, end)
+      void readStoredBuoy(m.sourceId).then(paintStored)
+      fetchNasaBuoy(m.sourceId, start, end, low)
         .then((records) => done(latestRecord(records)))
         .catch(offline)
     } else {
-      fetchHomewood(start, end)
+      void readStoredHomewood().then(paintStored)
+      fetchHomewood(start, end, low)
         .then((series) => done(latestRecord(series.records)))
         .catch(offline)
     }

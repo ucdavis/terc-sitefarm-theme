@@ -8,6 +8,8 @@ const buoy = vi.fn()
 const homewood = vi.fn()
 const metStation = vi.fn()
 
+const storedMet = vi.fn()
+
 vi.mock('../../data/stationData', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../data/stationData')>()
   return {
@@ -16,6 +18,8 @@ vi.mock('../../data/stationData', async (importOriginal) => {
     fetchNasaBuoy: (...args: unknown[]) => buoy(...args),
     fetchHomewood: (...args: unknown[]) => homewood(...args),
     fetchMetStation: (...args: unknown[]) => metStation(...args),
+    readStoredMet: () => storedMet(),
+    readStoredNearshore: async () => undefined,
     peekNearshoreRange: () => undefined,
   }
 })
@@ -66,6 +70,7 @@ beforeEach(() => {
   buoy.mockReset().mockResolvedValue([])
   homewood.mockReset().mockResolvedValue(series(-1, null, []))
   metStation.mockReset().mockResolvedValue([])
+  storedMet.mockReset().mockResolvedValue(undefined)
 })
 
 const cardLabels = (w: ReturnType<typeof mount>) =>
@@ -246,5 +251,50 @@ describe('PlanYourDayView', () => {
     expect(w.text()).toContain('20 seconds')
     expect(w.find('.pyd-retry').exists()).toBe(true)
     vi.useRealTimers()
+  })
+
+  describe('last-known lake weather (TERC-70)', () => {
+    const remembered = { time: new Date('2026-09-11T20:40:00Z'), airTemp: 66, waterTemp: null, windSpeed: 4, windGust: null, windDir: null, humidity: null, pressure: null }
+
+    it('paints the remembered reading while the live request is queued, then the live one replaces it with a Checked stamp', async () => {
+      storedMet.mockResolvedValue({ value: [remembered], storedAt: Date.parse('2026-09-11T21:00:00Z') })
+      let release!: (v: unknown) => void
+      metStation.mockImplementation(() => new Promise((r) => (release = r)))
+      const w = mount(PlanYourDayView)
+      await flushPromises()
+      expect(w.text()).toContain('66.0')
+      expect(w.get('.pyd-freshness').text()).toContain('Showing the reading fetched Sep 11, 2:00 PM lake time · updating…')
+      release([{ ...remembered, airTemp: 68 }])
+      await flushPromises()
+      expect(w.text()).toContain('68.0')
+      expect(w.get('.pyd-freshness').text()).toMatch(/^Checked .* lake time$/)
+      expect(w.find('.pyd-retry').exists()).toBe(false)
+      // Lake weather is what the visitor is looking at: it asks first.
+      expect((metStation.mock.calls[0] as unknown[])[2]).toEqual({ priority: 'high' })
+    })
+
+    it('keeps the remembered reading on screen when the live request fails, saying so, with a retry', async () => {
+      storedMet.mockResolvedValue({ value: [remembered], storedAt: Date.parse('2026-09-11T21:00:00Z') })
+      metStation.mockRejectedValue(new Error('boom'))
+      const w = mount(PlanYourDayView)
+      await flushPromises()
+      expect(w.text()).toContain('66.0')
+      const line = w.get('.pyd-freshness')
+      expect(line.text()).toContain('the met station request failed')
+      expect(line.classes()).toContain('pyd-freshness--stale')
+      expect(w.find('.pyd-met-state').exists()).toBe(false) // no separate error box
+      metStation.mockResolvedValue([{ ...remembered, airTemp: 70 }])
+      await w.get('.pyd-retry').trigger('click')
+      await flushPromises()
+      expect(w.text()).toContain('70.0')
+    })
+
+    it('with nothing remembered, behaves exactly as before', async () => {
+      metStation.mockRejectedValue(new Error('boom'))
+      const w = mount(PlanYourDayView)
+      await flushPromises()
+      expect(w.text()).toContain('Lake weather is temporarily unavailable')
+      expect(w.find('.pyd-freshness').exists()).toBe(false)
+    })
   })
 })

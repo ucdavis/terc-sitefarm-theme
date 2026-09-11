@@ -1,21 +1,21 @@
 {
-  "_SourceBadge.!~{002}~.js": {
-    "file": "SourceBadge.css",
-    "src": "_SourceBadge.!~{002}~.js"
+  "__plugin-vue_export-helper.DeX95N2H.js": {
+    "file": "chunks/_plugin-vue_export-helper.DeX95N2H.js",
+    "name": "_plugin-vue_export-helper"
   },
-  "_SourceBadge.D9B1NSJG.js": {
-    "file": "chunks/SourceBadge.D9B1NSJG.js",
-    "name": "SourceBadge",
+  "_indexedDbStore.!~{002}~.js": {
+    "file": "indexedDbStore.css",
+    "src": "_indexedDbStore.!~{002}~.js"
+  },
+  "_indexedDbStore.J85GVS9r.js": {
+    "file": "chunks/indexedDbStore.J85GVS9r.js",
+    "name": "indexedDbStore",
     "imports": [
       "__plugin-vue_export-helper.DeX95N2H.js"
     ],
     "css": [
-      "SourceBadge.css"
+      "indexedDbStore.css"
     ]
-  },
-  "__plugin-vue_export-helper.DeX95N2H.js": {
-    "file": "chunks/_plugin-vue_export-helper.DeX95N2H.js",
-    "name": "_plugin-vue_export-helper"
   },
   "js/main.js": {
     "file": "main.js",
@@ -47,7 +47,7 @@
     "isEntry": true,
     "imports": [
       "__plugin-vue_export-helper.DeX95N2H.js",
-      "_SourceBadge.D9B1NSJG.js"
+      "_indexedDbStore.J85GVS9r.js"
     ],
     "css": [
       "current-conditions.css"
@@ -60,7 +60,7 @@
     "isEntry": true,
     "imports": [
       "__plugin-vue_export-helper.DeX95N2H.js",
-      "_SourceBadge.D9B1NSJG.js"
+      "_indexedDbStore.J85GVS9r.js"
     ],
     "css": [
       "forecasted-conditions.css"

@@ -5,10 +5,16 @@ const nearshore = vi.fn()
 const buoy = vi.fn()
 const homewood = vi.fn()
 
+// Last-known readings (TERC-70): undefined unless a test seeds one.
+const stored = vi.fn(async (_kind: string, _id?: number): Promise<unknown> => undefined)
+
 vi.mock('../../data/stationData', () => ({
   fetchNearshoreRange: (...args: unknown[]) => nearshore(...args),
   fetchNasaBuoy: (...args: unknown[]) => buoy(...args),
   fetchHomewood: (...args: unknown[]) => homewood(...args),
+  readStoredNearshore: (id: number) => stored('nearshore', id),
+  readStoredBuoy: (id: number) => stored('buoy', id),
+  readStoredHomewood: () => stored('homewood'),
   latestRecord: <T,>(records: T[]) => (records.length ? records[records.length - 1] : null),
 }))
 
@@ -21,6 +27,7 @@ const REC = { time: new Date('2026-08-30T18:00:00Z'), waterTemp: 62.1 }
 beforeEach(() => {
   resetLakeOverviewForTests()
   resetRegistryForTests()
+  stored.mockReset().mockResolvedValue(undefined)
   nearshore.mockReset().mockResolvedValue({ stationId: 0, stationName: null, records: [] })
   buoy.mockReset().mockResolvedValue([])
   homewood.mockReset().mockResolvedValue({ stationId: -1, stationName: null, records: [] })
@@ -97,6 +104,30 @@ describe('useLakeOverview', () => {
     const [, start, end] = nearshore.mock.calls[0] as [number, Date, Date]
     const days = (end.getTime() - start.getTime()) / 86_400_000
     expect(days).toBeCloseTo(2, 1)
+  })
+
+  it('paints a last-known reading while the live request waits, then the live one replaces it (TERC-70)', async () => {
+    let releaseLive!: (v: unknown) => void
+    nearshore.mockImplementation((id: number) =>
+      id === 4
+        ? new Promise((r) => (releaseLive = r))
+        : Promise.resolve({ stationId: id, stationName: null, records: [] }),
+    )
+    stored.mockImplementation(async (kind: string, id?: number) =>
+      kind === 'nearshore' && id === 4
+        ? { value: { stationId: 4, stationName: 'Homewood', records: [{ waterTemp: 60.5, time: new Date('2026-09-10T20:00:00Z') }] }, storedAt: 1 }
+        : undefined,
+    )
+    const { markers } = useLakeOverview()
+    await flushPromises()
+    const homewood = markers.value.find((m) => m.key === 'nearshore:4')!
+    expect(homewood.status).toBe('reporting')
+    expect(homewood.waterTemp).toBe(60.5) // the remembered reading, with its own timestamp
+    releaseLive({ stationId: 4, stationName: 'Homewood', records: [{ waterTemp: 61.2, time: new Date() }] })
+    await flushPromises()
+    expect(homewood.waterTemp).toBe(61.2)
+    // Badges ask at the lowest priority.
+    expect((nearshore.mock.calls[0] as unknown[])[3]).toEqual({ priority: 'low' })
   })
 
   it('no station claims a verified location while coordinates remain unconfirmed', () => {

@@ -12,10 +12,14 @@
 import { registerBlocks, mountRegistered } from '../lib/mount'
 import HelloLake from '../components/HelloLake.vue'
 import CurrentConditionsShell from '../components/CurrentConditionsShell.vue'
+import { enableStationPersistence } from '../core/stationPersistence'
 
 registerBlocks({
   'hello-lake': HelloLake,
   'current-conditions': CurrentConditionsShell,
 })
+
+// Last-known readings and historical windows survive reloads (TERC-70).
+enableStationPersistence()
 
 mountRegistered('tercCurrentConditions')
