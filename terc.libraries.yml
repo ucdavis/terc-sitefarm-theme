@@ -28,3 +28,13 @@ vue-weather-alerts:
   vite: true
   js:
     vue/entries/weather-alerts.ts: { attributes: { type: 'module' } }
+
+# CSS of Vite's SHARED chunks (Leaflet's stylesheet, ViewTabs, SourceBadge…),
+# concatenated by build/shared-css.mjs after every build. The vite module
+# attaches only an entry's own CSS, and Drupal 11 does not run dynamic
+# library hooks from themes, so this is a plain static library — attached
+# next to each entry in terc_preprocess_block() (TERC-72).
+vue-shared-css:
+  css:
+    component:
+      dist/vue-shared.css: { minified: true }

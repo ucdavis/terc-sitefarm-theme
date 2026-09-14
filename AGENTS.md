@@ -21,7 +21,16 @@ Vue prototype being ported lives at `~/Apps/terc-experiments/terc-proto-1`.
   everywhere user-facing; the prototype's "modeled conditions" survives only
   as a technical term for the grid data. The two pages cross-link, on
   editor-configurable paths (`forecastPath` / `realTimePath` block settings),
-  and both shells deep-link their view (`?cc-view=` / `?fc-view=`).
+  and both shells deep-link their view (`?cc-view=` / `?fc-view=`). Both
+  share one layout: a sticky 480×780 lake-framing map column (Real-Time:
+  badges; Forecasted: the field map with its vertical colorbar beside it)
+  and a reading column to its right; a single stack below 900 px (TERC-64,
+  TERC-71).
+- The **weather alerts** block (`vue_component:weather_alerts`, TERC-4) can
+  be placed anywhere; its "sample alert" setting exists for testing only.
+- **tercdev runs Drupal 11** (since 2026-09); local ddev is still 10.6.
+  Themes cannot add libraries dynamically on 11 — shared-chunk CSS is a
+  static library built by `build/shared-css.mjs` (TERC-72, vue/README.md).
 - This repo deploys into the public docroot on Site Factory. `scripts/` is
   blocked from web access by `.htaccess` (Apache prod; local ddev is nginx
   and ignores it). The GitHub repo is public: **no secrets, ever** —
@@ -34,12 +43,16 @@ Local site: ddev project at `~/Sites/terc` (this repo is
 `docroot/sites/default/themes/terc` inside it). The in-app browser mangles
 `*.ddev.site` — browse/verify at **http://localhost:8080** (port published
 via `.ddev/docker-compose.localhost.yaml`); Playwright works well for
-verification.
+verification (its viewport emulation is trustworthy; the in-app pane's is
+not). The host shell may resolve an old Node first — `.nvmrc` pins v24;
+prefix `PATH` with `~/.nvm/versions/node/v24.7.0/bin` if `npm test` fails
+on `??=`.
 
 ```bash
 npm test              # vitest (host node OK)
 npm run typecheck     # vue-tsc
-npm run build         # commit dist/ output with your change
+npm run build         # commit dist/ output with your change (vite build +
+                      # build/shared-css.mjs → dist/vue-shared.css, TERC-72)
 ddev drush cr         # ALWAYS after build/info.yml/library changes
 ```
 
@@ -62,7 +75,13 @@ drush warning — imported config expecting creds the local site lacks.
   code, fix what's real (they usually are), push back with reasons where
   it's wrong or disproportionate. Findings often recur across components
   (races, staleness, escaping) — when fixing one instance, sweep for the
-  class.
+  class. Replies are posted in-thread from the user's GitHub session,
+  located ONLY by the reply textarea whose id contains `_<threadId>_`
+  (outdated threads get a top-level comment naming the file instead).
+- **dist/ conflicts** (every branch rebuilds it): merge `main`, `rm -rf
+  dist && npm run build`, commit. Never hand-merge dist.
+- Follow-up work gets its own ticket and branch, even when small; merged
+  branches are deleted locally and on origin.
 - Before pushing: tests + typecheck + build green, and **verify live** at
   localhost:8080 (Playwright) — including a content-edit proof when the
   change claims editor ownership (rename a node/term in Drupal, watch the
@@ -118,8 +137,38 @@ drush warning — imported config expecting creds the local site lacks.
    bug from an upstream outage. A bare `fetch(` in `vue/data` is a bug.
 8. **Type sizing through SiteFarm**: rem on the theme's scale or its runtime
    tokens (`--heading-secondary-font-size`, `--reduced-title-font-size`);
-   no px font sizes. (SiteFarm also exposes the whole UC Davis brand palette
-   as custom properties — `--arboretum` etc. — relevant to TERC-60.)
+   no px font sizes — `vue/__tests__/typeSizing.test.ts` scans every
+   component and fails on one. (SiteFarm also exposes the whole UC Davis
+   brand palette as custom properties — `--arboretum` etc.; band chips use
+   the identifiers through `vue/config/brandPalette.ts`, TERC-60.)
+9. **Report-API calls are queued and prioritised** (`vue/core/requestQueue.ts`,
+   TERC-70): at most 4 in flight, `high` for what the visitor is looking
+   at, `low` for overview badges. Views paint last-known readings (dated,
+   never served as fresh) while the live request waits. See "The report API
+   and its AWS side" below before touching any station fetch.
+
+## The report API and its AWS side (TERC-70)
+
+- The API is API Gateway `tepfsail50` ("terc-stations", stage `v1`) in AWS
+  account **946513636404**, us-west-2; `/report/*` GETs invoke
+  `report-get-*-bydate-range` Lambdas (Python 3.12, 256 MB, 60 s, in a VPC)
+  that call stored procedures on RDS MySQL `tercdb` (db.t3.large). Measured
+  2026-09-11: the database at 100 % CPU and its 3,000 IOPS ceiling daily;
+  API 5XX 90–511/day, p99 latency 28 s; nearshore calls p50 8.9 s.
+- **Ingestion**: a relay at TERC polls `GET /sync/<station>` hourly (last
+  stored timestamp) and `POST`s batches through `sync-post-*` Lambdas.
+  "Silent" therefore has two meanings: no POSTs arriving (the station or
+  relay stopped — a question for the science team) vs POSTs arriving but
+  nothing landing where the report procedure reads (a database problem).
+- CLI access: an AWS profile in the user's `~/.aws` (`terc-cfblack`, admin).
+  Read-only investigation is fine; **every write to that account is
+  confirmed with the user first**.
+- Operational tooling lives in separate repos, deliberately not here:
+  `~/Projects/TERC/AWS/` (freshness canary Lambda, CloudWatch alarms via
+  SNS, API Gateway cache script — all dry-run or explicit-apply) and
+  `~/Projects/TERC/station-roll-call/` (the "what did the website receive
+  from every station" report for the science team). Keep this theme free
+  of AWS and reporting scripts.
 
 ## Data & content specifics
 
@@ -129,6 +178,9 @@ drush warning — imported config expecting creds the local site lacks.
   "Missing Authentication Token" = unknown route, not auth. Record order
   differs by endpoint (fetchers re-sort). Sentinel −9.0 = "no reading"
   (`parseReading` is field-aware: valid sub-−9 °C air temps survive).
+- **NWS alerts**: `https://api.weather.gov/alerts/active?zone=CAZ072,NVZ002`;
+  the archive (`/alerts?zone=…&start=…`) keeps past advisories, which is
+  where the sample fixture came from.
 - **JSON:API**: registry at `/jsonapi/node/lake_locations?include=field_stations`;
   bands at `/jsonapi/taxonomy_term/condition_bands?include=field_band_brand_color`
   (the include is the optional TERC-60 brand-color reference to an
