@@ -14,7 +14,7 @@
   "scripts": {
     "start": "npm run dev",
     "dev": "ucd-theme-tasks dev",
-    "build": "ucd-theme-tasks build",
+    "build": "ucd-theme-tasks build && node build/shared-css.mjs",
     "lint": "ucd-theme-tasks lint",
     "lint:css": "ucd-theme-tasks lint --css",
     "lint:css-fix": "ucd-theme-tasks lint --css --fix",

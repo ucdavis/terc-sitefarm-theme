@@ -39,7 +39,8 @@ verification.
 ```bash
 npm test              # vitest (host node OK)
 npm run typecheck     # vue-tsc
-npm run build         # commit dist/ output with your change
+npm run build         # commit dist/ output with your change (vite build +
+                      # build/shared-css.mjs → dist/vue-shared.css, TERC-72)
 ddev drush cr         # ALWAYS after build/info.yml/library changes
 ```
 
