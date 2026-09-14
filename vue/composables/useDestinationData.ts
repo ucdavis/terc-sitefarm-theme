@@ -5,13 +5,18 @@ import {
   fetchNasaBuoy,
   fetchNearshoreRange,
   peekNearshoreRange,
+  readStoredBuoy,
+  readStoredHomewood,
   readStoredNearshore,
   type NasaBuoyRecord,
   type NearshoreSeries,
 } from '../data/stationData'
+import { loadWithLastKnown } from '../core/lastKnown'
 
 /** The visitor chose this destination: its stations go first in the queue (TERC-70). */
 const HIGH = { priority: 'high' as const }
+const hasRecords = (s: NearshoreSeries) => s.records.length > 0
+const hasRows = (r: NasaBuoyRecord[]) => r.length > 0
 import { type RequestState, empty, failure, loading, success } from '../core/requestState'
 import { useConditionsState } from './useConditionsState'
 
@@ -72,17 +77,16 @@ export function useDestinationData(
     }
     slot.state = loading()
     // Paint the last reading we fetched for this station while the live
-    // request waits its turn (TERC-70); each card shows its own timestamp.
-    void readStoredNearshore(slot.stationId).then((stored) => {
-      if (stored?.value.records.length && slot.state.status === 'loading') slot.state = success(stored.value, true)
+    // request waits its turn (TERC-70); each card shows its own timestamp,
+    // and a failed refresh keeps the reading with its reason attached.
+    await loadWithLastKnown<NearshoreSeries>({
+      stored: readStoredNearshore(slot.stationId),
+      live: fetchNearshoreRange(slot.stationId, start, end, HIGH),
+      hasData: hasRecords,
+      set: (state) => {
+        slot.state = state
+      },
     })
-    try {
-      const series = await fetchNearshoreRange(slot.stationId, start, end, HIGH)
-      slot.state = series.records.length ? success(series) : empty()
-    } catch (e) {
-      // Keep a last-known reading on screen over an error; it is dated.
-      if (slot.state.status !== 'success') slot.state = failure(e)
-    }
   }
 
   async function loadBuoys(dest: DestinationDef, start: Date, end: Date) {
@@ -92,14 +96,16 @@ export function useDestinationData(
       state: loading(),
     }))
     await Promise.all(
-      buoySlots.value.map(async (slot) => {
-        try {
-          const records = await fetchNasaBuoy(slot.buoyId, start, end, HIGH)
-          slot.state = records.length ? success(records) : empty()
-        } catch (e) {
-          slot.state = failure(e)
-        }
-      }),
+      buoySlots.value.map((slot) =>
+        loadWithLastKnown<NasaBuoyRecord[]>({
+          stored: readStoredBuoy(slot.buoyId),
+          live: fetchNasaBuoy(slot.buoyId, start, end, HIGH),
+          hasData: hasRows,
+          set: (state) => {
+            slot.state = state
+          },
+        }),
+      ),
     )
   }
 
@@ -128,13 +134,15 @@ export function useDestinationData(
 
     if (dest.includesHomewood) {
       homewoodState.value = loading()
-      try {
-        const series = await fetchHomewood(start, end, HIGH)
-        if (gen !== loadGen) return
-        homewoodState.value = series.records.length ? success(series) : empty()
-      } catch (e) {
-        if (gen === loadGen) homewoodState.value = failure(e)
-      }
+      await loadWithLastKnown<NearshoreSeries>({
+        stored: readStoredHomewood(),
+        live: fetchHomewood(start, end, HIGH),
+        hasData: hasRecords,
+        set: (state) => {
+          homewoodState.value = state
+        },
+        current: () => gen === loadGen,
+      })
     } else {
       homewoodState.value = empty()
     }

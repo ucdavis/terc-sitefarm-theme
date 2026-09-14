@@ -27,6 +27,24 @@ export function empty<T>(): RequestState<T> {
   return { status: 'empty', data: null, error: null, fromCache: false }
 }
 export function failure<T>(error: unknown): RequestState<T> {
-  const msg = error instanceof Error ? error.message : String(error)
-  return { status: 'error', data: null, error: msg, fromCache: false }
+  return { status: 'error', data: null, error: message(error), fromCache: false }
+}
+
+/**
+ * A remembered reading (TERC-70): real data to render, flagged as not
+ * fresh. `error` is set when the live refresh failed, so a view can say
+ * why the numbers are old instead of quietly showing stale ones — an
+ * outage must never look like a normal reading.
+ */
+export function stale<T>(data: T, error?: unknown): RequestState<T> {
+  return {
+    status: 'success',
+    data,
+    error: error === undefined ? null : message(error),
+    fromCache: true,
+  }
+}
+
+function message(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }

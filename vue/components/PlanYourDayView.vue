@@ -124,6 +124,21 @@ const reportingBuoys = computed(() =>
     .filter((x): x is { name: string; rec: NonNullable<typeof x.rec> } => x.rec !== null),
 )
 
+/**
+ * Cards on screen that are showing a remembered reading because their
+ * refresh failed (TERC-70). Stale numbers must say so — each card already
+ * carries its own timestamp, this names the reason.
+ */
+const staleCards = computed(() =>
+  [
+    ...slots.value.map((s) => s.state),
+    ...buoySlots.value.map((s) => s.state),
+    homewoodState.value,
+    nearshoreState.value,
+    buoyState.value,
+  ].filter((st) => st.fromCache && st.error),
+)
+
 const anyLoading = computed(
   () =>
     slots.value.some((s) => s.state.status === 'loading') ||
@@ -184,7 +199,10 @@ async function loadMet(): Promise<void> {
   recentStart.setDate(recentStart.getDate() - 1)
   // The report API can take many seconds; paint the last reading we ever
   // fetched right away, dated, while the live request waits in the queue.
-  void readStoredMet().then((stored) => {
+  // Held, not fire-and-forget: the failure path below waits for it so a
+  // fast rejection can't race the disk read and drop the reading.
+  const storedMet = readStoredMet().catch(() => undefined)
+  void storedMet.then((stored) => {
     const last = stored ? latestRecord(stored.value) : null
     if (gen === metGeneration && metState.value.kind === 'loading' && last) {
       metState.value = { kind: 'stale', record: last, storedAt: new Date(stored!.storedAt), refreshing: true, reason: null }
@@ -215,9 +233,15 @@ async function loadMet(): Promise<void> {
   } catch (err) {
     if (gen !== metGeneration) return
     const reason = err instanceof TimeoutError ? 'timeout' : 'error'
-    // A remembered reading beats an empty error box: keep it, say why it is old.
-    if (metState.value.kind === 'stale') metState.value = { ...metState.value, refreshing: false, reason }
-    else metState.value = { kind: 'failed', reason }
+    // A remembered reading beats an empty error box: keep it, say why it is
+    // old. Waiting on the stored read here makes that true whichever
+    // finished first.
+    const stored = await storedMet
+    if (gen !== metGeneration) return
+    const last = stored ? latestRecord(stored.value) : null
+    metState.value = last
+      ? { kind: 'stale', record: last, storedAt: new Date(stored!.storedAt), refreshing: false, reason }
+      : { kind: 'failed', reason }
   }
 }
 onMounted(loadMet)
@@ -355,6 +379,10 @@ const metMessage = computed(() => {
           </div>
         </template>
       </template>
+      <p v-if="staleCards.length" class="pyd-freshness pyd-freshness--stale" role="status">
+        Showing the last readings we were able to fetch — the latest refresh
+        failed. Each card is dated with the reading it shows.
+      </p>
       <LoadingState v-else-if="anyLoading" :lines="3" />
       <div v-else class="pyd-panel">
         <strong>No station data available for {{ destination.name }}.</strong>

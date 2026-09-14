@@ -3,10 +3,14 @@ import {
   fetchHomewood,
   fetchNasaBuoy,
   fetchNearshoreRange,
+  readStoredBuoy,
+  readStoredHomewood,
+  readStoredNearshore,
   type NasaBuoyRecord,
   type NearshoreSeries,
 } from '../data/stationData'
-import { type RequestState, empty, failure, idle, loading, success } from '../core/requestState'
+import { loadWithLastKnown } from '../core/lastKnown'
+import { type RequestState, idle, loading } from '../core/requestState'
 import { useConditionsState } from './useConditionsState'
 
 /**
@@ -37,29 +41,37 @@ export function useFocusedStation(daysBack = 2) {
     const start = new Date()
     start.setDate(start.getDate() - daysBack)
 
+    // The badge the visitor clicked may already be showing a remembered
+    // reading; the card must not fall back to a skeleton while the live
+    // request is queued (TERC-70).
+    const current = () => gen === loadGen
     if (f.kind === 'buoy') {
       buoyState.value = loading()
-      try {
-        const records = await fetchNasaBuoy(f.sourceId, start, end, { priority: 'high' })
-        if (gen !== loadGen) return
-        buoyState.value = records.length ? success(records) : empty()
-      } catch (e) {
-        if (gen === loadGen) buoyState.value = failure(e)
-      }
+      await loadWithLastKnown<NasaBuoyRecord[]>({
+        stored: readStoredBuoy(f.sourceId),
+        live: fetchNasaBuoy(f.sourceId, start, end, { priority: 'high' }),
+        hasData: (r) => r.length > 0,
+        set: (state) => {
+          buoyState.value = state
+        },
+        current,
+      })
       return
     }
 
     nearshoreState.value = loading()
-    try {
-      const series =
+    await loadWithLastKnown<NearshoreSeries>({
+      stored: f.kind === 'homewood' ? readStoredHomewood() : readStoredNearshore(f.sourceId),
+      live:
         f.kind === 'homewood'
-          ? await fetchHomewood(start, end, { priority: 'high' })
-          : await fetchNearshoreRange(f.sourceId, start, end, { priority: 'high' })
-      if (gen !== loadGen) return
-      nearshoreState.value = series.records.length ? success(series) : empty()
-    } catch (e) {
-      if (gen === loadGen) nearshoreState.value = failure(e)
-    }
+          ? fetchHomewood(start, end, { priority: 'high' })
+          : fetchNearshoreRange(f.sourceId, start, end, { priority: 'high' }),
+      hasData: (s) => s.records.length > 0,
+      set: (state) => {
+        nearshoreState.value = state
+      },
+      current,
+    })
   }
 
   watch(focusedStation, load, { immediate: true })
