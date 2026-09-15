@@ -104,7 +104,7 @@ describe('PlanYourDayView', () => {
     expect(w.text()).toContain('Calm')
   })
 
-  it('"show more data" reveals the remaining metrics, exposes state, and persists', async () => {
+  it('"show more data" reveals the remaining metrics and starts collapsed on every mount', async () => {
     nearshore.mockImplementation((id: number) =>
       Promise.resolve(id === 4 ? series(4, null, [rec()]) : series(id, null, [])),
     )
@@ -125,12 +125,13 @@ describe('PlanYourDayView', () => {
       'Dissolved oxygen',
       'Chlorophyll',
     ])
-    expect(localStorage.getItem('terc-pyd-show-more')).toBe('1')
-
-    // A fresh mount restores the visitor's choice.
+    // TERC-73: the choice is NOT remembered — a fresh mount opens collapsed,
+    // even for a visitor whose browser still carries the retired key.
+    localStorage.setItem('terc-pyd-show-more', '1')
     const w2 = mount(PlanYourDayView)
     await flushPromises()
-    expect(w2.find('.pyd-toggle').attributes('aria-expanded')).toBe('true')
+    expect(w2.find('.pyd-toggle').attributes('aria-expanded')).toBe('false')
+    expect(cardLabels(w2)).toEqual(['Water temperature', 'Wave height', 'Turbidity'])
   })
 
   it('shows a focused buoy its three metrics, with the sensor note only when expanded', async () => {
