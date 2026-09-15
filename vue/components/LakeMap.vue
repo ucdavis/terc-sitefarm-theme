@@ -138,6 +138,10 @@ function drawDestinations() {
   }
 }
 
+function boundsKey(bounds: readonly [readonly [number, number], readonly [number, number]]): string {
+  return bounds.flat().join(',')
+}
+
 onMounted(() => {
   if (!container.value) return
   const factory = props.engineFactory ?? createLeafletEngine
@@ -232,9 +236,9 @@ const framingTarget = computed(() => {
   }
   if (props.selectedDestinationId) {
     const d = props.destinations.find((x) => x.id === props.selectedDestinationId)
-    return d
-      ? { key: `destination:${d.id}`, bounds: destinationBounds(d, props.overviewMarkers ?? []) }
-      : { key: 'pending' }
+    if (!d) return { key: 'pending' }
+    const bounds = destinationBounds(d, props.overviewMarkers ?? [])
+    return { key: `destination:${d.id}:${boundsKey(bounds)}`, bounds }
   }
   return { key: 'lake' }
 })

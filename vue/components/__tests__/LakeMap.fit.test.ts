@@ -136,4 +136,25 @@ describe('LakeMap flies to a selection that resolves late', () => {
     await w.setProps({ overviewMarkers: [marker({ status: 'offline', waterTemp: null })] })
     expect(state.flights).toHaveLength(1)
   })
+
+  it('refits a selected destination when reseeded marker coordinates change its bounds, but not for reading-only updates', async () => {
+    const seededDestination: DestinationDef = { ...siteOnly, stationIds: [12] }
+    const { state, factory } = makeFakeEngine()
+    const w = mount(LakeMap, {
+      props: {
+        engineFactory: factory,
+        destinations: [seededDestination],
+        selectedDestinationId: 'skunk-harbor',
+        overviewMarkers: [marker()],
+      },
+    })
+    expect(state.init?.fitBounds).toEqual(destinationBounds(seededDestination, [marker()]))
+
+    await w.setProps({ overviewMarkers: [marker({ waterTemp: 61 })] })
+    expect(state.fits).toHaveLength(0)
+
+    const movedMarker = marker({ lat: 39.09, lng: -119.92 })
+    await w.setProps({ overviewMarkers: [movedMarker] })
+    expect(state.fits[state.fits.length - 1]).toEqual(destinationBounds(seededDestination, [movedMarker]))
+  })
 })
