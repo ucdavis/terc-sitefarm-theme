@@ -53,6 +53,21 @@ function response(severities: string[]) {
 }
 
 describe('WeatherWarningBlock', () => {
+  it('stays invisible while checking and appears only when alerts arrive', async () => {
+    let resolveFetch!: (value: ReturnType<typeof response>) => void
+    fetchMock.mockReturnValue(new Promise((resolve) => {
+      resolveFetch = resolve
+    }))
+
+    const wrapper = mount(WeatherWarningBlock)
+    expect(wrapper.find('.weather-warning').exists()).toBe(false)
+
+    resolveFetch(response(['Moderate']))
+    await flushPromises()
+    expect(wrapper.find('.weather-warning').exists()).toBe(true)
+    expect(wrapper.text()).toContain('1 active alert')
+  })
+
   it('renders the compact alert count and highest severity', async () => {
     fetchMock.mockResolvedValue(response(['Moderate']))
     const wrapper = mount(WeatherWarningBlock)
@@ -145,9 +160,8 @@ describe('WeatherWarningBlock', () => {
 
     await wrapper.get('button').trigger('click')
     await nextTick()
-    expect(wrapper.text()).toContain('Checking weather alerts')
+    expect(wrapper.find('.weather-warning').exists()).toBe(false)
     expect(wrapper.find('.weather-warning__list').exists()).toBe(false)
-    expect(wrapper.find('button').attributes('disabled')).toBeDefined()
 
     rejectRefresh(new Error('boom'))
     await flushPromises()
