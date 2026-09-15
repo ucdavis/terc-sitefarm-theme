@@ -21,10 +21,20 @@
  * built from ns-station-range over a wider date range instead.
  */
 import { REPORT_BASE } from '../config/endpoints'
-import { stationCache, TTL } from '../core/cache'
+import { stationCache, TTL, type StoredRow } from '../core/cache'
 import { fmtDateParam, parseTmStamp, startOfTodayUtc } from '../core/time'
 import { noteRecords, tracedFetch } from '../core/requestLog'
+import { reportQueue, type Priority } from '../core/requestQueue'
 import { cToF, mToFt, msToMph, parseReading } from '../core/units'
+
+/**
+ * Per-request options (TERC-70). `priority` orders the report-API queue:
+ * 'high' for what the visitor is looking at (selected destination, lake
+ * weather), 'low' for the map's overview badges, 'normal' otherwise.
+ */
+export interface FetchOpts {
+  priority?: Priority
+}
 
 export interface NearshoreRecord {
   time: Date
@@ -69,7 +79,16 @@ export interface MetRecord {
   pressure: number | null
 }
 
-async function fetchJsonArray(url: string): Promise<Record<string, string>[]> {
+/**
+ * The one network path for the report API: queued, so at most a few
+ * requests are in flight at a time (see core/requestQueue.ts), and traced
+ * for the diagnostics panel.
+ */
+async function fetchJsonArray(url: string, priority: Priority = 'normal'): Promise<Record<string, string>[]> {
+  return reportQueue.run(url, priority, () => fetchJsonArrayNow(url))
+}
+
+async function fetchJsonArrayNow(url: string): Promise<Record<string, string>[]> {
   const res = await tracedFetch(url)
   if (!res.ok) {
     // Error messages surface in the UI via RequestState — keep the endpoint
@@ -103,6 +122,20 @@ function ttlForWindow(end: Date): number {
   return end >= startOfTodayUtc() ? TTL.SHORT : TTL.FOREVER
 }
 
+/**
+ * "Last known reading" rows (TERC-70). A window that reaches today is the
+ * live one, so its result is also remembered under a window-free key that
+ * survives reloads and day changes; views read it with the readStored*
+ * functions to paint at once and say when it was last checked, while the
+ * real request waits its turn in the queue. Never used as fresh data.
+ */
+function isLiveWindow(end: Date): boolean {
+  return end >= startOfTodayUtc()
+}
+function remember(end: Date, key: string, value: unknown): void {
+  if (isLiveWindow(end)) stationCache.putStored(key, value)
+}
+
 function parseNearshoreRows(rows: Record<string, string>[]): NearshoreRecord[] {
   return sortByTime(
     rows.map((r) => {
@@ -125,19 +158,44 @@ export async function fetchNearshoreRange(
   stationId: number,
   start: Date,
   end: Date,
+  opts: FetchOpts = {},
 ): Promise<NearshoreSeries> {
   const startP = fmtDateParam(start)
   const endP = fmtDateParam(end)
   const key = `ns-station-range:${stationId}:${startP}-${endP}`
+  const url = `${REPORT_BASE}/ns-station-range?id=${stationId}&rptdate=${startP}&rptend=${endP}`
+  const priority = opts.priority ?? 'normal'
+  // A more urgent caller joining an in-flight request still moves it up.
+  reportQueue.raise(url, priority)
   return stationCache.getOrFetch(key, ttlForWindow(end), async () => {
-    const url = `${REPORT_BASE}/ns-station-range?id=${stationId}&rptdate=${startP}&rptend=${endP}`
-    const rows = await fetchJsonArray(url)
-    return {
+    const rows = await fetchJsonArray(url, priority)
+    const series: NearshoreSeries = {
       stationId,
       stationName: rows.length > 0 ? rows[0].Station_Name : null,
       records: parseNearshoreRows(rows),
     }
+    if (series.records.length) remember(end, lastKnownKey('nearshore', stationId), series)
+    return series
   })
+}
+
+/** Key of a source's last-known-reading row. */
+export function lastKnownKey(kind: 'nearshore' | 'buoy' | 'homewood' | 'met', id: number): string {
+  return `last-known:${kind}:${id}`
+}
+
+/** The last nearshore series we managed to fetch for a station, if any. */
+export function readStoredNearshore(stationId: number): Promise<StoredRow<NearshoreSeries> | undefined> {
+  return stationCache.readStored<NearshoreSeries>(lastKnownKey('nearshore', stationId))
+}
+export function readStoredMet(): Promise<StoredRow<MetRecord[]> | undefined> {
+  return stationCache.readStored<MetRecord[]>(lastKnownKey('met', 1))
+}
+export function readStoredBuoy(buoyId: number): Promise<StoredRow<NasaBuoyRecord[]> | undefined> {
+  return stationCache.readStored<NasaBuoyRecord[]>(lastKnownKey('buoy', buoyId))
+}
+export function readStoredHomewood(): Promise<StoredRow<NearshoreSeries> | undefined> {
+  return stationCache.readStored<NearshoreSeries>(lastKnownKey('homewood', -1))
 }
 
 export function peekNearshoreRange(
@@ -149,14 +207,16 @@ export function peekNearshoreRange(
   return stationCache.peek(key)
 }
 
-export async function fetchMetStation(start: Date, end: Date): Promise<MetRecord[]> {
+export async function fetchMetStation(start: Date, end: Date, opts: FetchOpts = {}): Promise<MetRecord[]> {
   const startP = fmtDateParam(start)
   const endP = fmtDateParam(end)
   const key = `met-uscg2020:1:${startP}-${endP}`
+  const url = `${REPORT_BASE}/met-uscg2020?id=1&rptdate=${startP}&rptend=${endP}`
+  const priority = opts.priority ?? 'normal'
+  reportQueue.raise(url, priority)
   return stationCache.getOrFetch(key, ttlForWindow(end), async () => {
-    const url = `${REPORT_BASE}/met-uscg2020?id=1&rptdate=${startP}&rptend=${endP}`
-    const rows = await fetchJsonArray(url)
-    return sortByTime(
+    const rows = await fetchJsonArray(url, priority)
+    const records = sortByTime(
       rows.map((r) => {
         // airTempC is the field-aware sentinel path: Tahoe winter air can
         // legitimately drop below -9 °C.
@@ -176,6 +236,8 @@ export async function fetchMetStation(start: Date, end: Date): Promise<MetRecord
         }
       }),
     )
+    if (records.length) remember(end, lastKnownKey('met', 1), records)
+    return records
   })
 }
 
@@ -193,16 +255,19 @@ export async function fetchNasaBuoy(
   buoyId: number,
   start: Date,
   end: Date,
+  opts: FetchOpts = {},
 ): Promise<NasaBuoyRecord[]> {
   const startP = fmtDateParam(start)
   const endP = fmtDateParam(end)
   const key = `nasa-tb:${buoyId}:${startP}-${endP}`
+  const url = `${REPORT_BASE}/nasa-tb?id=${buoyId}&rptdate=${startP}&rptend=${endP}`
+  const priority = opts.priority ?? 'normal'
+  reportQueue.raise(url, priority)
   return stationCache.getOrFetch(key, ttlForWindow(end), async () => {
-    const url = `${REPORT_BASE}/nasa-tb?id=${buoyId}&rptdate=${startP}&rptend=${endP}`
-    const rows = await fetchJsonArray(url)
+    const rows = await fetchJsonArray(url, priority)
     const mean = (a: number | null, b: number | null) =>
       a !== null && b !== null ? (a + b) / 2 : a ?? b
-    return sortByTime(
+    const records = sortByTime(
       rows.map((r): NasaBuoyRecord => {
         const waterC = parseReading(r.RBR_0p5_m, 'waterTempC')
         const airC = mean(parseReading(r.AirTemp_1, 'airTempC'), parseReading(r.AirTemp_2, 'airTempC'))
@@ -215,24 +280,30 @@ export async function fetchNasaBuoy(
         }
       }),
     )
+    if (records.length) remember(end, lastKnownKey('buoy', buoyId), records)
+    return records
   })
 }
 
 /** tc-homewood has no id param; returned an empty array in all testing. */
-export async function fetchHomewood(start: Date, end: Date): Promise<NearshoreSeries> {
+export async function fetchHomewood(start: Date, end: Date, opts: FetchOpts = {}): Promise<NearshoreSeries> {
   const startP = fmtDateParam(start)
   const endP = fmtDateParam(end)
   const key = `tc-homewood:${startP}-${endP}`
+  const url = `${REPORT_BASE}/tc-homewood?rptdate=${startP}&rptend=${endP}`
+  const priority = opts.priority ?? 'normal'
+  reportQueue.raise(url, priority)
   return stationCache.getOrFetch(key, ttlForWindow(end), async () => {
-    const url = `${REPORT_BASE}/tc-homewood?rptdate=${startP}&rptend=${endP}`
-    const rows = await fetchJsonArray(url)
-    return {
+    const rows = await fetchJsonArray(url, priority)
+    const series: NearshoreSeries = {
       stationId: -1,
       // Null when empty, like every other fetcher — the UI supplies the
       // display-name fallback for non-reporting stations.
       stationName: rows[0]?.Station_Name ?? null,
       records: parseNearshoreRows(rows),
     }
+    if (series.records.length) remember(end, lastKnownKey('homewood', -1), series)
+    return series
   })
 }
 

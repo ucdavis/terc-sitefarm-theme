@@ -71,6 +71,12 @@ export interface CachePersistence {
   bytesOf: (value: unknown) => number
 }
 
+export interface StoredRow<T = unknown> {
+  value: T
+  /** Wall-clock ms when the value was fetched. */
+  storedAt: number
+}
+
 export class DataCache {
   // Map preserves insertion order -> oldest-first makes a cheap LRU.
   private entries = new Map<string, Entry>()
@@ -127,6 +133,32 @@ export class DataCache {
    */
   attachPersistence(p: CachePersistence | null): void {
     this.persistence = p
+  }
+
+  /**
+   * Remember a value beside the cache proper (TERC-70): a "last known"
+   * row that survives a reload and never expires. getOrFetch never reads
+   * these — they are not fresh data — callers read them explicitly with
+   * readStored() to paint something at once while the fetch is queued,
+   * and to say when it was last checked. Best-effort like every write.
+   */
+  putStored(key: string, value: unknown): void {
+    const p = this.persistence
+    if (!p) return
+    const row: StoredRow = { value, storedAt: Date.now() }
+    void p.store.put(`stored:${key}`, row, p.bytesOf(value)).catch(() => {})
+  }
+
+  /** The last value remembered under `key` and when, or undefined. */
+  async readStored<T>(key: string): Promise<StoredRow<T> | undefined> {
+    const p = this.persistence
+    if (!p) return undefined
+    try {
+      const row = (await p.store.get(`stored:${key}`)) as StoredRow<T> | undefined
+      return row && typeof row.storedAt === 'number' ? row : undefined
+    } catch {
+      return undefined
+    }
   }
 
   /** Drop one entry (and any in-flight join for it) so the next getOrFetch

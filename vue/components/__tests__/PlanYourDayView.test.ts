@@ -8,6 +8,9 @@ const buoy = vi.fn()
 const homewood = vi.fn()
 const metStation = vi.fn()
 
+const storedMet = vi.fn()
+const storedStation = vi.fn(async (_kind: string, _id?: number): Promise<unknown> => undefined)
+
 vi.mock('../../data/stationData', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../data/stationData')>()
   return {
@@ -16,6 +19,10 @@ vi.mock('../../data/stationData', async (importOriginal) => {
     fetchNasaBuoy: (...args: unknown[]) => buoy(...args),
     fetchHomewood: (...args: unknown[]) => homewood(...args),
     fetchMetStation: (...args: unknown[]) => metStation(...args),
+    readStoredMet: () => storedMet(),
+    readStoredNearshore: (id: number) => storedStation('nearshore', id),
+    readStoredBuoy: (id: number) => storedStation('buoy', id),
+    readStoredHomewood: () => storedStation('homewood'),
     peekNearshoreRange: () => undefined,
   }
 })
@@ -66,6 +73,8 @@ beforeEach(() => {
   buoy.mockReset().mockResolvedValue([])
   homewood.mockReset().mockResolvedValue(series(-1, null, []))
   metStation.mockReset().mockResolvedValue([])
+  storedMet.mockReset().mockResolvedValue(undefined)
+  storedStation.mockReset().mockResolvedValue(undefined)
 })
 
 const cardLabels = (w: ReturnType<typeof mount>) =>
@@ -246,5 +255,96 @@ describe('PlanYourDayView', () => {
     expect(w.text()).toContain('20 seconds')
     expect(w.find('.pyd-retry').exists()).toBe(true)
     vi.useRealTimers()
+  })
+
+  describe('last-known lake weather (TERC-70)', () => {
+    const remembered = { time: new Date('2026-09-11T20:40:00Z'), airTemp: 66, waterTemp: null, windSpeed: 4, windGust: null, windDir: null, humidity: null, pressure: null }
+
+    it('paints the remembered reading while the live request is queued, then the live one replaces it with a Checked stamp', async () => {
+      storedMet.mockResolvedValue({ value: [remembered], storedAt: Date.parse('2026-09-11T21:00:00Z') })
+      let release!: (v: unknown) => void
+      metStation.mockImplementation(() => new Promise((r) => (release = r)))
+      const w = mount(PlanYourDayView)
+      await flushPromises()
+      expect(w.text()).toContain('66.0')
+      expect(w.get('.pyd-freshness').text()).toContain('Showing the reading fetched Sep 11, 2:00 PM lake time · updating…')
+      release([{ ...remembered, airTemp: 68 }])
+      await flushPromises()
+      expect(w.text()).toContain('68.0')
+      expect(w.get('.pyd-freshness').text()).toMatch(/^Checked .* lake time$/)
+      expect(w.find('.pyd-retry').exists()).toBe(false)
+      // Lake weather is what the visitor is looking at: it asks first.
+      expect((metStation.mock.calls[0] as unknown[])[2]).toEqual({ priority: 'high' })
+    })
+
+    it('keeps the remembered reading on screen when the live request fails, saying so, with a retry', async () => {
+      storedMet.mockResolvedValue({ value: [remembered], storedAt: Date.parse('2026-09-11T21:00:00Z') })
+      metStation.mockRejectedValue(new Error('boom'))
+      const w = mount(PlanYourDayView)
+      await flushPromises()
+      expect(w.text()).toContain('66.0')
+      const line = w.get('.pyd-freshness')
+      expect(line.text()).toContain('the met station request failed')
+      expect(line.classes()).toContain('pyd-freshness--stale')
+      expect(w.find('.pyd-met-state').exists()).toBe(false) // no separate error box
+      metStation.mockResolvedValue([{ ...remembered, airTemp: 70 }])
+      await w.get('.pyd-retry').trigger('click')
+      await flushPromises()
+      expect(w.text()).toContain('70.0')
+    })
+
+    it('with nothing remembered, behaves exactly as before', async () => {
+      metStation.mockRejectedValue(new Error('boom'))
+      const w = mount(PlanYourDayView)
+      await flushPromises()
+      expect(w.text()).toContain('Lake weather is temporarily unavailable')
+      expect(w.find('.pyd-freshness').exists()).toBe(false)
+    })
+  })
+
+  describe('remembered readings on the cards (TERC-70, Copilot PR #39)', () => {
+    it('keeps the remembered lake weather when the live request fails before the disk read', async () => {
+      // The rejection lands first; the stored row arrives a tick later.
+      metStation.mockRejectedValue(new Error('offline'))
+      storedMet.mockImplementation(
+        () =>
+          new Promise((r) =>
+            setTimeout(
+              () => r({ value: [{ time: new Date('2026-09-14T21:15:00Z'), airTemp: 59, waterTemp: null, windSpeed: 3, windGust: null, windDir: null, humidity: null, pressure: null }], storedAt: Date.parse('2026-09-14T21:20:00Z') }),
+              5,
+            ),
+          ),
+      )
+      const w = mount(PlanYourDayView)
+      await vi.waitFor(() => expect(w.text()).toContain('59.0'))
+      expect(w.get('.pyd-freshness').text()).toContain('the met station request failed')
+      expect(w.find('.pyd-met-state').exists()).toBe(false) // never an empty error box
+    })
+
+    it('paints buoy cards from their stored rows, and says so when the refresh failed', async () => {
+      const buoyRec = { time: new Date('2026-09-14T20:00:00Z'), waterTemp: 64, airTemp: 70, windSpeed: 5 }
+      buoy.mockRejectedValue(new Error('offline'))
+      storedStation.mockImplementation(async (kind: string, id?: number) =>
+        kind === 'buoy' && id === 1 ? { value: [buoyRec], storedAt: 1 } : undefined,
+      )
+      const { selectDestination } = useConditionsState()
+      selectDestination('north-lake-tahoe') // a destination with buoys
+      const w = mount(PlanYourDayView)
+      await flushPromises()
+      expect(w.text()).toContain('64.0')
+      expect(w.get('.pyd-freshness--stale').text()).toContain('the latest refresh failed')
+    })
+
+    it('says nothing about staleness when everything refreshed normally', async () => {
+      nearshore.mockImplementation((id: number) =>
+        Promise.resolve(id === 4 ? series(4, null, [rec()]) : series(id, null, [])),
+      )
+      const { selectDestination } = useConditionsState()
+      selectDestination('homewood')
+      const w = mount(PlanYourDayView)
+      await flushPromises()
+      expect(w.text()).toContain('Homewood')
+      expect(w.find('.pyd-freshness--stale').exists()).toBe(false)
+    })
   })
 })
