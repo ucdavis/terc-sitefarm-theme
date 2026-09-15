@@ -60,7 +60,7 @@ onBeforeUnmount(() => controller?.abort())
 
 <template>
   <section
-    v-if="status !== 'ready' || alerts.length"
+    v-if="status === 'error' || (status === 'ready' && alerts.length)"
     class="alert alert--warning alert--icon weather-warning"
     :class="{ 'weather-warning--sample': isSample }"
     :aria-label="isSample ? 'Lake Tahoe weather alerts (sample alert, not live)' : 'Lake Tahoe weather alerts'"
@@ -84,7 +84,7 @@ onBeforeUnmount(() => controller?.abort())
         </template>
       </div>
 
-      <button class="weather-warning__refresh" type="button" :disabled="status === 'loading'" @click="refresh">
+      <button class="weather-warning__refresh" type="button" @click="refresh">
         Refresh
       </button>
 
@@ -142,10 +142,6 @@ onBeforeUnmount(() => controller?.abort())
 .weather-warning__refresh:focus-visible {
   outline: 3px solid currentColor;
   outline-offset: 3px;
-}
-.weather-warning__refresh:disabled {
-  cursor: wait;
-  opacity: 0.65;
 }
 .weather-warning__list {
   grid-column: 1 / -1;
