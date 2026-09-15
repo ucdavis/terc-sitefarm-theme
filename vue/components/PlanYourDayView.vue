@@ -40,21 +40,19 @@ const { slots, buoySlots, homewoodState } = useDestinationData(destination)
 const { nearshoreState, buoyState } = useFocusedStation()
 const { markers } = useLakeOverview()
 
-/** "Show more data" — persisted per visitor; storage can be unavailable. */
-const SHOW_MORE_KEY = 'terc-pyd-show-more'
+/**
+ * "Show more data" — always starts collapsed (TERC-73).
+ *
+ * The choice used to be persisted per visitor in localStorage, so anyone who
+ * had ever expanded the block landed on the six-metric view on every later
+ * visit. The block is meant to open on the day-planning basics and let the
+ * visitor ask for the rest, so the restore was removed rather than the default
+ * changed — the default was already collapsed. The old `terc-pyd-show-more`
+ * key is simply no longer read; any value left in a visitor's browser is inert.
+ */
 const showMore = ref(false)
-try {
-  showMore.value = localStorage.getItem(SHOW_MORE_KEY) === '1'
-} catch {
-  /* private windows / blocked storage: default collapsed */
-}
 function toggleShowMore() {
   showMore.value = !showMore.value
-  try {
-    localStorage.setItem(SHOW_MORE_KEY, showMore.value ? '1' : '0')
-  } catch {
-    /* non-persistent is fine */
-  }
 }
 
 interface CardMetric {
