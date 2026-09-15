@@ -38,9 +38,22 @@ const props = defineProps<{
 const canvas = ref<HTMLCanvasElement | null>(null)
 let chart: Chart<'line'> | null = null
 
+/** Which series are currently drawn. Index matches props.series. */
+const shown = ref<boolean[]>([])
+function resetShown() {
+  shown.value = props.series.map(() => true)
+}
+function toggleSeries(i: number) {
+  const next = !shown.value[i]
+  shown.value = shown.value.map((v, n) => (n === i ? next : v))
+  chart?.setDatasetVisibility(i, next)
+  chart?.update()
+}
+
 function build() {
   if (!canvas.value) return
   chart?.destroy()
+  resetShown()
   chart = new Chart(canvas.value, {
     type: 'line',
     data: {
@@ -62,15 +75,12 @@ function build() {
       animation: false,
       interaction: { mode: 'nearest', axis: 'x', intersect: false },
       plugins: {
-        legend: {
-          display: props.series.length > 1,
-          // TERC-76: these entries are controls — clicking one takes that
-          // station off the chart — so they need to be readable and big
-          // enough to hit. Chart.js draws to canvas, so this is one of the
-          // few sizes that has to be a number in px rather than the theme
-          // rem scale.
-          labels: { boxWidth: 18, boxHeight: 3, padding: 12, font: { size: 14 } },
-        },
+        // TERC-76: the canvas legend is off. Its entries were controls —
+        // clicking one takes a station off the chart — but they were drawn
+        // inside an aria-hidden canvas, so only a pointer could reach them.
+        // Real buttons render above the chart instead: keyboard-reachable,
+        // announced, and free to use the theme rem scale.
+        legend: { display: false },
         tooltip: {
           callbacks: {
             // Lake time, not viewer-local (TERC-43 display rule): a visitor
@@ -136,6 +146,20 @@ const srSummary = computed(() => {
 <template>
   <figure class="chart-card">
     <figcaption class="chart-title">{{ title }}</figcaption>
+    <ul v-if="series.length > 1" class="chart-legend">
+      <li v-for="(s, i) in series" :key="s.label">
+        <button
+          type="button"
+          class="chart-legend-btn"
+          :class="{ off: shown[i] === false }"
+          :aria-pressed="shown[i] !== false"
+          @click="toggleSeries(i)"
+        >
+          <span class="chart-swatch" :style="{ background: s.color }" aria-hidden="true"></span>
+          {{ s.label }}
+        </button>
+      </li>
+    </ul>
     <div class="chart-box" role="img" :aria-label="srSummary" :style="{ height: (height ?? 220) + 'px' }">
       <canvas ref="canvas" aria-hidden="true" />
     </div>
@@ -156,6 +180,49 @@ const srSummary = computed(() => {
   font-weight: 600;
   color: #13322b;
   margin-bottom: 8px;
+}
+.chart-legend {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.chart-legend-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font: inherit;
+  font-size: .8125rem;
+  color: #22343c;
+  cursor: pointer;
+}
+.chart-legend-btn:hover {
+  border-color: #d5dde2;
+}
+.chart-legend-btn:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
+}
+/* Off reads as off without relying on colour alone: the label is struck
+   through and dimmed, and aria-pressed carries it for assistive tech. */
+.chart-legend-btn.off {
+  color: #5b6f7a;
+  text-decoration: line-through;
+}
+.chart-legend-btn.off .chart-swatch {
+  opacity: 0.3;
+}
+.chart-swatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  flex: none;
 }
 .chart-box {
   position: relative;

@@ -4,12 +4,18 @@ import { mount } from '@vue/test-utils'
 
 /** Chart.js needs a real canvas context; capture its config instead. */
 const chartConfigs = vi.hoisted(() => [] as Record<string, unknown>[])
+/** Visibility toggles the legend buttons perform (TERC-76). */
+const visibility = vi.hoisted(() => [] as { index: number; visible: boolean }[])
 vi.mock('chart.js', () => {
   class Chart {
     static register() {}
     constructor(_el: unknown, config: Record<string, unknown>) {
       chartConfigs.push(config)
     }
+    setDatasetVisibility(index: number, visible: boolean) {
+      visibility.push({ index, visible })
+    }
+    update() {}
     destroy() {}
   }
   return {
@@ -76,5 +82,38 @@ describe('TimeSeriesChart', () => {
     expect(label).toContain('Dollar Point: latest 41.2 °F at Jan 14, 4:30 PM lake time')
     expect(label).toContain('Rubicon: no data in this range')
     expect(w.find('canvas').attributes('aria-hidden')).toBe('true')
+  })
+})
+
+describe('legend controls (TERC-76)', () => {
+  it('renders the canvas legend off and real buttons instead', () => {
+    const w = mount(TimeSeriesChart, { props: { series: SERIES, unit: '°F', title: 'Water temperature' } })
+    const cfg = chartConfigs[chartConfigs.length - 1] as { options: { plugins: { legend: { display: boolean } } } }
+    // Canvas-drawn entries sit inside an aria-hidden canvas, so a pointer was
+    // the only way to reach them. Buttons carry the same action to everyone.
+    expect(cfg.options.plugins.legend.display).toBe(false)
+    const btns = w.findAll('.chart-legend-btn')
+    expect(btns).toHaveLength(SERIES.length)
+    expect(btns[0].text()).toContain(SERIES[0].label)
+    expect(btns[0].attributes('aria-pressed')).toBe('true')
+  })
+
+  it('toggles a series off and on, and says so through aria-pressed', async () => {
+    visibility.length = 0
+    const w = mount(TimeSeriesChart, { props: { series: SERIES, unit: '°F', title: 'Water temperature' } })
+    const first = w.findAll('.chart-legend-btn')[0]
+
+    await first.trigger('click')
+    expect(first.attributes('aria-pressed')).toBe('false')
+    expect(visibility[visibility.length - 1]).toEqual({ index: 0, visible: false })
+
+    await first.trigger('click')
+    expect(first.attributes('aria-pressed')).toBe('true')
+    expect(visibility[visibility.length - 1]).toEqual({ index: 0, visible: true })
+  })
+
+  it('hides the strip when there is only one series to toggle', () => {
+    const w = mount(TimeSeriesChart, { props: { series: [SERIES[0]], unit: '°F', title: 'Water temperature' } })
+    expect(w.findAll('.chart-legend-btn')).toHaveLength(0)
   })
 })

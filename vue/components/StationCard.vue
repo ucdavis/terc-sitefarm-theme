@@ -31,11 +31,16 @@ const display = computed(() => {
 
 // Lake time, not viewer-local (TERC-43 display rule).
 //
-// TERC-76: the visible stamp is the time alone, because "Sep 15, 9:00 AM
-// lake time" cannot fit one line in a card at the six-across width and was
-// wrapping onto two. The words are still announced — they move into a
-// visually-hidden span — and every section heading above these cards still
-// says "lake time" in full, so the timezone is never left to inference.
+// TERC-76: the visible stamp drops the words "lake time" and keeps the
+// date and time — "Sep 15, 9:00 AM". The words were what pushed this onto
+// a second line; they move into a visually-hidden span, and every section
+// heading above these cards still says "lake time" in full, so the timezone
+// is never left to inference.
+//
+// The DATE stays on purpose. A card can be showing a reading from nine days
+// ago (a silent station keeps its last reading, TERC-76), and a time-only
+// stamp would hide exactly that. Measured at the narrowest six-across
+// layout: 99-109px used of 151px available, so nowrap has room to spare.
 const timeShort = computed(() => (props.timestamp ? fmtLakeTime(props.timestamp) : null))
 </script>
 
