@@ -2,8 +2,16 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import LakeMap from '../LakeMap.vue'
+import { destinationBounds } from '../../map/destinationFraming'
 import { LAKE_CENTER, LAKE_DEFAULT_ZOOM, STATION_FOCUS_ZOOM } from '../../config/lakeView'
-import type { BadgeMarkerOpts, CircleMarkerOpts, EngineInitOpts, LatLng, MapEngine } from '../../map/engine'
+import type {
+  BadgeMarkerOpts,
+  CircleMarkerOpts,
+  EngineInitOpts,
+  LatLng,
+  LatLngBounds,
+  MapEngine,
+} from '../../map/engine'
 import type { OverviewMarker } from '../../composables/useLakeOverview'
 import type { DestinationDef } from '../../config/destinations'
 
@@ -19,6 +27,7 @@ function makeFakeEngine() {
     circles: [] as { group: string; opts: CircleMarkerOpts }[],
     flights: [] as { center: LatLng; zoom: number }[],
     fits: 0,
+    fitBoxes: [] as LatLngBounds[],
     invalidations: 0,
     destroyed: false,
   }
@@ -36,8 +45,9 @@ function makeFakeEngine() {
     flyTo(center, zoom) {
       state.flights.push({ center, zoom })
     },
-    fitBounds() {
+    fitBounds(bounds) {
       state.fits++
+      state.fitBoxes.push(bounds)
     },
     invalidateSize() {
       state.invalidations++
@@ -176,10 +186,21 @@ describe('LakeMap', () => {
     expect(wrapper.emitted('select-destination')).toEqual([['homewood']])
   })
 
-  it('flies to a destination when it becomes selected, and home when cleared', async () => {
-    const { fake, wrapper } = mountMap({ destinations: [DEST] })
+  it('frames a destination on its own stations when selected, and home when cleared', async () => {
+    // TERC-74: the map fits the box around everything the destination owns,
+    // so every badge the visitor came for is on screen — the old fixed
+    // per-destination zoom could cut them out of the viewport.
+    const station = marker({ key: 'nearshore:4', lat: 39.12, lng: -120.2 })
+    const { fake, wrapper } = mountMap({ destinations: [DEST], overviewMarkers: [station] })
     await wrapper.setProps({ selectedDestinationId: 'homewood' })
-    expect(last(fake.state.flights)).toEqual({ center: [DEST.lat, DEST.lng], zoom: DEST.zoom })
+    const box = last(fake.state.fitBoxes)
+    expect(box).toEqual(destinationBounds(DEST, [station]))
+    const [[south, west], [north, east]] = box!
+    expect(station.lat).toBeGreaterThan(south)
+    expect(station.lat).toBeLessThan(north)
+    expect(station.lng).toBeGreaterThan(west)
+    expect(station.lng).toBeLessThan(east)
+
     await wrapper.setProps({ selectedDestinationId: null })
     expect(last(fake.state.flights)).toEqual({ center: LAKE_CENTER, zoom: LAKE_DEFAULT_ZOOM })
   })

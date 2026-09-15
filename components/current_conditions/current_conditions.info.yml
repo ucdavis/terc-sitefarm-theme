@@ -25,6 +25,15 @@ configuration:
     title: 'Forecasted Conditions page path'
     description: 'Where the "See Forecasted Conditions" link points. Leave as-is unless that page moves.'
     default_value: '/forecasted-conditions'
+  mapWidth:
+    type: select
+    title: 'Map width on wide screens'
+    description: 'How much of the row the map takes beside the reading column. Phones and narrow windows always show the map full width, whatever is chosen here. The map never becomes narrower than it is today — this only lets it grow.'
+    options:
+      third: 'One third (default)'
+      half: 'One half'
+      two-thirds: 'Two thirds'
+    default_value: third
   showSources:
     type: checkbox
     title: 'Show data-source chips'

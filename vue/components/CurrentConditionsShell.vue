@@ -6,6 +6,7 @@ import { enableRequestLog } from '../core/requestLog'
 import ViewTabs from './ViewTabs.vue'
 import type { ViewId } from '../composables/useConditionsState'
 import { uniqueId } from '../lib/uniqueId'
+import { mapWidthStyle } from '../config/mapWidth'
 import LakeMap from './LakeMap.vue'
 import PlanYourDayView from './PlanYourDayView.vue'
 import SourceBadge from './SourceBadge.vue'
@@ -40,6 +41,8 @@ const props = withDefaults(
     showForecastLink?: boolean | number | string
     /** Path of the Forecasted Conditions page, for the cross-link (TERC-12). */
     forecastPath?: string
+    /** Share of the row the map takes on wide screens (TERC-74). */
+    mapWidth?: string
   }>(),
   {
     showPhase: true,
@@ -48,6 +51,7 @@ const props = withDefaults(
     endpointDiagnostics: false,
     showForecastLink: true,
     forecastPath: '/forecasted-conditions',
+    mapWidth: 'third',
   },
 )
 
@@ -59,6 +63,7 @@ const showForecastLink = asBool(props.showForecastLink)
 const showSources = asBool(props.showSources)
 const showDiagnostics = asBool(props.debug)
 const showEndpoints = asBool(props.endpointDiagnostics)
+const mapWidthVars = mapWidthStyle(props.mapWidth)
 // Before any child mounts and starts fetching, so the first requests are logged too.
 if (showEndpoints) enableRequestLog()
 
@@ -156,7 +161,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="cc-shell">
+  <section class="cc-shell" :style="mapWidthVars">
     <header class="cc-head">
       <h2>{{ heading }}</h2>
       <SourceBadge
@@ -411,7 +416,9 @@ onMounted(() => {
 @media (min-width: 900px) {
   .cc-map-row {
     --cc-map-height: 780px;
-    grid-template-columns: 480px minmax(0, 1fr);
+    /* TERC-74: the map never drops below the 480px that keeps the lake
+       legible; above that floor the editor's setting splits the row. */
+    grid-template-columns: minmax(480px, var(--map-fr, 1fr)) minmax(0, var(--side-fr, 2fr));
   }
   .cc-map-region {
     position: sticky;
