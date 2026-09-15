@@ -14,7 +14,19 @@ import {
 import { loadWithLastKnown } from '../core/lastKnown'
 
 /** The visitor chose this destination: its stations go first in the queue (TERC-70). */
-const HIGH = { priority: 'high' as const }
+/**
+ * Queue priority for this view's fetches (TERC-70).
+ *
+ * A destination the visitor picked is what they are looking at, so it goes
+ * first. The whole-lake survey is every station at once — it rides at the
+ * same low priority as the map badges, which have already requested exactly
+ * these URLs over exactly this window, so the two join rather than doubling
+ * the fan-out that produces 504s.
+ */
+const PRIORITY = {
+  high: { priority: 'high' as const },
+  low: { priority: 'low' as const },
+}
 const hasRecords = (s: NearshoreSeries) => s.records.length > 0
 const hasRows = (r: NasaBuoyRecord[]) => r.length > 0
 import { type RequestState, empty, failure, loading, success } from '../core/requestState'
@@ -46,7 +58,9 @@ export interface BuoySlot {
 export function useDestinationData(
   destination: Ref<DestinationDef | null>,
   daysBack: Ref<number> = ref(2),
+  priority: Ref<'high' | 'low'> = ref('high'),
 ) {
+  const opts = () => PRIORITY[priority.value]
   const { registry } = useConditionsState()
   const slots = ref<StationSlot[]>([])
   const buoySlots = ref<BuoySlot[]>([])
@@ -81,7 +95,7 @@ export function useDestinationData(
     // and a failed refresh keeps the reading with its reason attached.
     await loadWithLastKnown<NearshoreSeries>({
       stored: readStoredNearshore(slot.stationId),
-      live: fetchNearshoreRange(slot.stationId, start, end, HIGH),
+      live: fetchNearshoreRange(slot.stationId, start, end, opts()),
       hasData: hasRecords,
       set: (state) => {
         slot.state = state
@@ -99,7 +113,7 @@ export function useDestinationData(
       buoySlots.value.map((slot) =>
         loadWithLastKnown<NasaBuoyRecord[]>({
           stored: readStoredBuoy(slot.buoyId),
-          live: fetchNasaBuoy(slot.buoyId, start, end, HIGH),
+          live: fetchNasaBuoy(slot.buoyId, start, end, opts()),
           hasData: hasRows,
           set: (state) => {
             slot.state = state
@@ -136,7 +150,7 @@ export function useDestinationData(
       homewoodState.value = loading()
       await loadWithLastKnown<NearshoreSeries>({
         stored: readStoredHomewood(),
-        live: fetchHomewood(start, end, HIGH),
+        live: fetchHomewood(start, end, opts()),
         hasData: hasRecords,
         set: (state) => {
           homewoodState.value = state
@@ -151,7 +165,7 @@ export function useDestinationData(
   // registry is a watch source so a reload re-derives display names when
   // site content replaces the static fallback or editors rename stations —
   // near-free, since the refetches hit the shared cache (PR review finding).
-  watch([() => destination.value?.id, daysBack, registry], load, { immediate: true })
+  watch([() => destination.value?.id, daysBack, priority, registry], load, { immediate: true })
 
   /** Slots that actually have data, for card rendering. */
   const slotsWithData = computed(() =>

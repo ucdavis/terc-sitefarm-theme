@@ -28,10 +28,13 @@ vi.mock('../../data/stationData', async (importOriginal) => {
 })
 // The overview seeds live markers (used for the "reporting destinations"
 // hint); keep it inert here.
+// Held so a test can seed the lake survey (TERC-76); empty by default.
+const overview = vi.hoisted(() => ({ markersRef: null as { value: unknown[] } | null }))
 vi.mock('../../composables/useLakeOverview', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../composables/useLakeOverview')>()
   const { ref } = await import('vue')
-  return { ...actual, useLakeOverview: () => ({ markers: ref([]), reload: () => {} }) }
+  overview.markersRef = ref([]) as { value: unknown[] }
+  return { ...actual, useLakeOverview: () => ({ markers: overview.markersRef, reload: () => {} }) }
 })
 
 import PlanYourDayView from '../PlanYourDayView.vue'
@@ -61,6 +64,7 @@ const series = (stationId: number, name: string | null, records: NearshoreRecord
 })
 
 beforeEach(() => {
+  if (overview.markersRef) overview.markersRef.value = []
   window.history.replaceState(null, '', '/lake-conditions')
   resetRegistryForTests()
   syncFromLocation()
@@ -224,7 +228,7 @@ describe('PlanYourDayView', () => {
     expect(w2.find('.pyd-retry').exists()).toBe(false)
   })
 
-  it('an empty recent window is "no data", dated by the last reading it can find — never an endless skeleton', async () => {
+  it('a silent station keeps its last reading on screen, dated, with a note — never an endless skeleton', async () => {
     // Last 24 h: nothing. 30-day lookback: the station\'s last reading.
     const lastSeen = new Date('2026-09-02T19:40:00Z') // 12:40 lake time (PDT)
     metStation.mockImplementation((start: Date, end: Date) =>
@@ -237,9 +241,13 @@ describe('PlanYourDayView', () => {
     const w = mount(PlanYourDayView)
     await flushPromises()
     expect(w.find('.skeleton').exists()).toBe(false)
-    expect(w.text()).toContain('No lake weather in the last 24 hours')
-    expect(w.text()).toContain('last reported Sep 2, 12:40 PM lake time')
-    expect(w.find('.pyd-retry').exists()).toBe(false) // empty is not an error
+    // TERC-76: the cards stay. Replacing them with a sentence threw away
+    // numbers the visitor could already see, and the swap was jarring.
+    expect(w.text()).toContain('70') // air temperature still on screen
+    expect(w.text()).toContain('3') // wind still on screen
+    expect(w.text()).toContain('has not reported since Sep 2, 12:40 PM lake time')
+    expect(w.text()).not.toContain('No lake weather in the last 24 hours')
+    expect(w.find('.pyd-retry').exists()).toBe(false) // silent is not an error
 
     metStation.mockResolvedValue([])
     const w2 = mount(PlanYourDayView)
@@ -347,5 +355,37 @@ describe('PlanYourDayView', () => {
       expect(w.text()).toContain('Homewood')
       expect(w.find('.pyd-freshness--stale').exists()).toBe(false)
     })
+  })
+
+  it('whole lake: every marker becomes a card, fetched at low priority (TERC-76)', async () => {
+    // No destination selected. The map is showing the whole sensor network,
+    // so the panel shows it too — and rides the same low-priority queue the
+    // badges use, because the badges have already asked for these URLs.
+    overview.markersRef!.value = [
+      { key: 'nearshore:4', name: 'Homewood', lat: 39.1, lng: -120.0, kind: 'nearshore', sourceId: 4, waterTemp: null, time: null, status: 'loading' },
+      { key: 'nearshore:6', name: 'Rubicon', lat: 39.1, lng: -120.0, kind: 'nearshore', sourceId: 6, waterTemp: null, time: null, status: 'loading' },
+      { key: 'buoy:1', name: 'NASA Buoy TB1', lat: 39.1, lng: -120.0, kind: 'buoy', sourceId: 1, waterTemp: null, time: null, status: 'loading' },
+      { key: 'homewood:-1', name: 'Homewood TC', lat: 39.1, lng: -120.0, kind: 'homewood', sourceId: -1, waterTemp: null, time: null, status: 'loading' },
+    ]
+    nearshore.mockImplementation((id: number) => Promise.resolve(series(id, null, [rec()])))
+    buoy.mockResolvedValue([{ time: new Date(), waterTemp: 60, airTemp: null, windSpeed: null }])
+    homewood.mockResolvedValue(series(-1, null, [rec()]))
+
+    const w = mount(PlanYourDayView)
+    await flushPromises()
+
+    const heads = w.findAll('.pyd-station-head').map((h) => h.text())
+    expect(heads.some((h) => h.includes('Homewood'))).toBe(true)
+    expect(heads.some((h) => h.includes('Rubicon'))).toBe(true)
+    expect(w.findAll('.station-card').length).toBeGreaterThan(3)
+
+    // The report-queue invariant: a lake-wide survey never outranks the one
+    // place a visitor actually picked.
+    const priorities = [
+      ...nearshore.mock.calls.map((c: unknown[]) => c[3]),
+      ...buoy.mock.calls.map((c: unknown[]) => c[3]),
+    ].filter(Boolean)
+    expect(priorities.length).toBeGreaterThan(0)
+    for (const opt of priorities) expect(opt).toEqual({ priority: 'low' })
   })
 })

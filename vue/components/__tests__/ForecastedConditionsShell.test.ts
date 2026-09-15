@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { miscCache } from '../../core/cache'
 import { resetModelTimeForTests } from '../../composables/useModelTime'
 
@@ -199,6 +199,26 @@ describe('ForecastedConditionsShell', () => {
     await flush()
     expect(w.find('.source-chip').exists()).toBe(false)
     expect(w.find('cache-diagnostics-stub').exists()).toBe(true)
+  })
+
+  describe('safety note (TERC-76)', () => {
+    it('renders nothing extra by default, so the shipped copy is not duplicated', async () => {
+      // The view texts already carry the cold-water-shock sentences, and
+      // saved editor copy still holds them — a defaulted safety note would
+      // print the warning twice on every existing site.
+      const w = mountShell()
+      await flushPromises()
+      expect(w.find('.fc-safety').exists()).toBe(false)
+    })
+
+    it('shows the note, split into paragraphs, once an editor fills it in', async () => {
+      const w = mountShell({ safetyText: 'Water is cold.\n\nWear a life vest.' })
+      await flushPromises()
+      const notes = w.findAll('.fc-safety')
+      expect(notes).toHaveLength(2)
+      expect(notes[0].text()).toBe('Water is cold.')
+      expect(notes[1].text()).toBe('Wear a life vest.')
+    })
   })
 
   describe('deep-linkable view (TERC-12)', () => {

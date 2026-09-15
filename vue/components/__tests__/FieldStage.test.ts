@@ -56,7 +56,7 @@ describe('FieldStage', () => {
 
   it('summarizes range AND location as visible text (map text alternative)', () => {
     const w = mountStage(success(grid([51.6, NaN, 68.4])))
-    const text = w.get('.field-summary').text()
+    const text = w.get('.field-readout-text').text()
     expect(text).toContain('Forecast surface temperature ranges from about 52 °F')
     expect(text).toContain('to about 68 °F')
     // Location, not just numbers.
@@ -71,7 +71,7 @@ describe('FieldStage', () => {
 
   it('states the empty case honestly when every cell is masked', () => {
     const w = mountStage(success(grid([NaN, NaN])))
-    expect(w.get('.field-summary').text()).toBe(BASE.emptyMessage)
+    expect(w.get('.field-readout-text').text()).toBe(BASE.emptyMessage)
     expect(mapLabelOf(w)).toContain(BASE.emptyMessage)
   })
 
@@ -80,13 +80,13 @@ describe('FieldStage', () => {
     // outcome — TERC-24 uses it when no wind bucket is close enough. It
     // must not fall through to the not-loaded-yet wording (PR review).
     const w = mountStage(empty())
-    expect(w.get('.field-summary').text()).toBe(BASE.emptyMessage)
+    expect(w.get('.field-readout-text').text()).toBe(BASE.emptyMessage)
     expect(mapLabelOf(w)).toContain(BASE.emptyMessage)
     expect(mapLabelOf(w)).not.toContain('No data loaded yet')
   })
 
   it('shows no summary at all before any grid has loaded', () => {
-    expect(mountStage(loading()).find('.field-summary').exists()).toBe(false)
+    expect(mountStage(loading()).find('.field-readout-text').exists()).toBe(false)
   })
 
   it('shows the loading skeleton, and the error as an alert', async () => {
@@ -100,14 +100,14 @@ describe('FieldStage', () => {
       scale: CURRENT_SCALE,
       subject: 'Forecast current speed',
     })
-    expect(speeds.get('.field-summary').text()).toContain('about 12 ft/min')
+    expect(speeds.get('.field-readout-text').text()).toContain('about 12 ft/min')
 
     const decimals = mountStage(success(grid([0.42, 2.68])), {
       scale: CURRENT_SCALE,
       subject: 'Forecast wave height',
       digits: 1,
     })
-    expect(decimals.get('.field-summary').text()).toContain('about 0.4 ft/min')
+    expect(decimals.get('.field-readout-text').text()).toContain('about 0.4 ft/min')
   })
 
   it('renders the chrome slot for per-view extras', () => {

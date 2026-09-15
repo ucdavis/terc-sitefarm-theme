@@ -30,9 +30,18 @@ const display = computed(() => {
 })
 
 // Lake time, not viewer-local (TERC-43 display rule).
-const timeLabel = computed(() =>
-  props.timestamp ? `${fmtLakeTime(props.timestamp)} lake time` : null,
-)
+//
+// TERC-76: the visible stamp drops the words "lake time" and keeps the
+// date and time — "Sep 15, 9:00 AM". The words were what pushed this onto
+// a second line; they move into a visually-hidden span, and every section
+// heading above these cards still says "lake time" in full, so the timezone
+// is never left to inference.
+//
+// The DATE stays on purpose. A card can be showing a reading from nine days
+// ago (a silent station keeps its last reading, TERC-76), and a time-only
+// stamp would hide exactly that. Measured at the narrowest six-across
+// layout: 99-109px used of 151px available, so nowrap has room to spare.
+const timeShort = computed(() => (props.timestamp ? fmtLakeTime(props.timestamp) : null))
 </script>
 
 <template>
@@ -47,7 +56,9 @@ const timeLabel = computed(() =>
     <div v-else class="card-novalue">no data available</div>
     <div class="card-meta">
       <span v-if="stationName">{{ stationName }}</span>
-      <span v-if="timeLabel"> · {{ timeLabel }}</span>
+      <span v-if="timeShort" class="card-when">
+        · {{ timeShort }}<span class="card-sr-only"> lake time</span>
+      </span>
     </div>
     <div v-if="suspect && display !== null" class="suspect-note">
       {{ suspectNote ?? 'Outside expected range — shown as reported, flagged as suspect.' }}
@@ -93,14 +104,32 @@ const timeLabel = computed(() =>
 }
 .card-novalue {
   font-size: .875rem;
-  color: #7a8a92;
+  color: #5b6f7a;
   font-style: italic;
   padding: 6px 0;
 }
+/* #5b6f7a, not the old #7a8a92: that was 3.57:1 on white, under AA, and
+   this text just got smaller. 5.25:1 now. */
 .card-meta {
   margin-top: 6px;
-  font-size: .8125rem;
-  color: #7a8a92;
+  font-size: .75rem;
+  color: #5b6f7a;
+}
+/* One line, always: the stamp is short enough to fit now, and wrapping it
+   was what pushed these cards to two lines of metadata. */
+.card-when {
+  white-space: nowrap;
+}
+.card-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 .suspect {
   font-size: .9375rem;
