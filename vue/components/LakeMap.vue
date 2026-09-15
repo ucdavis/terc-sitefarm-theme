@@ -6,6 +6,7 @@ import { LAKE_CENTER, LAKE_DEFAULT_ZOOM, STATION_FOCUS_ZOOM, TILE_LAYERS, type B
 import { fmtLakeTime } from '../core/time'
 import { escapeHtml, MAP_ENGINE_INJECTION_KEY, type LatLng, type MapEngine, type MapEngineFactory } from '../map/engine'
 import { createLeafletEngine } from '../map/leafletEngine'
+import { destinationBounds } from '../map/destinationFraming'
 import type { OverviewMarker } from '../composables/useLakeOverview'
 
 /**
@@ -137,6 +138,10 @@ function drawDestinations() {
   }
 }
 
+function boundsKey(bounds: readonly [readonly [number, number], readonly [number, number]]): string {
+  return bounds.flat().join(',')
+}
+
 onMounted(() => {
   if (!container.value) return
   const factory = props.engineFactory ?? createLeafletEngine
@@ -159,7 +164,14 @@ onMounted(() => {
     interactive: !props.staticMap,
     // Fit the whole lake only when opening on the whole lake: a deep link
     // to a destination or station keeps its own framing.
-    fitBounds: props.fitLake && !focused && !preselected ? LAKE_GRID_BOUNDS : undefined,
+    // A destination opens framed on its own stations (TERC-74) — the
+    // per-destination zoom levels framed some places tighter than their
+    // own badge spread. The whole lake still fits the modeled-grid box.
+    fitBounds: preselected
+      ? destinationBounds(preselected, props.overviewMarkers ?? [])
+      : props.fitLake && !focused
+        ? LAKE_GRID_BOUNDS
+        : undefined,
   })
   drawDestinations()
   drawOverview()
@@ -224,7 +236,9 @@ const framingTarget = computed(() => {
   }
   if (props.selectedDestinationId) {
     const d = props.destinations.find((x) => x.id === props.selectedDestinationId)
-    return d ? { key: `destination:${d.id}`, center: [d.lat, d.lng] as LatLng, zoom: d.zoom } : { key: 'pending' }
+    if (!d) return { key: 'pending' }
+    const bounds = destinationBounds(d, props.overviewMarkers ?? [])
+    return { key: `destination:${d.id}:${boundsKey(bounds)}`, bounds }
   }
   return { key: 'lake' }
 })
@@ -233,7 +247,8 @@ watch(
   () => framingTarget.value.key,
   () => {
     const t = framingTarget.value
-    if (t.center) engine.value?.flyTo(t.center, t.zoom)
+    if ('bounds' in t && t.bounds) engine.value?.fitBounds(t.bounds)
+    else if ('center' in t && t.center) engine.value?.flyTo(t.center, t.zoom)
     // Selection cleared (no destination, no station) -> the whole lake.
     // A selection that has not resolved yet ('pending') leaves the view
     // alone until its entry arrives.

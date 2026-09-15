@@ -7,6 +7,7 @@ import { LAKE_CENTER, STATION_FOCUS_ZOOM } from '../../config/lakeView'
 import type { OverviewMarker } from '../../composables/useLakeOverview'
 import type { EngineInitOpts, LatLng, LatLngBounds, MapEngine } from '../../map/engine'
 import LakeMap from '../LakeMap.vue'
+import { destinationBounds } from '../../map/destinationFraming'
 
 /**
  * The interactive Real-Time map now frames the whole lake (fit-lake) in a
@@ -57,9 +58,11 @@ describe('LakeMap with fit-lake (interactive)', () => {
     mount(LakeMap, {
       props: { fitLake: true, engineFactory: factory, destinations: [homewood], selectedDestinationId: 'homewood' },
     })
-    expect(state.init?.fitBounds).toBeUndefined()
+    // TERC-74: a destination opens fitted to its own stations, not to the
+    // lake box and not at a hand-picked zoom.
+    expect(state.init?.fitBounds).toEqual(destinationBounds(homewood, []))
+    expect(state.init?.fitBounds).not.toEqual(LAKE_GRID_BOUNDS)
     expect(state.init?.center).toEqual([homewood.lat, homewood.lng])
-    expect(state.init?.zoom).toBe(13)
   })
 
   it('"Show whole lake" refits the lake box instead of flying to centre + zoom', async () => {
@@ -104,12 +107,14 @@ describe('LakeMap flies to a selection that resolves late', () => {
     expect(state.flights).toHaveLength(0)
 
     await w.setProps({ destinations: [homewood, siteOnly] })
-    expect(state.flights).toEqual([[siteOnly.lat, siteOnly.lng]])
-    expect(state.zooms).toEqual([14])
+    // TERC-74: it is framed on its stations, so the move is a fit, not a fly.
+    expect(state.fits[state.fits.length - 1]).toEqual(destinationBounds(siteOnly, []))
+    expect(state.flights).toHaveLength(0)
+    const fitsSoFar = state.fits.length
 
-    // A registry swap re-delivering the same destination must not re-fly.
+    // A registry swap re-delivering the same destination must not re-frame.
     await w.setProps({ destinations: [{ ...homewood }, { ...siteOnly }] })
-    expect(state.flights).toHaveLength(1)
+    expect(state.fits).toHaveLength(fitsSoFar)
 
     // Clearing still returns to the whole lake.
     await w.setProps({ selectedDestinationId: null })
@@ -130,5 +135,26 @@ describe('LakeMap flies to a selection that resolves late', () => {
     await w.setProps({ overviewMarkers: [marker({ waterTemp: 61 })] })
     await w.setProps({ overviewMarkers: [marker({ status: 'offline', waterTemp: null })] })
     expect(state.flights).toHaveLength(1)
+  })
+
+  it('refits a selected destination when reseeded marker coordinates change its bounds, but not for reading-only updates', async () => {
+    const seededDestination: DestinationDef = { ...siteOnly, stationIds: [12] }
+    const { state, factory } = makeFakeEngine()
+    const w = mount(LakeMap, {
+      props: {
+        engineFactory: factory,
+        destinations: [seededDestination],
+        selectedDestinationId: 'skunk-harbor',
+        overviewMarkers: [marker()],
+      },
+    })
+    expect(state.init?.fitBounds).toEqual(destinationBounds(seededDestination, [marker()]))
+
+    await w.setProps({ overviewMarkers: [marker({ waterTemp: 61 })] })
+    expect(state.fits).toHaveLength(0)
+
+    const movedMarker = marker({ lat: 39.09, lng: -119.92 })
+    await w.setProps({ overviewMarkers: [movedMarker] })
+    expect(state.fits[state.fits.length - 1]).toEqual(destinationBounds(seededDestination, [movedMarker]))
   })
 })

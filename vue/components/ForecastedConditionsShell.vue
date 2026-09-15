@@ -6,6 +6,7 @@ import EndpointDiagnostics from './EndpointDiagnostics.vue'
 import { enableRequestLog } from '../core/requestLog'
 import DateHourSelector from './DateHourSelector.vue'
 import SourceBadge from './SourceBadge.vue'
+import { mapWidthStyle } from '../config/mapWidth'
 import CurrentsView from './CurrentsView.vue'
 import ViewTabs, { type ViewTab } from './ViewTabs.vue'
 import WaterTemperatureView from './WaterTemperatureView.vue'
@@ -43,12 +44,15 @@ const props = withDefaults(
     waterTemperatureText?: string
     currentsText?: string
     waveHeightText?: string
+    /** Share of the row the map takes on wide screens (TERC-74). */
+    mapWidth?: string
   }>(),
   {
     showSources: true,
     debug: false,
     endpointDiagnostics: false,
     realTimePath: '/real-time-conditions',
+    mapWidth: 'third',
     introText:
       'Model-based forecasts of lake conditions, updated daily. Pick a date and hour — your selection follows you between views — or press “Next 24 h” to watch conditions evolve.',
     waterTemperatureText:
@@ -84,6 +88,7 @@ function asBool(v: boolean | number | string): boolean {
 const showSources = asBool(props.showSources)
 const showDiagnostics = asBool(props.debug)
 const showEndpoints = asBool(props.endpointDiagnostics)
+const mapWidthVars = mapWidthStyle(props.mapWidth)
 // Before any child mounts and starts fetching, so the first requests are logged too.
 if (showEndpoints) enableRequestLog()
 
@@ -170,7 +175,7 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
 </script>
 
 <template>
-  <section class="fc-shell">
+  <section class="fc-shell" :style="mapWidthVars">
     <header class="fc-head">
       <h2 class="fc-heading">{{ heading }}</h2>
       <SourceBadge

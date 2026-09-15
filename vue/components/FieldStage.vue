@@ -181,7 +181,11 @@ const mapLabel = computed(() => {
 @media (min-width: 900px) {
   .field-row {
     --field-map-height: 780px;
-    grid-template-columns: calc(480px + 16px + var(--field-legend-width)) minmax(0, 1fr);
+    /* TERC-74: floor keeps the map at 480px plus its colorbar; above that
+       the shell's --map-fr/--side-fr split the row. */
+    grid-template-columns:
+      minmax(calc(480px + 16px + var(--field-legend-width)), var(--map-fr, 1fr))
+      minmax(0, var(--side-fr, 2fr));
   }
   .field-map-col {
     position: sticky;
