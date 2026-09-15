@@ -57,7 +57,7 @@ const timeShort = computed(() => (props.timestamp ? fmtLakeTime(props.timestamp)
     <div class="card-meta">
       <span v-if="stationName">{{ stationName }}</span>
       <span v-if="timeShort" class="card-when">
-        · {{ timeShort }}<span class="card-sr-only"> lake time</span>
+        {{ timeShort }}<span class="card-sr-only"> lake time</span>
       </span>
     </div>
     <div v-if="suspect && display !== null" class="suspect-note">
