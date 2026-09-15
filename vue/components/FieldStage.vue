@@ -102,8 +102,14 @@ const mapLabel = computed(() => {
              safety text is editor-owned and arrives via the side slot. -->
         <div v-if="$slots.default" class="field-intro"><slot /></div>
 
-        <p v-if="summary" class="field-summary" aria-live="polite">{{ summary }}</p>
-        <p v-else-if="noFieldData" class="field-summary" aria-live="polite">{{ emptyMessage }}</p>
+        <!-- TERC-76: the forecast is the thing to read first, so it gets the
+             panel and the reading matter below it goes back to plain prose.
+             It used to be the other way round — bold body text above a
+             filled, bordered box — and the box won on area every time. -->
+        <div v-if="summary || noFieldData" class="field-readout">
+          <span class="field-readout-label">{{ subject }}</span>
+          <p class="field-readout-text" aria-live="polite">{{ summary ?? emptyMessage }}</p>
+        </div>
 
         <!-- Extra per-view chrome (e.g. the wind indicator on wave height). -->
         <slot name="chrome" />
@@ -130,9 +136,30 @@ const mapLabel = computed(() => {
   line-height: 1.5;
   max-width: 72ch;
 }
-.field-summary {
+/* TERC-76 readout card: panel plus a lake-blue rail, so the forecast reads
+   as a measurement rather than as another paragraph. */
+.field-readout {
+  padding: 0.85rem 1rem;
+  border: 1px solid #d5dde2;
+  border-left: 3px solid #1d5b68;
+  border-radius: 8px;
+  background: #f6f9fa;
+}
+.field-readout-label {
+  display: block;
+  font-size: 0.6875rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #5b6f7a;
+  margin-bottom: 0.3rem;
+}
+.field-readout-text {
   margin: 0;
+  font-size: 1.1875rem;
+  line-height: 1.32;
   font-weight: 600;
+  color: #22343c;
+  text-wrap: pretty;
 }
 /* Same numbers as the Real-Time map row (CurrentConditionsShell): one
    column and a 470px map on phones; from 900px a sticky map block — the

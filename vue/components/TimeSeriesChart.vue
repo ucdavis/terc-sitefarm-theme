@@ -64,7 +64,12 @@ function build() {
       plugins: {
         legend: {
           display: props.series.length > 1,
-          labels: { boxWidth: 14, boxHeight: 2, font: { size: 11 } },
+          // TERC-76: these entries are controls — clicking one takes that
+          // station off the chart — so they need to be readable and big
+          // enough to hit. Chart.js draws to canvas, so this is one of the
+          // few sizes that has to be a number in px rather than the theme
+          // rem scale.
+          labels: { boxWidth: 18, boxHeight: 3, padding: 12, font: { size: 14 } },
         },
         tooltip: {
           callbacks: {

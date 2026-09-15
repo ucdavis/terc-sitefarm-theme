@@ -43,12 +43,24 @@ const props = withDefaults(
     waterTemperatureText?: string
     currentsText?: string
     waveHeightText?: string
+    /**
+     * Optional safety note (TERC-76), shown under the reading matter in the
+     * amber treatment Plan Your Day already uses for cold-water shock.
+     *
+     * Empty by default ON PURPOSE. The shipped view copy already carries the
+     * cold-water-shock sentences inside its own text, and sites that saved
+     * that copy still hold them, so a default here would print the warning
+     * twice. An editor opts in by moving those sentences out of the view
+     * text and into this field.
+     */
+    safetyText?: string
   }>(),
   {
     showSources: true,
     debug: false,
     endpointDiagnostics: false,
     realTimePath: '/real-time-conditions',
+    safetyText: '',
     introText:
       'Model-based forecasts of lake conditions, updated daily. Pick a date and hour — your selection follows you between views — or press “Next 24 h” to watch conditions evolve.',
     waterTemperatureText:
@@ -84,6 +96,7 @@ function asBool(v: boolean | number | string): boolean {
 const showSources = asBool(props.showSources)
 const showDiagnostics = asBool(props.debug)
 const showEndpoints = asBool(props.endpointDiagnostics)
+const safetyParagraphs = computed(() => paragraphs(props.safetyText))
 // Before any child mounts and starts fetching, so the first requests are logged too.
 if (showEndpoints) enableRequestLog()
 
@@ -228,6 +241,7 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
           >
             <p v-for="(p, i) in viewTexts[v.key]" :key="i">{{ p }}</p>
           </aside>
+          <p v-for="(line, i) in safetyParagraphs" :key="`s${i}`" class="fc-safety">{{ line }}</p>
         </template>
       </component>
     </div>
@@ -305,12 +319,25 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
   gap: 4px;
   min-width: 0;
 }
+/* TERC-76: the reading matter is context, not the headline — the forecast
+   readout above it owns the panel now. Plain prose, one step down in
+   weight, so the two are not competing for the same attention. */
 .fc-panel-aside {
-  padding: 0.9rem 1.1rem;
-  border: 1px solid #d5dde2;
-  border-radius: 8px;
-  background: #f6f9fa;
-  color: #22343c;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #5b6f7a;
+  font-size: 0.9375rem;
+}
+/* Same amber as Plan Your Day cold-water note, so the two pages agree. */
+.fc-safety {
+  margin: 0.85rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #8c4f17;
+  background: #fdf3e0;
+  border-radius: 4px;
+  padding: 0.5rem 0.6rem;
 }
 .fc-panel-aside p {
   margin: 0 0 0.75rem;

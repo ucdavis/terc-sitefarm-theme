@@ -224,7 +224,7 @@ describe('PlanYourDayView', () => {
     expect(w2.find('.pyd-retry').exists()).toBe(false)
   })
 
-  it('an empty recent window is "no data", dated by the last reading it can find — never an endless skeleton', async () => {
+  it('a silent station keeps its last reading on screen, dated, with a note — never an endless skeleton', async () => {
     // Last 24 h: nothing. 30-day lookback: the station\'s last reading.
     const lastSeen = new Date('2026-09-02T19:40:00Z') // 12:40 lake time (PDT)
     metStation.mockImplementation((start: Date, end: Date) =>
@@ -237,9 +237,13 @@ describe('PlanYourDayView', () => {
     const w = mount(PlanYourDayView)
     await flushPromises()
     expect(w.find('.skeleton').exists()).toBe(false)
-    expect(w.text()).toContain('No lake weather in the last 24 hours')
-    expect(w.text()).toContain('last reported Sep 2, 12:40 PM lake time')
-    expect(w.find('.pyd-retry').exists()).toBe(false) // empty is not an error
+    // TERC-76: the cards stay. Replacing them with a sentence threw away
+    // numbers the visitor could already see, and the swap was jarring.
+    expect(w.text()).toContain('70') // air temperature still on screen
+    expect(w.text()).toContain('3') // wind still on screen
+    expect(w.text()).toContain('has not reported since Sep 2, 12:40 PM lake time')
+    expect(w.text()).not.toContain('No lake weather in the last 24 hours')
+    expect(w.find('.pyd-retry').exists()).toBe(false) // silent is not an error
 
     metStation.mockResolvedValue([])
     const w2 = mount(PlanYourDayView)

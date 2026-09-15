@@ -53,6 +53,14 @@ configuration:
       Forecasted water movement across the lake, including the gyres and rip currents that matter to swimmers and paddleboarders.
 
       Lake Tahoe's water is always moving. Large, slow gyres circulate the whole lake, and wind pushes surface water toward shore where it returns as fast, narrow outflows, the same rip currents that catch swimmers and paddleboarders off guard. Fast water is invisible from the beach: check here before you go in, stay close to shore, and wear a life vest on any craft.
+  # TERC-76. Deliberately EMPTY by default: the view texts above already
+  # carry the cold-water-shock sentences, and sites that saved that copy
+  # still hold them, so a default here would print the warning twice.
+  safetyText:
+    type: textarea
+    title: "Safety note"
+    description: "Shown under the view description in a highlighted box, on every view. Leave empty unless you have moved the safety sentences out of the descriptions above — otherwise the warning appears twice."
+    default_value: ""
   waveHeightText:
     type: textarea
     title: 'Wave Height description'

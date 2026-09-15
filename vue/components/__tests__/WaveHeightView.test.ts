@@ -115,7 +115,7 @@ describe('WaveHeightView', () => {
     state.value = empty()
     const w = mountView()
     await w.vm.$nextTick()
-    expect(w.get('.field-summary').text()).toContain('No wind forecast covers this hour')
+    expect(w.get('.field-readout-text').text()).toContain('No wind forecast covers this hour')
     expect(w.find('.wv-wind').exists()).toBe(false)
   })
 
@@ -126,7 +126,7 @@ describe('WaveHeightView', () => {
     state.value = success(grid([0.42, 2.68]))
     const w = mountView()
     await w.vm.$nextTick()
-    const text = w.get('.field-summary').text()
+    const text = w.get('.field-readout-text').text()
     expect(text).toContain('Forecast wave height ranges from about 0.4 ft')
     expect(text).toContain('to about 2.7 ft')
   })

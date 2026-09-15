@@ -48,7 +48,7 @@ describe('WaterTemperatureView', () => {
     fieldState.value = success(grid([51.6, NaN, 68.4]))
     const w = mountView()
     await w.vm.$nextTick()
-    const text = w.get('.field-summary').text()
+    const text = w.get('.field-readout-text').text()
     expect(text).toContain('Forecast surface temperature')
     expect(text).toContain('°F')
   })

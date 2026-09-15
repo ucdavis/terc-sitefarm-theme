@@ -47,7 +47,7 @@ describe('CurrentsView', () => {
     fieldState.value = success(grid([8.2, NaN, 74.9]))
     const w = mountView()
     await w.vm.$nextTick()
-    const text = w.get('.field-summary').text()
+    const text = w.get('.field-readout-text').text()
     expect(text).toContain('Forecast current speed ranges from about 8 ft/min')
     expect(text).toContain('to about 75 ft/min')
     expect(text).toMatch(/shore|end of the lake/)

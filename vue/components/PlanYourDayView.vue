@@ -4,6 +4,8 @@ import StationCard from './StationCard.vue'
 import LoadingState from './LoadingState.vue'
 import { useConditionsState } from '../composables/useConditionsState'
 import { useDestinationData } from '../composables/useDestinationData'
+import type { DestinationDef } from '../config/destinations'
+import { LAKE_CENTER, LAKE_DEFAULT_ZOOM } from '../config/lakeView'
 import { useFocusedStation } from '../composables/useFocusedStation'
 import {
   reportingDestinationNames as reportingDestinations,
@@ -37,9 +39,45 @@ import { assessMetric, COLD_WATER_SHOCK_NOTE } from '../config/qualitative'
  * nothing else loads.
  */
 const { destination, focusedStation, clearSelection, registry } = useConditionsState()
-const { slots, buoySlots, homewoodState } = useDestinationData(destination)
 const { nearshoreState, buoyState } = useFocusedStation()
 const { markers } = useLakeOverview()
+
+/**
+ * Whole-lake view: every station the map is showing (TERC-76).
+ *
+ * With nothing selected this view used to render no cards at all, while the
+ * map beside it showed the whole sensor network — the panel looked broken.
+ * The map badges have already requested these exact URLs over this exact
+ * window, so the cards join those in-flight requests instead of adding any.
+ *
+ * The id carries the membership because markers arrive progressively: a
+ * stable id would pin the card list to whichever stations had appeared by
+ * the first load.
+ */
+const allLakeDestination = computed<DestinationDef | null>(() => {
+  const ms = markers.value
+  if (!ms.length) return null
+  const stationIds = ms.filter((m) => m.kind === 'nearshore').map((m) => m.sourceId)
+  const buoyIds = ms.filter((m) => m.kind === 'buoy').map((m) => m.sourceId)
+  return {
+    id: `__all-lake:${stationIds.join(',')}|${buoyIds.join(',')}`,
+    name: 'All stations',
+    lat: LAKE_CENTER[0],
+    lng: LAKE_CENTER[1],
+    zoom: LAKE_DEFAULT_ZOOM,
+    stationIds,
+    buoyIds,
+    includesHomewood: ms.some((m) => m.kind === 'homewood'),
+  }
+})
+/** A chosen place is what the visitor is looking at; the lake survey is not. */
+const cardDestination = computed(() => destination.value ?? allLakeDestination.value)
+const cardPriority = computed<'high' | 'low'>(() => (destination.value ? 'high' : 'low'))
+/** Names what the empty state is empty OF — a place, or the whole lake. */
+const emptyScopeLabel = computed(() =>
+  destination.value ? `for ${destination.value.name}` : 'from any station on the lake',
+)
+const { slots, buoySlots, homewoodState } = useDestinationData(cardDestination, ref(2), cardPriority)
 
 /**
  * "Show more data" — always starts collapsed (TERC-73).
@@ -173,7 +211,16 @@ const reportingDestinationNames = computed(() =>
 type MetState =
   | { kind: 'loading' }
   | { kind: 'ready'; record: MetRecord }
-  | { kind: 'empty'; lastSeen: Date | null }
+  /**
+   * The station is reporting nothing recent, but we know what it last said
+   * (TERC-76). The reading stays on screen with a note underneath rather
+   * than the cards being replaced by a sentence — dropping them threw away
+   * data the visitor could already see, and the swap was jarring. Honest
+   * because each card carries its own timestamp and the note names the date.
+   */
+  | { kind: 'silent'; record: MetRecord; lastSeen: Date }
+  /** Nothing at all, as far back as we looked. */
+  | { kind: 'empty' }
   | { kind: 'failed'; reason: 'error' | 'timeout' }
   /** The last reading we ever fetched, shown while the live request is queued (TERC-70). */
   | { kind: 'stale'; record: MetRecord; storedAt: Date; refreshing: boolean; reason: 'error' | 'timeout' | null }
@@ -216,18 +263,23 @@ async function loadMet(): Promise<void> {
     }
     // Nothing in the last day: find the last time it did report, so the
     // message carries a date instead of a shrug.
-    let lastSeen: Date | null = null
+    // The lookback already fetches the record itself — keep it, so the
+    // cards can stay on screen instead of being replaced by a sentence
+    // saying the same thing with the numbers removed.
+    let lastRecord: MetRecord | null = null
     for (const days of MET_LOOKBACK_DAYS) {
       const farStart = new Date(end)
       farStart.setDate(farStart.getDate() - days)
       const older = latestRecord(await withTimeout(fetchMetStation(farStart, end, { priority: 'high' }), MET_TIMEOUT_MS))
       if (gen !== metGeneration) return
       if (older) {
-        lastSeen = older.time
+        lastRecord = older
         break
       }
     }
-    metState.value = { kind: 'empty', lastSeen }
+    metState.value = lastRecord
+      ? { kind: 'silent', record: lastRecord, lastSeen: lastRecord.time }
+      : { kind: 'empty' }
   } catch (err) {
     if (gen !== metGeneration) return
     const reason = err instanceof TimeoutError ? 'timeout' : 'error'
@@ -244,9 +296,10 @@ async function loadMet(): Promise<void> {
 }
 onMounted(loadMet)
 
-const met = computed(() =>
-  metState.value.kind === 'ready' || metState.value.kind === 'stale' ? metState.value.record : null,
-)
+const met = computed(() => {
+  const st = metState.value
+  return st.kind === 'ready' || st.kind === 'stale' || st.kind === 'silent' ? st.record : null
+})
 /** Quiet freshness line under the lake-weather cards (TERC-70). */
 const metFreshness = computed(() => {
   const st = metState.value
@@ -257,15 +310,18 @@ const metFreshness = computed(() => {
       ? `Showing the reading fetched ${when} — no answer from the met station after ${MET_TIMEOUT_MS / 1000} seconds.`
       : `Showing the reading fetched ${when} — the met station request failed.`
   }
+  if (st.kind === 'silent') {
+    return `The USCG met station has not reported since ${fmtLakeTime(st.lastSeen)} lake time — showing its last reading.`
+  }
   if (st.kind === 'ready' && metCheckedAt.value) return `Checked ${fmtLakeTime(metCheckedAt.value)} lake time`
   return null
 })
 const metMessage = computed(() => {
   const st = metState.value
+  // A silent station keeps its cards and carries its note in metFreshness
+  // instead — only a station we have never heard from falls back to prose.
   if (st.kind === 'empty') {
-    return st.lastSeen
-      ? `No lake weather in the last 24 hours — the USCG met station last reported ${fmtLakeTime(st.lastSeen)} lake time.`
-      : `No lake weather from the USCG met station in the last ${MET_LOOKBACK_DAYS[MET_LOOKBACK_DAYS.length - 1]} days.`
+    return `No lake weather from the USCG met station in the last ${MET_LOOKBACK_DAYS[MET_LOOKBACK_DAYS.length - 1]} days.`
   }
   if (st.kind === 'failed') {
     return st.reason === 'timeout'
@@ -293,6 +349,41 @@ const metMessage = computed(() => {
     </div>
 
     <p class="pyd-cold-note">{{ COLD_WATER_SHOCK_NOTE }}</p>
+
+    <!-- TERC-76: lake weather first. It is lake-wide context and applies to
+         every station below it, so it reads better before the per-station
+         detail rather than stranded underneath it. -->
+    <section class="pyd-met">
+      <h4 class="pyd-station-head">Lake weather <span class="pyd-met-src">USCG met station</span></h4>
+      <div v-if="met" class="pyd-grid">
+        <StationCard
+          label="Air temperature"
+          :value="met.airTemp"
+          unit="°F"
+          :timestamp="met.time"
+          :suspect="met.airTemp !== null && !isPlausible('airTempC', ((met.airTemp - 32) * 5) / 9)"
+          :assessment="assessMetric('airTemp', met.airTemp)"
+        />
+        <StationCard label="Wind" :value="met.windSpeed" unit="mph"
+          :timestamp="met.time" :assessment="assessMetric('windSpeed', met.windSpeed)" />
+      </div>
+      <p
+        v-if="met && metFreshness"
+        class="pyd-freshness"
+        :class="{ 'pyd-freshness--stale': (metState.kind === 'stale' && !metState.refreshing) || metState.kind === 'silent' }"
+        role="status"
+      >
+        {{ metFreshness }}
+        <!-- Only a failed refresh offers a retry. A silent station is not an
+             error and retrying will not wake it. -->
+        <button v-if="metState.kind === 'stale' && !metState.refreshing" type="button" class="pyd-retry" @click="loadMet">Try again</button>
+      </p>
+      <div v-else-if="metMessage" class="pyd-met-state" role="status">
+        <p class="pyd-note pyd-met-msg">{{ metMessage }}</p>
+        <button v-if="metState.kind === 'failed'" type="button" class="pyd-retry" @click="loadMet">Try again</button>
+      </div>
+      <LoadingState v-else :lines="2" />
+    </section>
 
     <!-- A single station clicked on the map takes precedence over areas. -->
     <div v-if="focusedStation" class="pyd-focus">
@@ -342,10 +433,9 @@ const metMessage = computed(() => {
       </div>
     </div>
 
-    <!-- Whole lake, nothing selected: the welcome now sits beside the map in
-         the shell (TERC-9 follow-up); this view has nothing to add. -->
-    <template v-else-if="!destination" />
-
+    <!-- Whole lake or a chosen destination: both render station cards
+         (TERC-76). With nothing selected this used to render nothing, so the
+         panel sat empty beside a map full of stations. -->
     <template v-else>
       <template v-if="reportingStations.length || reportingBuoys.length">
         <template v-for="st in reportingStations" :key="st.name">
@@ -383,14 +473,14 @@ const metMessage = computed(() => {
       </p>
       <LoadingState v-else-if="anyLoading" :lines="3" />
       <div v-else class="pyd-panel">
-        <strong>No station data available for {{ destination.name }}.</strong>
+        <strong>No station data available {{ emptyScopeLabel }}.</strong>
         <p>This is a normal state — several stations are under maintenance. Stations checked:</p>
         <ul class="pyd-status-list">
           <li v-for="s in slots" :key="s.stationId">
             {{ s.configName }} —
             {{ s.state.status === 'empty' ? 'no data available' : s.state.status }}
           </li>
-          <li v-if="destination.includesHomewood">
+          <li v-if="cardDestination?.includesHomewood">
             Homewood TC —
             {{ homewoodState.status === 'empty' ? 'no data available' : homewoodState.status }}
           </li>
@@ -401,31 +491,6 @@ const metMessage = computed(() => {
         </p>
       </div>
     </template>
-
-    <section class="pyd-met">
-      <h4 class="pyd-station-head">Lake weather <span class="pyd-met-src">USCG met station</span></h4>
-      <div v-if="met" class="pyd-grid">
-        <StationCard
-          label="Air temperature"
-          :value="met.airTemp"
-          unit="°F"
-          :timestamp="met.time"
-          :suspect="met.airTemp !== null && !isPlausible('airTempC', ((met.airTemp - 32) * 5) / 9)"
-          :assessment="assessMetric('airTemp', met.airTemp)"
-        />
-        <StationCard label="Wind" :value="met.windSpeed" unit="mph"
-          :timestamp="met.time" :assessment="assessMetric('windSpeed', met.windSpeed)" />
-      </div>
-      <p v-if="met && metFreshness" class="pyd-freshness" :class="{ 'pyd-freshness--stale': metState.kind === 'stale' && !metState.refreshing }" role="status">
-        {{ metFreshness }}
-        <button v-if="metState.kind === 'stale' && !metState.refreshing" type="button" class="pyd-retry" @click="loadMet">Try again</button>
-      </p>
-      <div v-else-if="metMessage" class="pyd-met-state" role="status">
-        <p class="pyd-note pyd-met-msg">{{ metMessage }}</p>
-        <button v-if="metState.kind === 'failed'" type="button" class="pyd-retry" @click="loadMet">Try again</button>
-      </div>
-      <LoadingState v-else :lines="2" />
-    </section>
   </div>
 </template>
 
