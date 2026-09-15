@@ -58,6 +58,49 @@ Open questions for TERC staff:
 6. Where exactly is the Tahoe City station? TERC's own production app puts
    it 479 m inland, so that value cannot be right.
 
+## Station status, confirmed by TERC (scientist email, Sep 2026)
+
+A TERC scientist answered the station roll-call. This supersedes everything we
+had inferred about status, and settles the naming question outright.
+
+**Names.** "My recollection is that the API returns data based on station
+name" — and every name he lists matches `/report/ns-stations` exactly, with
+zero mismatches. The API's `Station_Name` values are the public-facing names.
+He flagged that Camp Richardson, Cedar Point and Glenbrook were *missing* from
+the roll-call we sent him: those were our placeholders "NS Station 10",
+"NS Station 3" and (already named) Cedar Point. **He does not recognise
+stations by id, only by name — never send him an id-keyed question.**
+
+**Count.** He states there are **10 live NS sites** but names nine. The tenth
+is **Rubicon**, which is reporting live. He does not mention **Cascade**
+(last reading 2017, and on Cascade Lake) or **Meeks** (last reading 2020) at
+all; both look decommissioned.
+
+| station | scientist's status | last reading |
+|---------|--------------------|--------------|
+| Dollar Point | working | live |
+| Homewood | working | live |
+| Tahoe Vista | working | live |
+| Rubicon | *(absent from his list; it is the tenth live site)* | live |
+| Sand Harbor | removed for construction; redeploy in the fall | transmitting, water fields null |
+| Timber Cove | in-water sensors out of the water; "any data that comes through is just atmospheric pressure" | transmitting, water fields null |
+| Cedar Point | damaged/out of lake | transmitting, water fields null |
+| Camp Richardson | damaged/out of lake | 2025-04-22 |
+| Tahoe City | damaged; awaiting sensor from manufacturer | 2026-01-16 |
+| Glenbrook | "thought it was working, but it seems something happened" | 2022-08-26 |
+| Homewood TC | chain (temps at depth + DO at bottom + pressure), own table; out of the water, damaged | 2026-04 |
+| USCG met, NASA TB2 | not his to answer — referred on, no reply yet | — |
+
+**Correction to our own earlier note:** Camp Richardson last reported
+2025-04-22, so "never observed 2024–2026" was wrong.
+
+**A trap worth naming.** Three stations the scientist calls out-of-lake are
+still transmitting. Their rows carry null in every water field (and
+`Depth_m4C_Avg` null), so they render correctly as "no data available" — but
+**a live row is not proof a sensor is wet.** The stations that are genuinely in
+the water all report `Depth_m4C_Avg` of 1.4–2.0 m; the out-of-lake ones report
+none. That is the signal to trust.
+
 ## Coordinates (TERC-79, 2026-09-15)
 
 **The report API has none.** Not "we could not find them" — each

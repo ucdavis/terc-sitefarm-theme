@@ -6,12 +6,29 @@
  * the API states its own id→name mapping, and it corrected four of ours:
  * ids 1, 3, 5 and 10 were placeholders ("NS Station N") and are really
  * Cascade, Glenbrook, Meeks and Camp Richardson.
- *   active now:  2 Dollar Point, 4 Homewood, 6 Rubicon, 7 Sand Harbor,
- *                8 Tahoe Vista, 11 Timber Cove, 12 Cedar Point
- *   dormant:     9 Tahoe City (last seen Jan 2026)
- *   never seen:  1 Cascade, 3 Glenbrook, 5 Meeks, 10 Camp Richardson
- *                (empty in every window probed 2024–2026);
- *                ids 13+ are not in the API's id space.
+ * STATUS comes from a TERC scientist's email (Sep 2026) answering the station
+ * roll-call, and it supersedes what we had inferred. He also confirms these
+ * names are the ones to show the public — "the API returns data based on
+ * station name" — and every name he lists matches the roster exactly. He does
+ * NOT recognise stations by id, only by name.
+ *   in the lake, working:  2 Dollar Point, 4 Homewood, 8 Tahoe Vista,
+ *                          6 Rubicon (absent from his list of nine, but he
+ *                          states there are ten live sites — this is the tenth)
+ *   damaged / out of lake: 7 Sand Harbor (removed for construction, redeploy
+ *                          in the fall), 9 Tahoe City (awaiting a sensor from
+ *                          the manufacturer), 10 Camp Richardson,
+ *                          11 Timber Cove, 12 Cedar Point
+ *   failing:               3 Glenbrook ("thought it was working, but it seems
+ *                          something happened"); last reading Aug 2022
+ *   not in his list:       1 Cascade (last reading 2017, and on Cascade Lake,
+ *                          not Tahoe), 5 Meeks (last reading 2020) — both
+ *                          look decommissioned. ids 13+ are not in the id space.
+ *
+ * Several "out of lake" stations STILL TRANSMIT: Sand Harbor, Timber Cove and
+ * Cedar Point send rows whose every water field is null — barometric pressure
+ * only, as he puts it, "any data that comes through is just atmospheric
+ * pressure". That reads correctly as "no data available"; do not mistake the
+ * rows for readings, and do not treat a live row as proof a sensor is wet.
  * tc-homewood (separate endpoint, no id) last reported Apr 2026 — it is a
  * real station, distinct from ns id 4 "Homewood".
  *
@@ -73,18 +90,24 @@ export const NEARSHORE_STATIONS: StationDef[] = [
   // geocoded. Best effort — needs TERC confirmation.
   { id: 5, name: 'Meeks', lat: 39.03762, lng: -120.12116, verified: false },
   { id: 6, name: 'Rubicon', lat: 39.01032, lng: -120.11319, verified: true },
-  // Sand Harbor: NV east shore. Dark since Q4 2024.
+  // Sand Harbor: NV east shore. Removed for CONSTRUCTION at the site;
+  // redeploy planned for the fall. Still transmitting, water fields null.
   { id: 7, name: 'Sand Harbor', lat: 39.20060, lng: -119.93100, verified: true },
   { id: 8, name: 'Tahoe Vista', lat: 39.23640, lng: -120.06500, verified: true },
-  // Tahoe City: NW shore. BOTH sources put this one on land, 2.1 km apart —
+  // Tahoe City: NW shore. Damaged, awaiting a sensor from the manufacturer.
+  // BOTH coordinate sources put this one on land, 2.1 km apart —
   // the app 479 m inland, the legacy table 248 m inland and 1.9 km from the
   // village (200 m from the Cedar Point station, and that table has no Cedar
   // Point row, so it looks like a mix-up). Derived instead from the OSM
   // village centre, nearest open water. Needs TERC. Last seen Jan 2026.
   { id: 9, name: 'Tahoe City', lat: 39.16858, lng: -120.14117, verified: false },
-  // Camp Richardson: south shore. Was "NS Station 10" at 38.99,-120.105.
+  // Camp Richardson: south shore. Damaged/out of lake. Last reading
+  // 2025-04-22 — NOT "never observed 2024-2026" as we had recorded.
+  // Was "NS Station 10" at 38.99,-120.105, 880 m inland.
   { id: 10, name: 'Camp Richardson', lat: 38.93940, lng: -120.03900, verified: true },
-  // Timber Cove: South Lake Tahoe pier area. Actively reporting. The legacy
+  // Timber Cove: South Lake Tahoe pier area. In-water sensors are OUT of the
+  // water (damage) — transmits, but the water fields are null. Also drops for
+  // a day or two when the cell network is busy, mostly holidays. The legacy
   // value is 77 m inland and the app's is 292 m out — far for a dock sensor —
   // so this is derived from the Timber Cove Lodge pier, 72 m offshore.
   { id: 11, name: 'Timber Cove', lat: 38.94770, lng: -119.96813, verified: true },

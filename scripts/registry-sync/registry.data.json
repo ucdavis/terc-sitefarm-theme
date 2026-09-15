@@ -11,7 +11,7 @@
       "lng": -120.09191,
       "verified": false,
       "source": "geocoded (OSM) — Cascade Lake",
-      "note": "ON CASCADE LAKE, not Lake Tahoe — TERC's nearshore page says the network is 10 Tahoe stations plus one on Cascade Lake. Never observed 2024-2026; absent from TERC's own production station list."
+      "note": "NOT in the scientist's site list; last reading 2017-11-20. On CASCADE LAKE, not Lake Tahoe — TERC's nearshore page describes the network as ten Tahoe stations plus one on Cascade Lake. Looks decommissioned; position geocoded."
     },
     {
       "family": "nearshore_station",
@@ -21,7 +21,7 @@
       "lng": -120.09300,
       "verified": false,
       "source": "legacy table (app value is 542 m offshore, vs 2.0 m reported depth)",
-      "note": "Legacy value, 83 m offshore. The production app's 39.1947,-120.089 is 542 m out, which does not square with the 2.0 m depth this station reports."
+      "note": "WORKING (scientist, Sep 2026). Legacy coordinate, 83 m offshore. The production app's 39.1947,-120.089 is 542 m out, which does not square with the 2.0 m depth this station reports."
     },
     {
       "family": "nearshore_station",
@@ -31,7 +31,7 @@
       "lng": -119.94100,
       "verified": false,
       "source": "TERC production app",
-      "note": "EAST shore. Was 'NS Station 3' at 38.933,-120.025 — 19 km away on the south-west shore."
+      "note": "Scientist: 'thought it was working, but it seems something happened'. Last reading 2022-08-26. EAST shore — was 'NS Station 3' at 38.933,-120.025, 19 km away on the south-west."
     },
     {
       "family": "nearshore_station",
@@ -41,7 +41,7 @@
       "lng": -120.16100,
       "verified": false,
       "source": "legacy table (app value is 1.1 km north)",
-      "note": "Legacy value, 12 m offshore, matching its 2.0 m reported depth. Sits exactly on the 39.09 N midline the half-lake destinations split on — counted as north."
+      "note": "WORKING (scientist, Sep 2026). Legacy coordinate, 12 m offshore, matching its 2.0 m reported depth. Sits exactly on the 39.09 N midline the half-lake destinations split on — counted as north."
     },
     {
       "family": "nearshore_station",
@@ -51,7 +51,7 @@
       "lng": -120.12116,
       "verified": false,
       "source": "geocoded (OSM) + moved offshore",
-      "note": "Never observed 2024-2026; absent from TERC's own production station list. Position is Meeks Bay, 72 m offshore — best effort, needs TERC confirmation."
+      "note": "NOT in the scientist's site list; last reading 2020-10-22. Looks decommissioned. Position is Meeks Bay, 72 m offshore — geocoded best effort, unconfirmed."
     },
     {
       "family": "nearshore_station",
@@ -60,7 +60,8 @@
       "lat": 39.01032,
       "lng": -120.11319,
       "verified": false,
-      "source": "TERC production app"
+      "source": "TERC production app",
+      "note": "Reporting live. Absent from the scientist's list of 9, but he states there are 10 live NS sites — Rubicon is the tenth. Sits on the pier, which is why OSM tiles render its pixel as land."
     },
     {
       "family": "nearshore_station",
@@ -70,7 +71,7 @@
       "lng": -119.93100,
       "verified": false,
       "source": "TERC production app",
-      "note": "dark since Q4 2024"
+      "note": "Scientist: removed due to CONSTRUCTION at its location; redeploy planned for the fall. Still transmitting rows, but every water field is null — barometric only. (Our old note said 'dark since Q4 2024'; it is transmitting, just not water data.)"
     },
     {
       "family": "nearshore_station",
@@ -79,7 +80,8 @@
       "lat": 39.23640,
       "lng": -120.06500,
       "verified": false,
-      "source": "TERC production app"
+      "source": "TERC production app",
+      "note": "WORKING (scientist, Sep 2026)."
     },
     {
       "family": "nearshore_station",
@@ -89,7 +91,7 @@
       "lng": -120.14117,
       "verified": false,
       "source": "derived — BOTH sources on dry land, 2.1 km apart",
-      "note": "BOTH sources put this on land: the app 479 m inland, the legacy table 248 m inland and 1.9 km from the village (200 m from the Cedar Point station — and that table has no Cedar Point row, so it looks like a mix-up). Derived from the OSM village centre, 73 m offshore. Needs TERC. Last seen Jan 2026."
+      "note": "Scientist: damaged/out of lake, awaiting a new sensor from the manufacturer. Last reading 2026-01-16. BOTH coordinate sources put this on land, 2.1 km apart — derived from the OSM village centre, 73 m offshore. Needs TERC."
     },
     {
       "family": "nearshore_station",
@@ -99,7 +101,7 @@
       "lng": -120.03900,
       "verified": false,
       "source": "TERC production app",
-      "note": "Was 'NS Station 10' at 38.99,-120.105 — 880 m inland, 7 km north-west."
+      "note": "Scientist: damaged/out of lake. Last reading 2025-04-22 — so NOT 'never observed 2024-2026' as we previously recorded. Was 'NS Station 10' at 38.99,-120.105, 880 m inland and 7 km north-west."
     },
     {
       "family": "nearshore_station",
@@ -109,7 +111,7 @@
       "lng": -119.96813,
       "verified": false,
       "source": "derived from the Timber Cove Lodge pier — legacy inland, app 292 m out",
-      "note": "Legacy value is 77 m inland; the app's is 292 m offshore, far for a dock sensor. Derived from the Timber Cove Lodge pier, 72 m offshore."
+      "note": "Scientist: in-water sensors are OUT OF THE WATER due to damage — 'any data that comes through is just atmospheric pressure'. Also drops out for a day or two when the cellular network is busy, mostly over holidays. Water fields are currently all null. Derived from the Timber Cove Lodge pier, 72 m offshore."
     },
     {
       "family": "nearshore_station",
@@ -119,7 +121,7 @@
       "lng": -120.14224,
       "verified": false,
       "source": "TERC production app",
-      "note": "WEST shore, between Tahoe City and Homewood. The old placeholder put it at 39.225,-119.93 on the east shore, which is why it had been grouped under the Glenbrook destination."
+      "note": "Scientist: damaged/out of lake ('possible that the site is experiencing issues'). Still transmitting, water fields all null. WEST shore, between Tahoe City and Homewood — the old placeholder put it on the east shore, which is why it had been grouped under the Glenbrook destination."
     },
     {
       "family": "met_station",
@@ -128,7 +130,8 @@
       "lat": 39.18060,
       "lng": -120.11920,
       "verified": false,
-      "source": "TERC production app"
+      "source": "TERC production app",
+      "note": "Status unknown — the nearshore scientist does not control the met stations or their API calls; referred to another scientist, no answer yet."
     },
     {
       "family": "nasa_buoy",
@@ -146,7 +149,8 @@
       "lat": 39.10970,
       "lng": -120.00800,
       "verified": false,
-      "source": "TERC production app"
+      "source": "TERC production app",
+      "note": "Silent since 2026-08-12. Status unknown — referred to another scientist, no answer yet."
     },
     {
       "family": "nasa_buoy",
@@ -174,7 +178,7 @@
       "lng": -120.15092,
       "verified": false,
       "source": "TERC production app",
-      "note": "id-less endpoint; thermistor chain, 584 m offshore — deeper water than the dock-mounted nearshore sensors, which is expected. Last seen Apr 2026."
+      "note": "Id-less endpoint. Scientist: a CHAIN with temperature sensors at several depths, a dissolved-oxygen sensor at the bottom and a pressure sensor — its own table, separate from the nearshore stations. Currently OUT OF THE WATER due to damage. 584 m offshore, deeper water than the dock-mounted sensors, as expected."
     }
   ],
   "_destinations_comment": "Station membership recomputed in TERC-79 by nearest destination, using the corrected coordinates. Two groupings had been artefacts of wrong coordinates: 'glenbrook' held station 12 (Cedar Point, actually WEST shore) instead of station 3 (Glenbrook, 0.1 km away), and 'tahoe-keys' held station 3. The half-lake destinations keep the documented rule — split at 39.09 N, the lake's E-W midline. Note Glenbrook (39.08830) falls 0.2 km SOUTH of that line, so it groups with South Lake Tahoe by the rule.",
@@ -273,5 +277,6 @@
       ]
     }
   ],
-  "_tiebreaker": "The app and the legacy table disagree by up to 2.1 km. Tiebreaker: every station that reports a depth reports 1.4-2.0 m (Depth_m4C_Avg), i.e. sensors on private docks in shallow water. So where sources conflict, take the in-water candidate CLOSEST to shore and reject any candidate on land. Result: every nearshore station now sits 12-134 m offshore. Disagreements still worth TERC's confirmation: Dollar Point (sources 1232 m apart), Homewood (1139 m), Rubicon (516 m), Timber Cove (374 m), Tahoe City (2111 m, and BOTH sources are on dry land)."
+  "_tiebreaker": "The app and the legacy table disagree by up to 2.1 km. Tiebreaker: every station that reports a depth reports 1.4-2.0 m (Depth_m4C_Avg), i.e. sensors on private docks in shallow water. So where sources conflict, take the in-water candidate CLOSEST to shore and reject any candidate on land. Result: every nearshore station now sits 12-134 m offshore. Disagreements still worth TERC's confirmation: Dollar Point (sources 1232 m apart), Homewood (1139 m), Rubicon (516 m), Timber Cove (374 m), Tahoe City (2111 m, and BOTH sources are on dry land).",
+  "_status_source": "Station status below is from a TERC scientist's email (Sep 2026), answering the station roll-call. It supersedes our earlier guesses. Two things it settles: (a) the API's Station_Name values ARE the names to show the public ('my recollection is that the API returns data based on station name'), and every name he lists matches the /report/ns-stations roster exactly; (b) he identifies 9 sites by name and states there are 10 live NS sites — the missing one is Rubicon, which is reporting live. He does not mention Cascade or Meeks at all; those two last reported in 2017 and 2020 and look decommissioned. NOTE he does not recognise stations by id, only by name, so never ask him an id-keyed question."
 }
