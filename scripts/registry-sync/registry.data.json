@@ -1,32 +1,277 @@
 {
-  "_comment": "Curated source of truth for the station/destination registry (TERC-46). The TERC report API provides names and activity; it provides NO coordinates — those live here, reviewed once, applied mechanically. verified=true means the coordinate has been confirmed by TERC staff (none yet); otherwise it is an eyeballed shoreline position for the API-verified name. See docs/station-registry-discovery.md for evidence.",
+  "_comment": "Curated source of truth for the station/destination registry (TERC-46). The TERC report API provides names and activity; it provides NO coordinates (confirmed TERC-79 by reading the report Lambdas' own field lists) — those live here. TERC-79 reconciled three sources: TERC's own production real-time app, an older legacy station table, and OSM geocoding. Every coordinate is checked against OpenStreetMap's Lake Tahoe polygon and sits in open water; `source` records which won. `verified` still means confirmed by TERC staff for THIS project (none yet). ALL coordinates are stored at exactly 5 decimal places — see _precision.",
+  "_precision": "5 decimal places everywhere, deliberately and uniformly. At Lake Tahoe's latitude 1 degree of longitude is 86.4 km, so a coordinate rounded to 2 dp carries +/-432 m of slop and 3 of these 18 stations land on dry ground; 5 dp is +/-0.4 m. Mixed precision was the TERC-79 bug: 11 of 18 markers rendered on land. Do not 'tidy' trailing zeros away — 39.23640 must keep its zero so the column stays uniform and the class of bug cannot return.",
+  "_station_names": "Names are the report API's own Station_Name values, read from GET /report/ns-stations (TERC-79). Ids 1, 3, 5 and 10 were previously placeholders ('NS Station N') — they are really Cascade, Glenbrook, Meeks and Camp Richardson. Getting id 3's name right matters: it is Glenbrook, on the EAST shore, and it had been sitting 19 km away on the south-west.",
   "stations": [
-    { "family": "nearshore_station", "id": 1,  "name": "NS Station 1",  "lat": 38.94,  "lng": -119.995, "verified": false, "note": "never observed 2024-2026" },
-    { "family": "nearshore_station", "id": 2,  "name": "Dollar Point",  "lat": 39.187, "lng": -120.0955, "verified": false },
-    { "family": "nearshore_station", "id": 3,  "name": "NS Station 3",  "lat": 38.933, "lng": -120.025, "verified": false, "note": "never observed 2024-2026" },
-    { "family": "nearshore_station", "id": 4,  "name": "Homewood",      "lat": 39.086, "lng": -120.159, "verified": false },
-    { "family": "nearshore_station", "id": 5,  "name": "NS Station 5",  "lat": 39.07,  "lng": -120.155, "verified": false, "note": "never observed 2024-2026" },
-    { "family": "nearshore_station", "id": 6,  "name": "Rubicon",       "lat": 39.001, "lng": -120.106, "verified": false },
-    { "family": "nearshore_station", "id": 7,  "name": "Sand Harbor",   "lat": 39.198, "lng": -119.93,  "verified": false, "note": "dark since Q4 2024" },
-    { "family": "nearshore_station", "id": 8,  "name": "Tahoe Vista",   "lat": 39.24,  "lng": -120.053, "verified": false },
-    { "family": "nearshore_station", "id": 9,  "name": "Tahoe City",    "lat": 39.17,  "lng": -120.14,  "verified": false, "note": "last seen Jan 2026" },
-    { "family": "nearshore_station", "id": 10, "name": "NS Station 10", "lat": 38.99,  "lng": -120.105, "verified": false, "note": "never observed 2024-2026" },
-    { "family": "nearshore_station", "id": 11, "name": "Timber Cove",   "lat": 38.945, "lng": -119.959, "verified": false },
-    { "family": "nearshore_station", "id": 12, "name": "Cedar Point",   "lat": 39.225, "lng": -119.93,  "verified": false, "note": "LOCATION UNCONFIRMED - placeholder coordinate" },
-    { "family": "met_station", "id": 1, "name": "USCG 2020 Met Station", "lat": 39.176, "lng": -120.119, "verified": false },
-    { "family": "nasa_buoy", "id": 1, "name": "NASA Buoy TB1", "lat": 39.155, "lng": -120.004, "verified": false },
-    { "family": "nasa_buoy", "id": 2, "name": "NASA Buoy TB2", "lat": 39.109, "lng": -120.011, "verified": false },
-    { "family": "nasa_buoy", "id": 3, "name": "NASA Buoy TB3", "lat": 39.11,  "lng": -120.076, "verified": false },
-    { "family": "nasa_buoy", "id": 4, "name": "NASA Buoy TB4", "lat": 39.156, "lng": -120.076, "verified": false },
-    { "family": "tc_homewood", "id": null, "name": "Homewood TC", "lat": 39.086, "lng": -120.16, "verified": false, "note": "id-less endpoint; last seen Apr 2026" }
+    {
+      "family": "nearshore_station",
+      "id": 1,
+      "name": "Cascade",
+      "lat": 38.94058,
+      "lng": -120.09191,
+      "verified": false,
+      "source": "geocoded (OSM) — Cascade Lake",
+      "note": "ON CASCADE LAKE, not Lake Tahoe — TERC's nearshore page says the network is 10 Tahoe stations plus one on Cascade Lake. Never observed 2024-2026; absent from TERC's own production station list."
+    },
+    {
+      "family": "nearshore_station",
+      "id": 2,
+      "name": "Dollar Point",
+      "lat": 39.18400,
+      "lng": -120.09300,
+      "verified": false,
+      "source": "legacy table (app value is 542 m offshore, vs 2.0 m reported depth)",
+      "note": "Legacy value, 83 m offshore. The production app's 39.1947,-120.089 is 542 m out, which does not square with the 2.0 m depth this station reports."
+    },
+    {
+      "family": "nearshore_station",
+      "id": 3,
+      "name": "Glenbrook",
+      "lat": 39.08830,
+      "lng": -119.94100,
+      "verified": false,
+      "source": "TERC production app",
+      "note": "EAST shore. Was 'NS Station 3' at 38.933,-120.025 — 19 km away on the south-west shore."
+    },
+    {
+      "family": "nearshore_station",
+      "id": 4,
+      "name": "Homewood",
+      "lat": 39.09000,
+      "lng": -120.16100,
+      "verified": false,
+      "source": "legacy table (app value is 1.1 km north)",
+      "note": "Legacy value, 12 m offshore, matching its 2.0 m reported depth. Sits exactly on the 39.09 N midline the half-lake destinations split on — counted as north."
+    },
+    {
+      "family": "nearshore_station",
+      "id": 5,
+      "name": "Meeks",
+      "lat": 39.03762,
+      "lng": -120.12116,
+      "verified": false,
+      "source": "geocoded (OSM) + moved offshore",
+      "note": "Never observed 2024-2026; absent from TERC's own production station list. Position is Meeks Bay, 72 m offshore — best effort, needs TERC confirmation."
+    },
+    {
+      "family": "nearshore_station",
+      "id": 6,
+      "name": "Rubicon",
+      "lat": 39.01032,
+      "lng": -120.11319,
+      "verified": false,
+      "source": "TERC production app"
+    },
+    {
+      "family": "nearshore_station",
+      "id": 7,
+      "name": "Sand Harbor",
+      "lat": 39.20060,
+      "lng": -119.93100,
+      "verified": false,
+      "source": "TERC production app",
+      "note": "dark since Q4 2024"
+    },
+    {
+      "family": "nearshore_station",
+      "id": 8,
+      "name": "Tahoe Vista",
+      "lat": 39.23640,
+      "lng": -120.06500,
+      "verified": false,
+      "source": "TERC production app"
+    },
+    {
+      "family": "nearshore_station",
+      "id": 9,
+      "name": "Tahoe City",
+      "lat": 39.16858,
+      "lng": -120.14117,
+      "verified": false,
+      "source": "derived — BOTH sources on dry land, 2.1 km apart",
+      "note": "BOTH sources put this on land: the app 479 m inland, the legacy table 248 m inland and 1.9 km from the village (200 m from the Cedar Point station — and that table has no Cedar Point row, so it looks like a mix-up). Derived from the OSM village centre, 73 m offshore. Needs TERC. Last seen Jan 2026."
+    },
+    {
+      "family": "nearshore_station",
+      "id": 10,
+      "name": "Camp Richardson",
+      "lat": 38.93940,
+      "lng": -120.03900,
+      "verified": false,
+      "source": "TERC production app",
+      "note": "Was 'NS Station 10' at 38.99,-120.105 — 880 m inland, 7 km north-west."
+    },
+    {
+      "family": "nearshore_station",
+      "id": 11,
+      "name": "Timber Cove",
+      "lat": 38.94770,
+      "lng": -119.96813,
+      "verified": false,
+      "source": "derived from the Timber Cove Lodge pier — legacy inland, app 292 m out",
+      "note": "Legacy value is 77 m inland; the app's is 292 m offshore, far for a dock sensor. Derived from the Timber Cove Lodge pier, 72 m offshore."
+    },
+    {
+      "family": "nearshore_station",
+      "id": 12,
+      "name": "Cedar Point",
+      "lat": 39.15000,
+      "lng": -120.14224,
+      "verified": false,
+      "source": "TERC production app",
+      "note": "WEST shore, between Tahoe City and Homewood. The old placeholder put it at 39.225,-119.93 on the east shore, which is why it had been grouped under the Glenbrook destination."
+    },
+    {
+      "family": "met_station",
+      "id": 1,
+      "name": "USCG 2020 Met Station",
+      "lat": 39.18060,
+      "lng": -120.11920,
+      "verified": false,
+      "source": "TERC production app"
+    },
+    {
+      "family": "nasa_buoy",
+      "id": 1,
+      "name": "NASA Buoy TB1",
+      "lat": 39.15500,
+      "lng": -120.00400,
+      "verified": false,
+      "source": "TERC production app"
+    },
+    {
+      "family": "nasa_buoy",
+      "id": 2,
+      "name": "NASA Buoy TB2",
+      "lat": 39.10970,
+      "lng": -120.00800,
+      "verified": false,
+      "source": "TERC production app"
+    },
+    {
+      "family": "nasa_buoy",
+      "id": 3,
+      "name": "NASA Buoy TB3",
+      "lat": 39.11080,
+      "lng": -120.07300,
+      "verified": false,
+      "source": "TERC production app"
+    },
+    {
+      "family": "nasa_buoy",
+      "id": 4,
+      "name": "NASA Buoy TB4",
+      "lat": 39.15530,
+      "lng": -120.07100,
+      "verified": false,
+      "source": "TERC production app"
+    },
+    {
+      "family": "tc_homewood",
+      "id": null,
+      "name": "Homewood TC",
+      "lat": 39.08353,
+      "lng": -120.15092,
+      "verified": false,
+      "source": "TERC production app",
+      "note": "id-less endpoint; thermistor chain, 584 m offshore — deeper water than the dock-mounted nearshore sensors, which is expected. Last seen Apr 2026."
+    }
   ],
+  "_destinations_comment": "Station membership recomputed in TERC-79 by nearest destination, using the corrected coordinates. Two groupings had been artefacts of wrong coordinates: 'glenbrook' held station 12 (Cedar Point, actually WEST shore) instead of station 3 (Glenbrook, 0.1 km away), and 'tahoe-keys' held station 3. The half-lake destinations keep the documented rule — split at 39.09 N, the lake's E-W midline. Note Glenbrook (39.08830) falls 0.2 km SOUTH of that line, so it groups with South Lake Tahoe by the rule.",
   "destinations": [
-    { "slug": "incline-village",  "name": "Incline Village",  "lat": 39.23,  "lng": -119.98, "zoom": 12,    "stations": ["nearshore_station:2", "nearshore_station:8", "nearshore_station:7"] },
-    { "slug": "tahoe-keys",       "name": "Tahoe Keys",       "lat": 38.935, "lng": -119.99, "zoom": 13,    "stations": ["nearshore_station:1", "nearshore_station:3", "nearshore_station:11"] },
-    { "slug": "homewood",         "name": "Homewood",         "lat": 39.086, "lng": -120.16, "zoom": 13,    "stations": ["nearshore_station:4", "nearshore_station:5", "tc_homewood:"] },
-    { "slug": "glenbrook",        "name": "Glenbrook",        "lat": 39.088, "lng": -119.94, "zoom": 13,    "stations": ["nearshore_station:12"] },
-    { "slug": "rubicon-bay",      "name": "Rubicon Bay",      "lat": 39.0,   "lng": -120.108, "zoom": 13,   "stations": ["nearshore_station:6", "nearshore_station:9"] },
-    { "slug": "north-lake-tahoe", "name": "North Lake Tahoe", "lat": 39.185, "lng": -120.02, "zoom": 11.25, "stations": ["nearshore_station:2", "nearshore_station:7", "nearshore_station:8", "nearshore_station:9", "nearshore_station:12", "nasa_buoy:1", "nasa_buoy:2", "nasa_buoy:3", "nasa_buoy:4"] },
-    { "slug": "south-lake-tahoe", "name": "South Lake Tahoe", "lat": 38.99,  "lng": -120.04, "zoom": 11.25, "stations": ["nearshore_station:1", "nearshore_station:3", "nearshore_station:4", "nearshore_station:5", "nearshore_station:6", "nearshore_station:10", "nearshore_station:11", "tc_homewood:"] }
-  ]
+    {
+      "slug": "incline-village",
+      "name": "Incline Village",
+      "lat": 39.23000,
+      "lng": -119.98000,
+      "zoom": 12,
+      "stations": [
+        "nearshore_station:2",
+        "nearshore_station:7",
+        "nearshore_station:8"
+      ]
+    },
+    {
+      "slug": "tahoe-keys",
+      "name": "Tahoe Keys",
+      "lat": 38.93500,
+      "lng": -119.99000,
+      "zoom": 13,
+      "stations": [
+        "nearshore_station:10",
+        "nearshore_station:11"
+      ]
+    },
+    {
+      "slug": "homewood",
+      "name": "Homewood",
+      "lat": 39.08600,
+      "lng": -120.16000,
+      "zoom": 13,
+      "stations": [
+        "nearshore_station:4",
+        "nearshore_station:9",
+        "nearshore_station:12",
+        "tc_homewood:"
+      ]
+    },
+    {
+      "slug": "glenbrook",
+      "name": "Glenbrook",
+      "lat": 39.08800,
+      "lng": -119.94000,
+      "zoom": 13,
+      "stations": [
+        "nearshore_station:3"
+      ]
+    },
+    {
+      "slug": "rubicon-bay",
+      "name": "Rubicon Bay",
+      "lat": 39.00000,
+      "lng": -120.10800,
+      "zoom": 13,
+      "stations": [
+        "nearshore_station:1",
+        "nearshore_station:5",
+        "nearshore_station:6"
+      ]
+    },
+    {
+      "slug": "north-lake-tahoe",
+      "name": "North Lake Tahoe",
+      "lat": 39.18500,
+      "lng": -120.02000,
+      "zoom": 11.25,
+      "stations": [
+        "nearshore_station:2",
+        "nearshore_station:4",
+        "nearshore_station:7",
+        "nearshore_station:8",
+        "nearshore_station:9",
+        "nearshore_station:12",
+        "nasa_buoy:1",
+        "nasa_buoy:2",
+        "nasa_buoy:3",
+        "nasa_buoy:4"
+      ]
+    },
+    {
+      "slug": "south-lake-tahoe",
+      "name": "South Lake Tahoe",
+      "lat": 38.99000,
+      "lng": -120.04000,
+      "zoom": 11.25,
+      "stations": [
+        "nearshore_station:1",
+        "nearshore_station:3",
+        "nearshore_station:5",
+        "nearshore_station:6",
+        "nearshore_station:10",
+        "nearshore_station:11",
+        "tc_homewood:"
+      ]
+    }
+  ],
+  "_tiebreaker": "The app and the legacy table disagree by up to 2.1 km. Tiebreaker: every station that reports a depth reports 1.4-2.0 m (Depth_m4C_Avg), i.e. sensors on private docks in shallow water. So where sources conflict, take the in-water candidate CLOSEST to shore and reject any candidate on land. Result: every nearshore station now sits 12-134 m offshore. Disagreements still worth TERC's confirmation: Dollar Point (sources 1232 m apart), Homewood (1139 m), Rubicon (516 m), Timber Cove (374 m), Tahoe City (2111 m, and BOTH sources are on dry land)."
 }

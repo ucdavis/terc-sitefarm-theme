@@ -120,13 +120,13 @@ describe('WaterQualityView (charts)', () => {
     nearshore.mockImplementation((id: number) => Promise.resolve(series(id, `API name ${id}`, [rec()])))
     homewood.mockResolvedValue(series(-1, 'Homewood TC', [rec()]))
     const { selectDestination } = useConditionsState()
-    selectDestination('homewood') // static registry: stations [4, 5], includesHomewood
+    selectDestination('homewood') // static registry: stations [4, 9, 12], includesHomewood
     const w = mount()
     await flushPromises()
     // Registry names win over the API's Station_Name; homewood has no
     // registry entry in the static fallback, so the API name covers it.
     const labels = w.find('.tsc').attributes('data-labels')
-    expect(labels).toBe('Homewood|NS Station 5|Homewood TC')
+    expect(labels).toBe('Homewood|Tahoe City|Cedar Point|Homewood TC')
   })
 
   it('interprets each station via band chips with a conservative consensus', async () => {

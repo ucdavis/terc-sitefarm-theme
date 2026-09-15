@@ -1,15 +1,21 @@
 /**
- * The five wireframe destinations and which stations belong to each.
+ * The wireframe destinations and which stations belong to each.
  *
- * ⚠ PRODUCT DECISION NEEDED — flagged for TERC input:
- * The wireframe destinations do not map 1:1 to station names. Live sweep
- * (2026-07-29) found four reporting stations: Dollar Point (2), Homewood (4),
- * Rubicon (6), Tahoe Vista (8). Homewood and Rubicon fall inside wireframe
- * destinations; Dollar Point and Tahoe Vista are NORTH-shore stations with no
- * corresponding destination, so they are assigned to Incline Village (the
- * nearest wireframe destination) purely so it has live data. All other
- * assignments are placeholder guesses. This mapping is deliberately config,
- * not code: change it here.
+ * Membership was recomputed in TERC-79 from the corrected station
+ * coordinates: each nearshore station joins the point destination it is
+ * actually nearest. Two of the old groupings were artefacts of wrong
+ * coordinates rather than product decisions —
+ *   - 'glenbrook' held station 12 (Cedar Point), whose placeholder sat on
+ *     the east shore. Cedar Point is really on the WEST shore; the station
+ *     that belongs here is 3, which is 0.1 km from this destination.
+ *   - 'tahoe-keys' held station 3 (Glenbrook), 30 km away on the east shore.
+ *
+ * ⚠ STILL A PRODUCT DECISION FOR TERC: the wireframe destinations do not
+ * map 1:1 to station names, so "nearest" is a rule, not a fact. Dollar
+ * Point (10.2 km) and Tahoe Vista (7.4 km) are the nearest stations to
+ * Incline Village but are not in it; Tahoe City (9.3 km) and Cedar Point
+ * (7.2 km) group under Homewood for the same reason. This mapping is
+ * deliberately config, not code: change it here.
  */
 
 export interface DestinationDef {
@@ -37,77 +43,77 @@ export const DESTINATIONS: DestinationDef[] = [
   {
     id: 'incline-village',
     name: 'Incline Village',
-    lat: 39.23,
-    lng: -119.98,
+    lat: 39.23000,
+    lng: -119.98000,
     zoom: 12,
-    // ASSUMPTION: Dollar Point + Tahoe Vista are north-shore stations mapped
-    // here so at least one destination demonstrably shows live data.
-    // Sand Harbor (7, east shore, dormant) is nearest Incline Village of the
-    // wireframe destinations. id 11 removed 2026-08-27: it is Timber Cove,
-    // South Lake Tahoe (see docs/station-registry-discovery.md).
-    stationIds: [2, 8, 7],
+    // Nearest stations by the corrected coordinates: Sand Harbor (5.3 km,
+    // east shore, dormant), Tahoe Vista (7.4 km), Dollar Point (10.2 km).
+    stationIds: [2, 7, 8],
   },
   {
     id: 'tahoe-keys',
     name: 'Tahoe Keys',
-    lat: 38.935,
-    lng: -119.99,
+    lat: 38.93500,
+    lng: -119.99000,
     zoom: 13,
-    // Timber Cove (11) verified active in South Lake Tahoe — the first
-    // Tahoe Keys-area station with live data. 1 and 3 remain never-seen ids.
-    stationIds: [1, 3, 11],
+    // Timber Cove (2.5 km) and Camp Richardson (4.3 km) are the two south
+    // shore stations. Station 3 used to sit here — it is Glenbrook, on the
+    // east shore, 30 km away (TERC-79).
+    stationIds: [10, 11],
   },
   {
     id: 'homewood',
     name: 'Homewood',
-    lat: 39.086,
-    lng: -120.16,
+    lat: 39.08600,
+    lng: -120.16000,
     zoom: 13,
-    stationIds: [4, 5], // id 4 = Homewood (verified, live); 5 is a placeholder
+    // id 4 = Homewood (1.6 km, live). Cedar Point (7.2 km) and Tahoe City
+    // (9.3 km) are west/north-west shore stations with no nearer
+    // destination — see the file header.
+    stationIds: [4, 9, 12],
     includesHomewood: true,
   },
   {
     id: 'glenbrook',
     name: 'Glenbrook',
-    lat: 39.088,
-    lng: -119.94,
+    lat: 39.08800,
+    lng: -119.94000,
     zoom: 13,
-    // ASSUMPTION: Cedar Point (12) location is unconfirmed; kept here from
-    // the old placeholder assignment pending TERC confirmation. Sand Harbor
-    // (7) moved to Incline Village (closer along the east shore).
-    stationIds: [12],
+    // Station 3 IS Glenbrook — 0.1 km from this destination. It had been
+    // filed under Tahoe Keys while its coordinate was wrong (TERC-79).
+    stationIds: [3],
   },
   {
     id: 'rubicon-bay',
     name: 'Rubicon Bay',
-    lat: 39.0,
-    lng: -120.108,
+    lat: 39.00000,
+    lng: -120.10800,
     zoom: 13,
-    stationIds: [6, 9], // id 6 = Rubicon (verified, live); 9 is a placeholder
+    // id 6 = Rubicon (1.2 km, live). Meeks (4.3 km) and Cascade (6.7 km,
+    // which is on Cascade Lake, not Tahoe) are both never-observed ids.
+    stationIds: [1, 5, 6],
   },
   // ---- Half-lake destinations: the lake split at ~39.09° N (its E–W ----
-  // ---- midline). Membership is by station coordinate — which for the ----
-  // ---- unverified ids means by their PLACEHOLDER coordinate.          ----
+  // ---- midline). Membership is by station coordinate, recomputed in  ----
+  // ---- TERC-79 from the corrected positions. Glenbrook (39.08830)    ----
+  // ---- falls 0.2 km south of the line, so it groups with the south.  ----
   {
     id: 'north-lake-tahoe',
     name: 'North Lake Tahoe',
-    lat: 39.185,
-    lng: -120.02,
+    lat: 39.18500,
+    lng: -120.02000,
     zoom: 11.25,
-    // 2026-08-27: 11 (Timber Cove) moved south; 9 (Tahoe City, 39.17) added
-    // north. 12 (Cedar Point) stays pending location confirmation.
-    stationIds: [2, 7, 8, 9, 12],
+    stationIds: [2, 4, 7, 8, 9, 12],
     // All four NASA buoys sit at or north of the midline (39.11–39.16).
     buoyIds: [1, 2, 3, 4],
   },
   {
     id: 'south-lake-tahoe',
     name: 'South Lake Tahoe',
-    lat: 38.99,
-    lng: -120.04,
+    lat: 38.99000,
+    lng: -120.04000,
     zoom: 11.25,
-    // 2026-08-27: 9 (Tahoe City) moved north; 11 (Timber Cove) added south.
-    stationIds: [1, 3, 4, 5, 6, 10, 11],
+    stationIds: [1, 3, 5, 6, 10, 11],
     includesHomewood: true,
   },
 ]

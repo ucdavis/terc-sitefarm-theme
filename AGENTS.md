@@ -202,9 +202,16 @@ drush warning — imported config expecting creds the local site lacks.
   `ddev import-db --file=…/database.sql` from the extracted tar. Local-only
   users/config (not the tercdev block placement — that's in tercdev config)
   are wiped; recheck after import.
-- Station coordinates are all **approximate** (labeled so in tooltips) until
-  TERC confirms them; several stations are legitimately dark (maintenance,
-  funded repairs) — that's the offline-honesty story, not a bug.
+- Station coordinates come from TERC's own production real-time app and are
+  **verified to fall in open water** by `vue/config/__tests__/stationCoordinates.test.ts`
+  against an OpenStreetMap shoreline fixture (TERC-79). They are still
+  **approximate** (labeled so in tooltips) until TERC confirms them. Two
+  rules that test encodes: coordinates are written with **exactly five
+  decimals** (two-decimal values carry ±432 m here, which is what used to
+  beach markers), and **Cascade (id 1) is on Cascade Lake, not Lake Tahoe** —
+  it is meant to sit outside the Tahoe polygon. Several stations are
+  legitimately dark (maintenance, funded repairs) — that's the
+  offline-honesty story, not a bug.
 
 ## Product decisions on record (demo meeting, client-approved)
 
