@@ -1,8 +1,14 @@
-# CI for the Vue decoupled-block components ONLY (vue/ workspace).
-# It deliberately does NOT build or exercise any of the general SiteFarm
-# theme assets (sass/js from the starterkit) — --ignore-scripts skips the
-# postinstall Vite build, and both vitest.config.mts and vue/tsconfig.json
-# are scoped to vue/**.
+# CI for the Vue decoupled-block components (vue/ workspace).
+#
+# The `vue-tests` job deliberately does NOT build or exercise any of the
+# general SiteFarm theme assets (sass/js from the starterkit) — --ignore-scripts
+# skips the postinstall build, and both vitest.config.mts and vue/tsconfig.json
+# are scoped to vue/**. That keeps the feedback loop fast.
+#
+# The `dist-current` job is the one deliberate exception (TERC-88): it DOES run
+# the full build, because dist/ is a committed artifact the deployed site loads
+# directly. Source and bundle drifting apart is invisible everywhere except
+# production — see that job's comment.
 name: Vue component tests
 
 on:
@@ -35,3 +41,48 @@ jobs:
 
       - name: Type check (vue/ only)
         run: npm run typecheck
+
+  # TERC-88. dist/ is committed and deployed; nothing rebuilds it on its own.
+  # TERC-76 changed StationCard.vue, never rebuilt, and tercdev served the old
+  # component for days — invisible locally, because dev compiles from source.
+  # Clearing Drupal caches cannot help: drush cr only changes the ?query on the
+  # asset URL, while the file itself ships through the Site Factory deploy.
+  #
+  # Both commits that hit this arrived from outside a local checkout (one was a
+  # Copilot fix accepted on GitHub), which is exactly the case a human "did you
+  # rebuild?" habit cannot cover. So the check belongs here.
+  dist-current:
+    name: dist/ matches vue/ source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # No --ignore-scripts here: postinstall runs the build, which is the
+      # point. The build is byte-stable (verified by building twice on a clean
+      # tree), so a clean checkout plus a build reproduces dist/ exactly.
+      - name: Install and build
+        run: npm ci
+
+      - name: Fail if dist/ is stale
+        run: |
+          if [ -n "$(git status --porcelain dist/)" ]; then
+            echo "::error title=dist/ is out of step with vue/ source::Rebuild and commit dist/"
+            echo
+            echo "A fresh build changed these committed files:"
+            git status --porcelain dist/ | sed 's/^/  /'
+            echo
+            echo "The deployed site loads dist/, not your .vue files, so this"
+            echo "would have shipped a bundle that disagrees with its source."
+            echo
+            echo "Fix it with:"
+            echo "    npm run build && git add dist && git commit -m 'rebuild dist'"
+            echo
+            git --no-pager diff --stat dist/
+            exit 1
+          fi
+          echo "dist/ is current."
