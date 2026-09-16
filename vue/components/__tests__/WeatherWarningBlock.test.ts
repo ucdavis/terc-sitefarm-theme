@@ -65,7 +65,7 @@ describe('WeatherWarningBlock', () => {
     resolveFetch(response(['Moderate']))
     await flushPromises()
     expect(wrapper.find('.weather-warning').exists()).toBe(true)
-    expect(wrapper.text()).toContain('1 active alert')
+    expect(wrapper.text()).toContain('1 active alert from the National Weather Service')
   })
 
   it('renders the compact alert count and highest severity', async () => {
