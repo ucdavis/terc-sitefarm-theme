@@ -70,7 +70,7 @@ onBeforeUnmount(() => controller?.abort())
         <!-- A sample must never pass for a real advisory: say so first. -->
         <span v-if="isSample" class="weather-warning__sample">Sample alert — not live</span>
         <template v-if="status === 'ready'">
-          <strong>{{ alerts.length ? `${alerts.length} active ${alerts.length === 1 ? 'alert' : 'alerts'}` : 'No active alerts' }}</strong>
+          <strong>{{ alerts.length ? `${alerts.length} active ${alerts.length === 1 ? 'alert' : 'alerts'} from the National Weather Service` : 'No active alerts' }}</strong>
           <span v-if="alerts.length">Highest severity: {{ highestSeverity }}</span>
           <span v-else>Conditions are clear for both Tahoe forecast zones.</span>
         </template>
