@@ -34,7 +34,27 @@ Flags: `--dry-run` (print the plan, write nothing), `--skip-discovery`
 (skip the report-API activity probe; faster, no status/name checks),
 `--stations-only` (stations only — no destinations, no bands),
 `--bands-only` (condition_bands terms only — no stations/destinations,
-no discovery).
+no discovery), `--skip-bands` (stations **and destinations**, but leave
+condition_bands alone).
+
+**Use `--skip-bands` to push registry changes to a live site.** Destinations
+only sync in the "everything" mode, so before this flag existed the only way
+to update a Lake Location also re-ran the bands sync — which overwrites any
+wording editors have changed in Drupal. Once editors own the bands, this is
+the safe command:
+
+```bash
+node sync.mjs --dry-run --skip-bands   # review first
+node sync.mjs --skip-bands
+```
+
+**Zoom (TERC-89).** Each destination in `registry.data.json` carries a
+`zoom`, written to `field_location_zoom` on the Lake Locations type. The
+field must be **decimal** (or float): the half-lake destinations use `11.25`,
+which an integer field rejects. The value is compared with `Number()` because
+JSON:API serializes a decimal field as a string (`"11.25"`), so a string
+comparison would report a change on every run. A site without the field
+still syncs — the run warns once and skips zoom.
 
 **Bands and editor ownership:** band upserts are keyed by
 `(field_metric_key, name)`. Once editors start refining bands in Drupal,

@@ -7,7 +7,7 @@
  * Usage:
  *   DRUPAL_BASE_URL=https://terc.ddev.site \
  *   DRUPAL_USER=registry-sync DRUPAL_PASS=... \
- *   node sync.mjs [--dry-run] [--skip-discovery] [--stations-only] [--bands-only]
+ *   node sync.mjs [--dry-run] [--skip-discovery] [--stations-only] [--bands-only] [--skip-bands]
  *
  * Design:
  *  - Upserts are keyed by (field_station_type, field_station_id) for
@@ -39,6 +39,11 @@ const DRY = args.has('--dry-run')
 const SKIP_DISCOVERY = args.has('--skip-discovery')
 const STATIONS_ONLY = args.has('--stations-only')
 const BANDS_ONLY = args.has('--bands-only')
+// Stations + destinations, but leave condition_bands alone. Destinations only
+// sync in the "everything" mode, which used to mean the bands sync ran too —
+// and that must not happen once editors own the band sentences (it overwrites
+// their words). This is the safe way to push registry changes to a live site.
+const SKIP_BANDS = args.has('--skip-bands')
 
 const BASE = process.env.DRUPAL_BASE_URL
 const USER = process.env.DRUPAL_USER
@@ -120,6 +125,30 @@ async function availableStationFields() {
   stationFieldsCache = new Set(attrs)
   return stationFieldsCache
 }
+
+let destinationFieldsCache = null
+/** Which optional fields exist on the lake_locations type (probe once). */
+async function availableDestinationFields() {
+  if (destinationFieldsCache) return destinationFieldsCache
+  const res = await drupal('GET', '/jsonapi/node/lake_locations?page[limit]=1')
+  const attrs = res.data[0] ? Object.keys(res.data[0].attributes) : []
+  destinationFieldsCache = new Set(attrs)
+  return destinationFieldsCache
+}
+
+/**
+ * field_location_zoom (TERC-89). Written as a JSON number and compared with
+ * Number(): a decimal field serializes as a STRING over JSON:API ("11.25",
+ * or "11.250000" depending on scale) while a float field comes back as a
+ * number, so a plain !== would report a change on every run. null or
+ * unparseable counts as unset.
+ */
+function sameZoom(current, wanted) {
+  const n = current === null || current === undefined || current === '' ? NaN : Number(current)
+  return Number.isFinite(n) && Math.abs(n - wanted) < 1e-6
+}
+
+let zoomFieldWarned = false
 
 function report(action, label, detail = '') {
   console.log(`${DRY ? '[dry-run] ' : ''}${action.padEnd(8)} ${label}${detail ? ' — ' + detail : ''}`)
@@ -203,6 +232,17 @@ async function upsertDestination(dest, stationUuids) {
     field_location_id: dest.slug,
     field_location_geo_data: { lat: dest.lat, lng: dest.lng },
   }
+  // Zoom goes in only when the content type has the field AND the curated
+  // record carries one, so the sync still runs against a site that predates
+  // the field (it warns once instead of failing every destination).
+  const fields = await availableDestinationFields()
+  const hasZoom = typeof dest.zoom === 'number' && Number.isFinite(dest.zoom)
+  const writeZoom = hasZoom && fields.has('field_location_zoom')
+  if (writeZoom) attributes.field_location_zoom = dest.zoom
+  if (hasZoom && !fields.has('field_location_zoom') && !zoomFieldWarned) {
+    zoomFieldWarned = true
+    report('warn', 'lake_locations', 'field_location_zoom not on content type yet; zoom not written')
+  }
   const relationships = { field_stations: { data: refs } }
 
   if (!existing) {
@@ -224,12 +264,22 @@ async function upsertDestination(dest, stationUuids) {
   if (!g || Math.abs(g.lat - dest.lat) > 1e-6 || Math.abs(g.lng - dest.lng) > 1e-6) {
     changed.field_location_geo_data = attributes.field_location_geo_data
   }
+  if (writeZoom && !sameZoom(cur.field_location_zoom, dest.zoom)) {
+    changed.field_location_zoom = dest.zoom
+  }
   const refsChanged = JSON.stringify(curRefs) !== JSON.stringify(newRefs)
   if (Object.keys(changed).length === 0 && !refsChanged) {
     report('ok', dest.slug, dest.name)
     return
   }
-  report('update', dest.slug, [...Object.keys(changed), refsChanged ? 'field_stations' : ''].filter(Boolean).join(', '))
+  // Name each changed field; zoom carries its before/after inline, since it
+  // is the value people check.
+  const what = [...Object.keys(changed), refsChanged ? 'field_stations' : '']
+    .filter(Boolean)
+    .map((f) => (f === 'field_location_zoom'
+      ? `field_location_zoom (${JSON.stringify(cur.field_location_zoom)} -> ${dest.zoom})`
+      : f))
+  report('update', dest.slug, what.join(', '))
   if (DRY) return
   await drupal('PATCH', `/jsonapi/node/lake_locations/${existing.id}`, {
     data: {
@@ -328,7 +378,7 @@ if (!STATIONS_ONLY && !BANDS_ONLY) {
   }
 }
 
-if (!STATIONS_ONLY) {
+if (!STATIONS_ONLY && !SKIP_BANDS) {
   for (const band of bandsData.bands) {
     try {
       await upsertBand(band)
