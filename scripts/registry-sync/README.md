@@ -56,6 +56,13 @@ JSON:API serializes a decimal field as a string (`"11.25"`), so a string
 comparison would report a change on every run. A site without the field
 still syncs — the run warns once and skips zoom.
 
+The value is a **ceiling**, not a set zoom: the map fits each destination to
+its own stations and this stops the fit zooming in any tighter (see "How a
+destination's zoom is used" in `vue/README.md`). Raising it therefore can
+only matter for a destination whose stations are close together; lowering it
+widens every view tighter than the new value. Leave the field empty to let
+the fit decide alone.
+
 **Bands and editor ownership:** band upserts are keyed by
 `(field_metric_key, name)`. Once editors start refining bands in Drupal,
 a re-run OVERWRITES their threshold/tone/sentence edits with the curated

@@ -23,8 +23,22 @@ export interface DestinationDef {
   name: string
   lat: number
   lng: number
-  /** Zoom level used when the map flies to this destination. */
+  /**
+   * The destination's curated zoom. On screen it acts as the framing
+   * CEILING (see `maxZoom`), not a view zoom: it seeds the engine's initial
+   * setView, which the station fit then replaces on every load (TERC-74).
+   * In the static tier it becomes `maxZoom`; from content it is
+   * field_location_zoom, or DEFAULT_DESTINATION_ZOOM when that is empty.
+   */
   zoom: number
+  /**
+   * Ceiling for framing (TERC-89). The map fits a destination to its own
+   * stations (TERC-74); this stops that fit zooming in any tighter — a lone
+   * station would otherwise open at street level. Set only when a zoom was
+   * actually given (content's field_location_zoom, or this file's `zoom` in
+   * the static tier); absent means "fit, uncapped", today's behaviour.
+   */
+  maxZoom?: number
   /** ns-station-range ids assigned to this destination. */
   stationIds: number[]
   /** nasa-tb buoy ids inside this destination's area. */

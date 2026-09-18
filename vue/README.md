@@ -367,8 +367,17 @@ Two consequences that surprise people:
   adapts only `NEARSHORE_STATIONS`, `NASA_BUOYS` and `MET_STATION`; the
   tc-homewood thermistor chain has no entry, which is why
   `useLakeOverview.ts` carries a `HOMEWOOD_FALLBACK` marker of its own.
-  `adaptRegistry()` also hardcodes `zoom: 13`, so the per-destination zooms
-  in `config/destinations.ts` apply only in fallback (TERC-89).
+
+**How a destination's zoom is used (TERC-89).** Not as "open at this zoom" —
+TERC-74 frames every destination on its own stations, and that fit always
+wins. `field_location_zoom` (content) or `zoom` (static tier) is a
+**ceiling on the fit**: frame the stations, but never zoom in tighter than
+this. It exists for single-station destinations, which the fit would
+otherwise open at street level — Glenbrook went from z=14 to z=13. A
+destination whose stations already span wider than its zoom is unaffected
+(North Lake Tahoe fits at z=11 against a cap of 11.25). No value → no cap →
+the pre-TERC-89 behaviour. The ceiling rides through the `MapEngine` seam as
+`fitBounds(bounds, { maxZoom })`, so Leaflet stays in `leafletEngine.ts`.
 
 Keep the two tiers in step anyway. When they drift, the bug only appears
 during an outage — the worst possible moment to discover it, and the hardest
