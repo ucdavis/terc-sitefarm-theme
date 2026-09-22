@@ -310,6 +310,9 @@ prototype displayed every reading 7–8 h in the future. Date params
   `RegistryStation`. The shell calls `loadRegistry()` on mount; until it
   resolves — or if it fails — components serve the static registry in
   `config/`. Registry names are authoritative over the API's Station_Name.
+  See "The two-tier registry" below: `config/stations.ts` and
+  `config/destinations.ts` are **not** the source of truth, and knowing
+  which tier you are looking at saves a lot of confusion.
 - **Condition bands** — `data/conditionBands.ts` fetches the
   `condition_bands` taxonomy (label, metric key, exclusive max, tone,
   sentence) and swaps it into `assessMetric()` reactively. Per-metric
@@ -324,6 +327,63 @@ prototype displayed every reading 7–8 h in the future. Date params
   colors with one console warning.
 - The **seeder** for both lives in `../scripts/registry-sync/` (own README;
   not web-accessible).
+
+### The two-tier registry — and why `config/` still matters
+
+A reasonable first question about `config/stations.ts` and
+`config/destinations.ts` is "why do these exist, when the site has Lake
+Station and Lake Locations content?" They are the **offline tier**, and the
+distinction is worth knowing before you edit either file.
+
+Exactly one module reads their values: `data/locations.ts`. Everything else
+— `LakeMap`, `PlanYourDayView`, `useDestinationData`, `destinationFraming` —
+imports only the `DestinationDef` *type*. So there is one seam, not a web of
+them.
+
+`useConditionsState` holds one page-wide `registry`, seeded synchronously
+with `staticRegistry()` and replaced when `loadRegistry()` resolves:
+
+| | content tier | fallback tier |
+|---|---|---|
+| source | Lake Locations + Lake Station nodes, JSON:API | `config/destinations.ts`, `config/stations.ts` |
+| built by | `adaptRegistry()` | `staticRegistry()` |
+| `fromSite` | `true` | `false` |
+| when | every normal page view | JSON:API unreachable, non-OK, **or zero destinations** |
+
+When content loads, it supplies everything — slug, title, coordinates, body
+copy, and destination membership from the `field_stations` relationships.
+**Nothing from the static files survives.** That is the intended design
+(AGENTS.md non-negotiable #3: site content is authoritative, code is
+fallback), and it is why the first paint is never an empty map: the static
+tier renders instantly from the bundle while the fetch is still in flight.
+
+Two consequences that surprise people:
+
+- **Editing `config/` does not change the live site.** It changes what
+  visitors see when the site's own API is down. To change the live map, edit
+  the content — by hand, or with `../scripts/registry-sync/` (`--dry-run`
+  first, always).
+- **The fallback is deliberately not a perfect mirror.** `staticRegistry()`
+  adapts only `NEARSHORE_STATIONS`, `NASA_BUOYS` and `MET_STATION`; the
+  tc-homewood thermistor chain has no entry, which is why
+  `useLakeOverview.ts` carries a `HOMEWOOD_FALLBACK` marker of its own.
+
+**How a destination's zoom is used (TERC-89).** Not as "open at this zoom" —
+TERC-74 frames every destination on its own stations, and that fit always
+wins. `field_location_zoom` (content) or `zoom` (static tier) is a
+**ceiling on the fit**: frame the stations, but never zoom in tighter than
+this. It exists for single-station destinations, which the fit would
+otherwise open at street level — Glenbrook went from z=14 to z=13. A
+destination whose stations already span wider than its zoom is unaffected
+(North Lake Tahoe fits at z=11 against a cap of 11.25). No value → no cap →
+the pre-TERC-89 behaviour. The ceiling rides through the `MapEngine` seam as
+`fitBounds(bounds, { maxZoom })`, so Leaflet stays in `leafletEngine.ts`.
+
+Keep the two tiers in step anyway. When they drift, the bug only appears
+during an outage — the worst possible moment to discover it, and the hardest
+to reproduce. `config/stations.ts` has a test
+(`config/__tests__/stationCoordinates.test.ts`, TERC-79) asserting every
+static coordinate still falls in open water.
 
 ## Diagnostics panels (TERC-36, TERC-62, TERC-65, TERC-69)
 

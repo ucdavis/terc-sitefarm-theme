@@ -202,9 +202,25 @@ drush warning — imported config expecting creds the local site lacks.
   `ddev import-db --file=…/database.sql` from the extracted tar. Local-only
   users/config (not the tercdev block placement — that's in tercdev config)
   are wiped; recheck after import.
-- Station coordinates are all **approximate** (labeled so in tooltips) until
-  TERC confirms them; several stations are legitimately dark (maintenance,
-  funded repairs) — that's the offline-honesty story, not a bug.
+- Station coordinates are **reconciled from three sources**, not copied from
+  one (TERC-79): TERC's production real-time app, an older legacy station
+  table, and OpenStreetMap geocoding. Where the two TERC sources disagree
+  (by up to 2.1 km), the in-water candidate closest to shore wins, because
+  every station that reports a depth reads 1.4–2.0 m — they are dock
+  sensors. So Dollar Point and Homewood use the legacy values; Cascade,
+  Meeks, Tahoe City and Timber Cove are derived. **Each record's `source`
+  in `scripts/registry-sync/registry.data.json` says which won — check it
+  before "correcting" a value back to the app's.** Evidence and the full
+  table: `docs/station-registry-discovery.md`. All coordinates are
+  **verified to fall in open water** by `vue/config/__tests__/stationCoordinates.test.ts`
+  against an OpenStreetMap shoreline fixture (TERC-79). They are still
+  **approximate** (labeled so in tooltips) until TERC confirms them. Two
+  rules that test encodes: coordinates are written with **exactly five
+  decimals** (two-decimal values carry ±432 m here, which is what used to
+  beach markers), and **Cascade (id 1) is on Cascade Lake, not Lake Tahoe** —
+  it is meant to sit outside the Tahoe polygon. Several stations are
+  legitimately dark (maintenance, funded repairs) — that's the
+  offline-honesty story, not a bug.
 
 ## Product decisions on record (demo meeting, client-approved)
 

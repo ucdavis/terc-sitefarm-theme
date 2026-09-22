@@ -39,6 +39,8 @@ export interface EngineInitOpts {
   interactive?: boolean
   /** Fit this box (overrides center/zoom) — e.g. the modeled-grid domain. */
   fitBounds?: LatLngBounds
+  /** Never zoom in past this when applying `fitBounds` (TERC-89). */
+  fitMaxZoom?: number
 }
 
 /** An HTML badge pinned to a point (station value chips, offline "!"). */
@@ -85,7 +87,8 @@ export interface MapEngine {
   /** Animated move; used for destination/station focus and reset. */
   flyTo(center: LatLng, zoom: number): void
   /** Instant refit to a bounding box (window resizes, layout shifts). */
-  fitBounds(bounds: LatLngBounds): void
+  /** `maxZoom` caps how far in the fit may go (TERC-89); omit for uncapped. */
+  fitBounds(bounds: LatLngBounds, opts?: { maxZoom?: number }): void
   /**
    * Re-read the container's size. Engines cache it at init, so a map built
    * inside a hidden or not-yet-laid-out element (a tab panel Vue un-hides

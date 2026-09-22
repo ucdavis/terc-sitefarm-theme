@@ -17,7 +17,13 @@ import { destinationBounds } from '../../map/destinationFraming'
  * centre + zoom.
  */
 function makeFakeEngine() {
-  const state = { init: null as EngineInitOpts | null, flights: [] as LatLng[], zooms: [] as number[], fits: [] as LatLngBounds[] }
+  const state = {
+    init: null as EngineInitOpts | null,
+    flights: [] as LatLng[],
+    zooms: [] as number[],
+    fits: [] as LatLngBounds[],
+    fitCaps: [] as (number | undefined)[],
+  }
   const engine: MapEngine = {
     clearGroup() {},
     addBadgeMarker() {},
@@ -26,8 +32,9 @@ function makeFakeEngine() {
       state.flights.push(center)
       state.zooms.push(zoom)
     },
-    fitBounds(bounds) {
+    fitBounds(bounds, opts) {
       state.fits.push(bounds)
+      state.fitCaps.push(opts?.maxZoom)
     },
     invalidateSize() {},
     setImageOverlay() {},
@@ -156,5 +163,65 @@ describe('LakeMap flies to a selection that resolves late', () => {
     const movedMarker = marker({ lat: 39.09, lng: -119.92 })
     await w.setProps({ overviewMarkers: [movedMarker] })
     expect(state.fits[state.fits.length - 1]).toEqual(destinationBounds(seededDestination, [movedMarker]))
+  })
+
+  // TERC-89: field_location_zoom is a CEILING on the station fit, never a
+  // replacement for it — so a lone station cannot open at street level, and
+  // a destination with no zoom behaves exactly as before.
+  it('caps a deep-linked destination fit at its zoom', () => {
+    const { state, factory } = makeFakeEngine()
+    mount(LakeMap, {
+      props: {
+        fitLake: true,
+        engineFactory: factory,
+        destinations: [{ ...homewood, maxZoom: 13 }],
+        selectedDestinationId: 'homewood',
+      },
+    })
+    expect(state.init?.fitBounds).toEqual(destinationBounds({ ...homewood, maxZoom: 13 }, []))
+    expect(state.init?.fitMaxZoom).toBe(13)
+  })
+
+  it('leaves the fit uncapped when the destination has no zoom set', () => {
+    const { state, factory } = makeFakeEngine()
+    mount(LakeMap, {
+      props: { fitLake: true, engineFactory: factory, destinations: [homewood], selectedDestinationId: 'homewood' },
+    })
+    expect(state.init?.fitMaxZoom).toBeUndefined()
+  })
+
+  it('never caps the whole-lake fit', () => {
+    const { state, factory } = makeFakeEngine()
+    mount(LakeMap, { props: { fitLake: true, engineFactory: factory, destinations: [{ ...homewood, maxZoom: 13 }] } })
+    expect(state.init?.fitBounds).toEqual(LAKE_GRID_BOUNDS)
+    expect(state.init?.fitMaxZoom).toBeUndefined()
+  })
+
+  it('passes the ceiling when the visitor picks a destination', async () => {
+    const { state, factory } = makeFakeEngine()
+    const w = mount(LakeMap, {
+      props: { fitLake: true, engineFactory: factory, destinations: [{ ...homewood, maxZoom: 12.5 }] },
+    })
+    await w.setProps({ selectedDestinationId: 'homewood' })
+    expect(state.fitCaps[state.fitCaps.length - 1]).toBe(12.5)
+  })
+
+  it('refits once when content arrives with a different ceiling than the static tier', async () => {
+    const { state, factory } = makeFakeEngine()
+    const w = mount(LakeMap, {
+      props: {
+        fitLake: true,
+        engineFactory: factory,
+        destinations: [{ ...homewood, maxZoom: 13 }],
+        selectedDestinationId: 'homewood',
+      },
+    })
+    const before = state.fits.length
+    await w.setProps({ destinations: [{ ...homewood, maxZoom: 12 }] })
+    expect(state.fits.length).toBe(before + 1)
+    expect(state.fitCaps[state.fitCaps.length - 1]).toBe(12)
+    // Same ceiling re-delivered (a registry swap or poll) -> no re-fit.
+    await w.setProps({ destinations: [{ ...homewood, maxZoom: 12 }] })
+    expect(state.fits.length).toBe(before + 1)
   })
 })

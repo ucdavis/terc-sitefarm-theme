@@ -100,6 +100,25 @@ function processedBody(raw: unknown): string | undefined {
   return text ? text : undefined
 }
 
+/** Used when a destination has no field_location_zoom, or an unusable one. */
+export const DEFAULT_DESTINATION_ZOOM = 13
+
+/**
+ * field_location_zoom (TERC-89), or undefined when there is no usable value.
+ *
+ * A decimal field, and JSON:API serializes decimals as STRINGS ("11.25",
+ * "13.00") — hand one to Leaflet unconverted and it gets a string where it
+ * expects a number. Null, empty, unparseable or out-of-range all come back
+ * undefined, which means "no ceiling": the map fits the destination's
+ * stations uncapped, exactly as before the field existed.
+ */
+function explicitZoom(attrs: Record<string, unknown>): number | undefined {
+  const v = attrs.field_location_zoom
+  if (v === null || v === undefined || v === '') return undefined
+  const n = Number(v)
+  return Number.isFinite(n) && n >= 1 && n <= 20 ? n : undefined
+}
+
 export function adaptRegistry(body: {
   data: JsonApiResource[]
   included?: JsonApiResource[]
@@ -122,13 +141,14 @@ export function adaptRegistry(body: {
       .map((r) => stationsByUuid.get(r.id))
       .filter((s): s is RegistryStation => s !== undefined)
     const description = processedBody(res.attributes.body)
+    const cap = explicitZoom(res.attributes)
     destinations.push({
       id: slug,
       name: String(res.attributes.title ?? slug),
       ...g,
       ...(description ? { description } : {}),
-      // No zoom field on the content type yet — destination-level default.
-      zoom: 13,
+      zoom: cap ?? DEFAULT_DESTINATION_ZOOM,
+      ...(cap !== undefined ? { maxZoom: cap } : {}),
       stationIds: stations.filter((s) => s.kind === 'nearshore' && s.sourceId !== null).map((s) => s.sourceId as number),
       buoyIds: stations.filter((s) => s.kind === 'buoy' && s.sourceId !== null).map((s) => s.sourceId as number),
       includesHomewood: stations.some((s) => s.kind === 'homewood'),
@@ -165,7 +185,9 @@ export function staticRegistry(): Registry {
       lng: MET_STATION.lng,
     },
   ]
-  return { destinations: DESTINATIONS, stations, fromSite: false }
+  // The static tier caps framing with the same curated zooms the seeder
+  // writes to field_location_zoom, so both tiers frame a destination alike.
+  return { destinations: DESTINATIONS.map((d) => ({ ...d, maxZoom: d.zoom })), stations, fromSite: false }
 }
 
 export async function fetchRegistry(): Promise<Registry> {

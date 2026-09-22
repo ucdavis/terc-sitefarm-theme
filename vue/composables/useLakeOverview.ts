@@ -57,15 +57,26 @@ export interface OverviewMarker {
 }
 
 /**
- * tc-homewood cannot be represented in site content yet (the allowed value
- * on field_station_type is pending on tercdev) and the static registry
- * predates it, so the overview supplies it directly. Once a registry of
- * either origin contains a homewood station this entry stops being used.
+ * Last-resort marker for the tc-homewood thermistor chain.
+ *
+ * Site content CAN represent it now — `field_station_type` accepts
+ * `tc_homewood` on tercdev, and the seeder maintains that node — so this is
+ * unused on any normal page view. What still cannot represent it is
+ * `staticRegistry()`, which only adapts NEARSHORE_STATIONS, NASA_BUOYS and
+ * MET_STATION; so this is what keeps the chain on the map when the site's
+ * own JSON:API is down. Delete it once the static registry carries a
+ * homewood entry of its own, not before.
+ *
+ * TERC-79: the coordinate used to be 39.09,-120.161, which is the HOMEWOOD
+ * NEARSHORE STATION (id 4) to five decimals — a different instrument 1.1 km
+ * away. The chain is a string of sensors in deeper water, 584 m offshore;
+ * the nearshore sensor is on a dock 12 m out. Same name, same bay, not the
+ * same thing.
  */
-const HOMEWOOD_FALLBACK = {
+export const HOMEWOOD_FALLBACK = {
   name: 'Homewood (tc)',
-  lat: 39.09,
-  lng: -120.161,
+  lat: 39.08353,
+  lng: -120.15092,
 }
 
 export function markerKey(kind: StationFocus['kind'], sourceId: number): string {

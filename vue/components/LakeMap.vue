@@ -172,6 +172,9 @@ onMounted(() => {
       : props.fitLake && !focused
         ? LAKE_GRID_BOUNDS
         : undefined,
+    // TERC-89: the destination's zoom is a ceiling on that fit, so a lone
+    // station does not open at street level. The whole-lake fit is uncapped.
+    fitMaxZoom: preselected?.maxZoom,
   })
   drawDestinations()
   drawOverview()
@@ -238,7 +241,10 @@ const framingTarget = computed(() => {
     const d = props.destinations.find((x) => x.id === props.selectedDestinationId)
     if (!d) return { key: 'pending' }
     const bounds = destinationBounds(d, props.overviewMarkers ?? [])
-    return { key: `destination:${d.id}:${boundsKey(bounds)}`, bounds }
+    // The ceiling is part of the key: if site content arrives with a
+    // different field_location_zoom than the static tier had, the frame is
+    // redone once with the new cap. Same cap, same key — no re-fly.
+    return { key: `destination:${d.id}:${boundsKey(bounds)}:${d.maxZoom ?? ''}`, bounds, maxZoom: d.maxZoom }
   }
   return { key: 'lake' }
 })
@@ -247,7 +253,7 @@ watch(
   () => framingTarget.value.key,
   () => {
     const t = framingTarget.value
-    if ('bounds' in t && t.bounds) engine.value?.fitBounds(t.bounds)
+    if ('bounds' in t && t.bounds) engine.value?.fitBounds(t.bounds, { maxZoom: t.maxZoom })
     else if ('center' in t && t.center) engine.value?.flyTo(t.center, t.zoom)
     // Selection cleared (no destination, no station) -> the whole lake.
     // A selection that has not resolved yet ('pending') leaves the view
