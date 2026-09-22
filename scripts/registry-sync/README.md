@@ -99,10 +99,38 @@ field exists.
   reviewed once, applied mechanically (this is the typo defense).
   The API's `Station_Name` is compared and surfaced as a `note` when it
   differs, never written.
-- Observed activity maps to `field_station_status` (`active` = data in the
-  last 3 days, `maintenance` = historical data only) once the field exists.
+- **Station status is curated when the file has it** (TERC-96). A station's
+  `"status"` in `registry.data.json` is written as-is; `"status": null`
+  writes nothing. Only a station with no `status` key falls back to observed
+  activity (`active` = data in the last 3 days, `maintenance` = historical
+  data only). The dry run adds a `note` when activity disagrees with the
+  curated value, but the curated value is kept: activity cannot tell a
+  working sensor from one that transmits barometric pressure out of the
+  water.
+- Coordinates count as unchanged within half a unit of the fifth decimal,
+  so rounded values pulled from the site don't re-write it.
 - Never-observed stations are still created (per product rule: stations
   stay on the map), noted in the data file.
+
+## Pulling the site's edits back (TERC-96)
+
+Editors own this content once it's seeded: they move destinations on the
+map, change zooms, and add destinations. Before a re-seed, bring those edits
+back into the file, or the seed will undo them:
+
+```bash
+node pull.mjs            # report what differs from the site (prod by default)
+node pull.mjs --write    # update registry.data.json
+PULL_BASE_URL=https://tercdev.sf.ucdavis.edu node pull.mjs
+```
+
+It is read-only against the site: public JSON:API GETs, no credentials.
+It carries back station names, coordinates and statuses, plus destination
+names, coordinates, zooms and station lists, and it keeps the file's notes.
+Coordinates are rounded to five decimals. Then mirror the destinations in
+`vue/config/destinations.ts` (the static fallback). `destinationsFallback.test.ts`
+fails until the two match. A `sync.mjs --dry-run` straight after a pull should
+report every item `ok`.
 
 ## Cloudflare / WAF note
 
