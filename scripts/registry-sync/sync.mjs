@@ -116,24 +116,39 @@ async function drupal(method, path, body) {
   return text ? JSON.parse(text) : null
 }
 
-let stationFieldsCache = null
-/** Which curated fields exist on the station type (probe once). */
-async function availableStationFields() {
-  if (stationFieldsCache) return stationFieldsCache
-  const res = await drupal('GET', '/jsonapi/node/station?page[limit]=1')
-  const attrs = res.data[0] ? Object.keys(res.data[0].attributes) : []
-  stationFieldsCache = new Set(attrs)
-  return stationFieldsCache
-}
-
-let destinationFieldsCache = null
-/** Which optional fields exist on the lake_locations type (probe once). */
-async function availableDestinationFields() {
-  if (destinationFieldsCache) return destinationFieldsCache
-  const res = await drupal('GET', '/jsonapi/node/lake_locations?page[limit]=1')
-  const attrs = res.data[0] ? Object.keys(res.data[0].attributes) : []
-  destinationFieldsCache = new Set(attrs)
-  return destinationFieldsCache
+const fieldCache = new Map()
+/**
+ * Does `bundle` have `field`? Asked of the SCHEMA, not of an existing node.
+ *
+ * The first version read the attribute keys off the first node it found. On
+ * a site with no nodes yet — prod, on its first sync — that found nothing,
+ * so every optional field read as "not on content type yet" and the run
+ * would have created every station without its status and every
+ * destination without its zoom.
+ *
+ * Instead, filter on the field with IS NULL. JSON:API answers 200 for a real
+ * field whether or not any node exists, and 400 "Invalid nested filtering
+ * ... does not exist" for one that is not on the bundle. IS NULL needs no
+ * value, so it works for any field type. Anything else (403 from a WAF,
+ * 5xx) is not an answer, so it throws rather than guess "absent".
+ */
+async function hasField(bundle, field) {
+  const key = `${bundle}.${field}`
+  if (fieldCache.has(key)) return fieldCache.get(key)
+  const path =
+    `/jsonapi/node/${bundle}?filter[p][condition][path]=${field}` +
+    '&filter[p][condition][operator]=IS%20NULL&page[limit]=1'
+  let exists
+  try {
+    await drupal('GET', path)
+    exists = true
+  } catch (err) {
+    const msg = String(err?.message ?? err)
+    if (/HTTP 400/.test(msg) && /does not exist/.test(msg)) exists = false
+    else throw new Error(`could not tell whether ${key} exists: ${msg.slice(0, 160)}`)
+  }
+  fieldCache.set(key, exists)
+  return exists
 }
 
 /**
@@ -162,7 +177,7 @@ async function upsertStation(station, activity) {
       : `filter[field_station_type]=${station.family}&filter[field_station_id]=${station.id}`
   const existing = (await drupal('GET', `/jsonapi/node/station?${filter}`)).data[0] ?? null
 
-  const fields = await availableStationFields()
+  const hasStatus = await hasField('station', 'field_station_status')
   // Curated display name wins (editors own titles); the API name is
   // surfaced as a mismatch warning in main() so typos still get caught.
   const name = station.name
@@ -176,15 +191,21 @@ async function upsertStation(station, activity) {
     field_station_type: station.family,
     field_location_geo_data: { lat: station.lat, lng: station.lng },
   }
-  if (fields.has('field_station_status') && activity && activity.status !== 'unobserved') {
+  if (hasStatus && activity && activity.status !== 'unobserved') {
     attributes.field_station_status = activity.status
-  } else if (activity && activity.status !== 'unobserved' && !fields.has('field_station_status')) {
+  } else if (activity && activity.status !== 'unobserved' && !hasStatus) {
     report('warn', name, 'field_station_status not on content type yet; status not written')
   }
 
   if (!existing) {
-    report('create', `${station.family}:${station.id ?? '-'}`, name)
-    if (DRY) return null
+    const statusNote = attributes.field_station_status ? ` [status: ${attributes.field_station_status}]` : ''
+    report('create', `${station.family}:${station.id ?? '-'}`, name + statusNote)
+    // A dry run creates nothing, so there is no uuid yet — but the station
+    // WILL exist by the time this run reaches destinations. Hand back a
+    // placeholder so destinations can see the ref resolves; without it, a
+    // first sync to an empty site flagged every destination ref as
+    // "unresolved". Never sent: every write path returns early under DRY.
+    if (DRY) return `planned:${station.family}:${station.id ?? '-'}`
     const created = await drupal('POST', '/jsonapi/node/station', {
       data: { type: 'node--station', attributes },
     })
@@ -235,18 +256,18 @@ async function upsertDestination(dest, stationUuids) {
   // Zoom goes in only when the content type has the field AND the curated
   // record carries one, so the sync still runs against a site that predates
   // the field (it warns once instead of failing every destination).
-  const fields = await availableDestinationFields()
+  const zoomField = await hasField('lake_locations', 'field_location_zoom')
   const hasZoom = typeof dest.zoom === 'number' && Number.isFinite(dest.zoom)
-  const writeZoom = hasZoom && fields.has('field_location_zoom')
+  const writeZoom = hasZoom && zoomField
   if (writeZoom) attributes.field_location_zoom = dest.zoom
-  if (hasZoom && !fields.has('field_location_zoom') && !zoomFieldWarned) {
+  if (hasZoom && !zoomField && !zoomFieldWarned) {
     zoomFieldWarned = true
     report('warn', 'lake_locations', 'field_location_zoom not on content type yet; zoom not written')
   }
   const relationships = { field_stations: { data: refs } }
 
   if (!existing) {
-    report('create', dest.slug, dest.name)
+    report('create', dest.slug, dest.name + (writeZoom ? ` [zoom: ${dest.zoom}]` : ''))
     if (DRY) return
     await drupal('POST', '/jsonapi/node/lake_locations', {
       data: { type: 'node--lake_locations', attributes, relationships },
