@@ -56,7 +56,9 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
     dragging: interactive,
     keyboard: interactive,
   }).setView(opts.center, opts.zoom)
-  if (opts.fitBounds) map.fitBounds(opts.fitBounds)
+  if (opts.fitBounds) {
+    map.fitBounds(opts.fitBounds, opts.fitMaxZoom !== undefined ? { maxZoom: opts.fitMaxZoom } : undefined)
+  }
   L.tileLayer(opts.tileUrl, { attribution: opts.attribution, maxZoom: opts.maxZoom }).addTo(map)
 
   const groups = new Map<string, L.LayerGroup>()
@@ -144,8 +146,8 @@ export function createLeafletEngine(el: HTMLElement, opts: EngineInitOpts): MapE
       map.flyTo(center, zoom, { duration: 0.8 })
     },
 
-    fitBounds(bounds: LatLngBounds) {
-      map.fitBounds(bounds)
+    fitBounds(bounds: LatLngBounds, fitOpts?: { maxZoom?: number }) {
+      map.fitBounds(bounds, fitOpts?.maxZoom !== undefined ? { maxZoom: fitOpts.maxZoom } : undefined)
     },
 
     invalidateSize() {
