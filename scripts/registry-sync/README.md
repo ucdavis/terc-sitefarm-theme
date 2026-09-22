@@ -117,26 +117,18 @@ a shared-secret request header. Put that header in `.env` as
 request. An IP-allowlist rule works too (also what a future Lambda's
 egress IP would need).
 
-## Drush path (no Cloudflare, no credentials)
+## No Drush path (TERC-90)
 
-Where JSON:API can't be reached (Cloudflare challenges all non-browser
-clients on `*.sf.ucdavis.edu` and the zone is centrally managed), use the
-generated drush applier — same curated data, same idempotent upserts,
-executed inside Drupal with the entity API:
+There used to be a generated Drush applier here (`make-plan.mjs` +
+`apply-plan.template.php`) for when JSON:API was unreachable. It is gone:
+SiteFarm **rejects a custom theme containing PHP**, and installing the theme on
+prod failed on that template. It is archived at
+`~/Projects/TERC/drupal-php-scripts/` for reference.
 
-```bash
-node make-plan.mjs                 # discovery + plan -> dist/apply-plan.generated.php
-# local:
-ddev exec drush scr sites/default/themes/terc/scripts/registry-sync/dist/apply-plan.generated.php -- --dry-run
-# tercdev (ACSF alias; copy the file where remote drush can read it, e.g. scp to ~/):
-drush @ucdsitefarm.01dev --uri=https://tercdev.sf.ucdavis.edu scr apply-plan.generated.php -- --dry-run
-```
-
-Drop `--dry-run` to apply. The applier needs none of the JSON:API/basic-auth
-prerequisites above and can set publish status directly; it still skips
-`tc_homewood` and station-status writes until the content model has them.
-Regenerate (`make-plan.mjs`) whenever registry.data.json changes or to
-refresh observed statuses; `--skip-discovery` skips the report-API probe.
+It is not needed. `sync.mjs` reaches prod over JSON:API — a dry run against
+tahoe.ucdavis.edu went through end to end — and where it cannot be used, the
+same data can be entered by hand: `docs/manual-site-setup.md` §2 maps every
+field in `registry.data.json` to its admin-UI field.
 
 ## Lambda later
 

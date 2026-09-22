@@ -24,6 +24,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # TERC-90. SiteFarm rejects a custom theme containing any PHP file other
+      # than its own .theme file — installing this theme on prod failed on two
+      # Drush scripts under scripts/. Checks TRACKED files, which is exactly
+      # what deploys. One-off site changes belong in docs/manual-site-setup.md
+      # or in node scripts that talk to JSON:API from outside.
+      - name: No PHP besides terc.theme (SiteFarm rejects it)
+        run: |
+          php=$(git ls-files | grep -iE '\.(php|inc|module|install|engine|profile|phtml|theme)$' | grep -vx 'terc.theme' || true)
+          if [ -n "$php" ]; then
+            echo "::error title=PHP file in the theme::SiteFarm rejects custom themes containing PHP (TERC-90)"
+            echo "These tracked files would block installing the theme on SiteFarm:"
+            echo "$php" | sed 's/^/  /'
+            echo
+            echo "Move them out of the repo; see docs/manual-site-setup.md."
+            exit 1
+          fi
+          echo "No PHP besides terc.theme."
+
       - uses: actions/setup-node@v4
         with:
           # .nvmrc pins Node 24 to match the ddev web container, so CI,
