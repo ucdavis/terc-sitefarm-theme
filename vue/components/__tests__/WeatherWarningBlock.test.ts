@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { flushPromises, mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { createApp, nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const sampleMock = vi.fn()
@@ -14,6 +14,7 @@ vi.mock('../../data/weatherAlerts', async (importOriginal) => {
 })
 
 import WeatherWarningBlock from '../WeatherWarningBlock.vue'
+import componentSource from '../WeatherWarningBlock.vue?raw'
 
 const fetchMock = vi.fn()
 
@@ -226,5 +227,89 @@ describe('WeatherWarningBlock', () => {
         expect(w.text()).toContain('Sample alert')
       }
     })
+  })
+})
+
+// ---------------------------------------------------------------- TERC-91
+// With nothing to say, the Drupal block wrapper around this component must
+// vanish. A global rule hides it while the mount point is :empty — and
+// :empty ignores comment nodes, which is exactly what Vue leaves behind for a
+// false v-if. These pin both halves: the rule, and the component's promise to
+// leave nothing BUT comments in the mount point.
+describe('hides its Drupal wrapper when there is nothing to show (TERC-91)', () => {
+  const HIDE = `.block:has(> .weather-alerts > [data-terc-block='weather-alerts']:empty)`
+
+  /** The page's real wrapper chain, with the component mounted inside it. */
+  function mountInDrupalWrapper() {
+    const block = document.createElement('div')
+    block.className = 'block block-pdb-vue panel o-box'
+    const pdb = document.createElement('div')
+    pdb.className = 'weather-alerts'
+    const point = document.createElement('div')
+    point.setAttribute('data-terc-block', 'weather-alerts')
+    pdb.appendChild(point)
+    block.appendChild(pdb)
+    document.body.appendChild(block)
+    // Mount straight INTO the point with createApp, exactly as the block's
+    // entry does. (test-utils' attachTo would append a <div> of its own
+    // inside it, so the point could never be empty.)
+    const app = createApp(WeatherWarningBlock)
+    app.mount(point)
+    return { block, point, wrapper: app }
+  }
+  const onlyComments = (el: Element) => [...el.childNodes].every((n) => n.nodeType === 8)
+  // The rule hides the wrapper exactly when the mount point is :empty. Test
+  // THAT here: happy-dom's :has() ignores a pseudo-class nested inside it
+  // (it reported the wrapper hidden with a <section> rendered in the point),
+  // so block.matches(HIDE) would test happy-dom's bug, not this component.
+  // The full :has() selector is verified in a real browser against the live
+  // page markup instead (TERC-91 PR).
+  const hidden = (block: Element) =>
+    block.querySelector(":scope > .weather-alerts > [data-terc-block='weather-alerts']")!.matches(':empty')
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('ships the hide rule unscoped, so it can reach the wrapper', () => {
+    const unscoped = [...componentSource.matchAll(/<style(?![^>]*scoped)[^>]*>([\s\S]*?)<\/style>/g)]
+      .map((m) => m[1])
+      .join('\n')
+    expect(unscoped.replace(/\s+/g, ' ')).toContain(`${HIDE} { display: none; }`)
+  })
+
+  it('leaves only comments in the mount point while checking, so the wrapper stays hidden', () => {
+    fetchMock.mockReturnValue(new Promise(() => {}))
+    const { block, point, wrapper } = mountInDrupalWrapper()
+    expect(onlyComments(point)).toBe(true)
+    expect(hidden(block)).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('leaves only comments when there are no alerts, so the wrapper stays hidden', async () => {
+    fetchMock.mockResolvedValue(response([]))
+    const { block, point, wrapper } = mountInDrupalWrapper()
+    await flushPromises()
+    expect(onlyComments(point)).toBe(true)
+    expect(hidden(block)).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('shows the wrapper when an alert arrives', async () => {
+    fetchMock.mockResolvedValue(response(['Moderate']))
+    const { block, point, wrapper } = mountInDrupalWrapper()
+    await flushPromises()
+    expect(onlyComments(point)).toBe(false)
+    expect(hidden(block)).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('shows the wrapper for a failed fetch too — an honest error, not silence', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 503 })
+    const { block, wrapper } = mountInDrupalWrapper()
+    await flushPromises()
+    expect(hidden(block)).toBe(false)
+    expect(block.textContent).toContain('Weather alerts unavailable')
+    wrapper.unmount()
   })
 })

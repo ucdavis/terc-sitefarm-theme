@@ -163,3 +163,30 @@ onBeforeUnmount(() => controller?.abort())
   }
 }
 </style>
+
+<!--
+  TERC-91. NOT scoped: this targets the Drupal block wrapper around the
+  component, which scoped styles cannot reach.
+
+  With no active alert the component renders nothing (a lone <!-- v-if -->
+  comment), but the wrapper — div#block-…weatheralerts.block.panel.o-box —
+  still renders, and .panel gives it a background and a 2.25rem bottom margin:
+  an empty band above the page. Drupal cannot leave the markup out, because
+  the alerts are fetched in the browser after the page is built.
+
+  :empty ignores comment nodes, so it matches both "no alerts" and "not
+  fetched yet" — the panel never flashes in while the request is in flight.
+  An error or real alerts render content, and the wrapper shows as before.
+
+  The selector spells out the exact wrapper chain (block > PDB wrapper > mount
+  point) so it can only ever hide THIS block. If that markup changes, the rule
+  stops matching and the block simply shows: it fails safe, to today's
+  behaviour. The component's contract that makes this work — nothing but
+  comments in the mount point when there is nothing to say — is pinned by
+  WeatherWarningBlock.test.ts.
+-->
+<style>
+.block:has(> .weather-alerts > [data-terc-block='weather-alerts']:empty) {
+  display: none;
+}
+</style>
