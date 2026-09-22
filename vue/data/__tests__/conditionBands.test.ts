@@ -215,7 +215,10 @@ describe('brand colors on bands (TERC-60)', () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain('include=field_band_brand_color')
     expect(String(fetchMock.mock.calls[1][0])).not.toContain('include=')
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(String(warn.mock.calls[0][0])).toContain('add-brand-color-field.php')
+    // Points at the manual Field UI steps: SiteFarm rejects PHP in the theme,
+    // so there is no script to run any more (TERC-90).
+    expect(String(warn.mock.calls[0][0])).toContain('docs/manual-site-setup.md')
+    expect(String(warn.mock.calls[0][0])).not.toContain('.php')
     warn.mockRestore()
   })
 

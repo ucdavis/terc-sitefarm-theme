@@ -36,6 +36,13 @@ Vue prototype being ported lives at `~/Apps/terc-experiments/terc-proto-1`.
   and ignores it). The GitHub repo is public: **no secrets, ever** —
   credentials go in gitignored `.env` files, and the WAF bypass header's
   real name lives only in `.env` and Cloudflare.
+- **No PHP in the theme except `terc.theme`.** SiteFarm rejects a custom
+  theme containing any other PHP file, and installing it on prod failed
+  exactly that way (TERC-90). One-off site changes are manual steps in
+  `docs/manual-site-setup.md`, or node scripts that talk to JSON:API from
+  outside (`scripts/registry-sync/sync.mjs`) — never Drush scripts. The old
+  ones are archived at `~/Projects/TERC/drupal-php-scripts/`. CI fails on
+  any tracked PHP file other than `terc.theme`.
 
 ## Environment & commands
 
@@ -184,7 +191,7 @@ drush warning — imported config expecting creds the local site lacks.
 - **JSON:API**: registry at `/jsonapi/node/lake_locations?include=field_stations`;
   bands at `/jsonapi/taxonomy_term/condition_bands?include=field_band_brand_color`
   (the include is the optional TERC-60 brand-color reference to an
-  `sf_branding` term; `scripts/condition-bands/` adds the field). Decimal
+  `sf_branding` term, added by hand — `docs/manual-site-setup.md` §1). Decimal
   fields serialize as **strings** — always `Number()` before
   comparing/sorting.
   Taxonomy terms default published; nodes needed a published-by-default
