@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { miscCache } from '../../core/cache'
 import { resetModelTimeForTests } from '../../composables/useModelTime'
+import { resetWaveTimeForTests, useWaveTime } from '../../composables/useWaveTime'
 
 const NAMES = ['2026-08-19 12.npy', '2026-08-19 14.npy', '2026-08-19 16.npy']
 
@@ -331,5 +332,88 @@ describe('stale forecast notice (TERC-92)', () => {
     await flushPromises()
     await flush()
     expect(w.find('.fc-stale').text()).toContain('14 hours ago')
+  })
+})
+
+// ---------------------------------------------------------------- TERC-93
+describe('wave height runs on its own clock (TERC-93)', () => {
+  // The model stopped at Sep 17; NOAA's wind forecast runs from Sep 22.
+  const LAST_RUN = ['2026-09-16 12.npy', '2026-09-16 18.npy', '2026-09-17 00.npy']
+  const WIND = {
+    properties: {
+      windSpeed: {
+        uom: 'wmoUnit:km_h-1',
+        values: [
+          { validTime: '2026-09-22T16:00:00+00:00/PT1H', value: 18 },
+          { validTime: '2026-09-23T16:00:00+00:00/PT1H', value: 18 },
+        ],
+      },
+      windDirection: {
+        uom: 'wmoUnit:degree_(angle)',
+        values: [
+          { validTime: '2026-09-22T16:00:00+00:00/PT1H', value: 240 },
+          { validTime: '2026-09-23T16:00:00+00:00/PT1H', value: 240 },
+        ],
+      },
+    },
+  }
+
+  beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-22T15:49:00Z'))
+    fetchMock.mockImplementation(async (url: string) =>
+      url.includes('weather.gov')
+        ? { ok: true, json: async () => WIND }
+        : { ok: true, json: async () => ({ temperature: LAST_RUN, flow: LAST_RUN }) },
+    )
+    miscCache.delete('noaa-wind')
+    resetWaveTimeForTests()
+    // WaveHeightView (stubbed here) is what loads NOAA's hours in the app.
+    await useWaveTime().ensureWaveHours()
+  })
+  afterEach(() => {
+    resetWaveTimeForTests()
+    miscCache.delete('noaa-wind')
+    vi.useRealTimers()
+  })
+
+  const dateOptions = (w: ReturnType<typeof mountShell>) =>
+    w.findAll('.fc-selector option').map((o) => o.attributes('value'))
+
+  it('offers NOAA’s dates on the wave view and the model’s on the others', async () => {
+    const w = mountShell()
+    await flushPromises()
+    await flush()
+    expect(dateOptions(w)).toEqual(['2026-09-16', '2026-09-17'])
+
+    await w.findAll('[role="tab"]')[2].trigger('click')
+    expect(dateOptions(w)).toEqual(['2026-09-22', '2026-09-23'])
+    expect(w.findAll('[role="tabpanel"]')[2].text()).toContain('Sep 22')
+
+    await w.findAll('[role="tab"]')[1].trigger('click')
+    expect(dateOptions(w)).toEqual(['2026-09-16', '2026-09-17'])
+  })
+
+  it('shows the stale-model notice everywhere except the wave view, which is current', async () => {
+    const w = mountShell()
+    await flushPromises()
+    await flush()
+    expect(w.find('.fc-stale').exists()).toBe(true)
+    await w.findAll('[role="tab"]')[2].trigger('click')
+    expect(w.find('.fc-stale').exists()).toBe(false)
+    await w.findAll('[role="tab"]')[0].trigger('click')
+    expect(w.find('.fc-stale').exists()).toBe(true)
+  })
+
+  it('keeps each clock’s selection across view switches', async () => {
+    const w = mountShell()
+    await flushPromises()
+    await flush()
+    await w.findAll('[role="tab"]')[2].trigger('click')
+    await w.get('.fc-selector select').setValue('2026-09-23')
+    await w.findAll('[role="tab"]')[0].trigger('click')
+    expect((w.get('.fc-selector select').element as HTMLSelectElement).value).toBe('2026-09-17')
+    await w.findAll('[role="tab"]')[2].trigger('click')
+    expect((w.get('.fc-selector select').element as HTMLSelectElement).value).toBe('2026-09-23')
   })
 })

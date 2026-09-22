@@ -16,7 +16,7 @@ import { compassName } from '../data/noaa'
  * FieldStage; the wind indicator and the wind-specific caveats are this
  * view's own.
  */
-const { state, wind, windOffsetHours, bucket, substituted, isCalm } = useWaveField()
+const { state, wind, bucket, substituted, isCalm } = useWaveField()
 
 /**
  * Point the arrow where the wind is going. Two rotations compose here:
@@ -36,11 +36,9 @@ const windText = computed(() => {
 })
 
 const caveats = computed(() => {
+  // No "wind borrowed from a neighbouring hour" caveat since TERC-93: the
+  // wave view's hours ARE NOAA's forecast hours, so each has its own wind.
   const out: string[] = []
-  if (windOffsetHours.value !== 0) {
-    const n = Math.abs(windOffsetHours.value)
-    out.push(`using the wind forecast from ${n} hour${n === 1 ? '' : 's'} ${windOffsetHours.value < 0 ? 'earlier' : 'later'}`)
-  }
   if (substituted.value) out.push('showing the nearest available wind solution')
   return out
 })

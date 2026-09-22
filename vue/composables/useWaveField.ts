@@ -1,12 +1,8 @@
 import { computed, getCurrentScope, onScopeDispose, ref, watch } from 'vue'
-import { type RequestState, empty, failure, idle, loading, success } from '../core/requestState'
+import { type RequestState, failure, idle, loading, success } from '../core/requestState'
 import type { ScalarGrid } from '../data/gridDecode'
-import {
-  fetchWindTimeline,
-  windForTime,
-  type HourlyWind,
-  type WindTimeline,
-} from '../data/noaa'
+import { TTL } from '../core/cache'
+import type { HourlyWind } from '../data/noaa'
 import {
   fetchWaveGrid,
   peekWaveGrid,
@@ -14,35 +10,32 @@ import {
   WS_RANGE,
   type WaveBucket,
 } from '../data/waveHeight'
-import { useModelTime } from './useModelTime'
+import { useWaveTime, type WaveFrame } from './useWaveTime'
 
 /**
  * Drives the Wave Height view (TERC-24): selected hour → NOAA wind →
  * nearest precomputed STWAVE bucket → grid.
  *
- * Two things make this different from useModeledField:
- *  - The wind forecast covers roughly −13 h to +174 h, while the model
- *    manifest reaches ~2 weeks back. Hours with no wind get an explicit
- *    empty state, never a wave field derived from unrelated wind.
- *  - Many hours share a bucket, so prefetch resolves upcoming hours to
- *    their buckets first and fetches only the DISTINCT ones — a stable
- *    wind day animates on one or two downloads.
+ * Since TERC-93 the hours come from the wave view's OWN axis (useWaveTime),
+ * built from the hours NOAA's wind forecast covers, so every hour offered
+ * already carries its wind. Before, it stepped through TERC's model frames
+ * and looked each one up in NOAA's timeline — and went blank for every hour
+ * once the model stopped publishing while NOAA's forecast ran on.
+ *
+ * Many hours share a bucket, so prefetch resolves upcoming hours to their
+ * buckets first and fetches only the DISTINCT ones — a stable wind day
+ * animates on one or two downloads.
  */
 export function useWaveField() {
-  const time = useModelTime()
+  const time = useWaveTime()
   const state = ref<RequestState<ScalarGrid>>(idle())
   const wind = ref<HourlyWind | null>(null)
-  /** Hours between the wind used and the hour selected (0 = exact). */
-  const windOffsetHours = ref(0)
   const bucket = ref<WaveBucket | null>(null)
   /** A neighbouring bucket stood in because the exact one was missing. */
   const substituted = ref(false)
-  /** The wind forecast itself failed — distinct from a missing hour. */
-  const windError = ref<string | null>(null)
-
-  let timeline: WindTimeline | null = null
   let generation = 0
   let settleTimer: ReturnType<typeof setTimeout> | null = null
+  let refreshTimer: ReturnType<typeof setInterval> | null = null
   let disposed = false
 
   if (getCurrentScope()) {
@@ -50,15 +43,11 @@ export function useWaveField() {
       disposed = true
       generation++
       if (settleTimer) clearTimeout(settleTimer)
+      if (refreshTimer) clearInterval(refreshTimer)
     })
   }
 
-  /** Resolve an hour to its bucket, or null when wind doesn't cover it. */
-  function bucketForTime(t: Date): WaveBucket | null {
-    if (!timeline) return null
-    const match = windForTime(timeline, t)
-    return match ? snapToBucket(match.wind.speedMs, match.wind.dirDeg) : null
-  }
+  const bucketFor = (f: WaveFrame): WaveBucket => snapToBucket(f.wind.speedMs, f.wind.dirDeg)
 
   /** Warm the DISTINCT buckets a set of frame indices resolves to. */
   function prefetchBuckets(indices: number[]) {
@@ -66,8 +55,7 @@ export function useWaveField() {
     for (const i of indices) {
       const frame = time.frames.value[i]
       if (!frame) continue
-      const b = bucketForTime(frame.time)
-      if (!b) continue
+      const b = bucketFor(frame)
       const key = `${b.ws}:${b.wd}`
       if (seen.has(key)) continue
       seen.add(key)
@@ -77,42 +65,17 @@ export function useWaveField() {
 
   async function load() {
     const frame = time.selectedFrame.value
-    if (!frame) return
-    const gen = ++generation
-
-    // Re-ask every time rather than once per mount: the call is cached for
-    // TTL.SHORT, so it's free inside that window and picks up a fresh
-    // forecast after it. A kiosk left open for hours must not keep
-    // answering from a timeline fetched this morning — its window would
-    // slide out from under the clock and start reporting real hours as
-    // uncovered. Only the FIRST fetch shows a loading state, so a cached
-    // timeline still renders without a flash.
-    const hadTimeline = timeline !== null
-    if (!hadTimeline) state.value = loading()
-    try {
-      timeline = await fetchWindTimeline()
-      windError.value = null
-    } catch (e) {
-      if (gen !== generation) return
-      windError.value = e instanceof Error ? e.message : String(e)
-      state.value = failure(e)
-      return
-    }
-    if (gen !== generation) return
-
-    const match = windForTime(timeline, frame.time)
-    if (!match) {
-      // Outside the wind forecast window — an honest empty state, not an
-      // error and not a wave field built from some other hour's wind.
+    if (!frame) {
+      // No hours yet: NOAA is still loading, or failed (an honest error the
+      // view shows, distinct from a quiet empty map).
+      state.value = time.error.value ? failure(new Error(time.error.value)) : loading()
       wind.value = null
       bucket.value = null
-      state.value = empty()
       return
     }
-    wind.value = match.wind
-    windOffsetHours.value = match.offsetHours
-
-    const b = snapToBucket(match.wind.speedMs, match.wind.dirDeg)
+    const gen = ++generation
+    wind.value = frame.wind
+    const b = bucketFor(frame)
     const cached = peekWaveGrid(b)
     if (cached) {
       // peek honours a remembered substitution, so a neighbour's waves are
@@ -149,6 +112,10 @@ export function useWaveField() {
   }
 
   watch(time.selectedFrame, () => void load(), { immediate: true })
+  // Re-render the error once NOAA's first attempt settles with no hours.
+  watch(time.error, () => {
+    if (!time.selectedFrame.value) void load()
+  })
 
   // Playback: warm the whole window's distinct buckets up front so every
   // tick lands on a cached grid.
@@ -161,16 +128,22 @@ export function useWaveField() {
     prefetchBuckets(indices)
   })
 
-  void time.ensureManifest()
+  // Load NOAA's hours now, and refresh them while the view stays open so a
+  // kiosk never serves this morning's forecast all day. Cached for TTL.SHORT,
+  // so each tick is free unless NOAA has published since.
+  void time.ensureWaveHours()
+  if (!disposed && getCurrentScope()) {
+    refreshTimer = setInterval(() => void time.ensureWaveHours(), TTL.SHORT)
+  }
 
   return {
     ...time,
     state,
     wind,
-    windOffsetHours,
     bucket,
     substituted,
-    windError,
+    /** NOAA's forecast itself failed — distinct from an ordinary empty map. */
+    windError: time.error,
     /** Flat calm — the model reports no waves anywhere (see waveHeight.ts). */
     isCalm: computed(() => bucket.value?.ws === WS_RANGE.min),
   }

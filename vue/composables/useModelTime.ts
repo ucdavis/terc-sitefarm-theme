@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue'
+import { createTimeAxis, PLAY_TICK_MS } from './timeAxis'
 import { fetchModelManifest, type ModelFrame } from '../data/modeledGrid'
 
 /**
@@ -95,59 +96,15 @@ export function forecastStaleness(
   return behindMs > staleAfterHours * 3_600_000 ? { latest, behindMs } : null
 }
 
-const frames = ref<ModelFrame[]>([])
-const selectedIndex = ref<number>(-1)
+const model = createTimeAxis<ModelFrame>()
 const manifestError = ref<string | null>(null)
 const loaded = ref(false)
 
-/**
- * "Next 24 h" playback. Playing just advances selectedIndex on a timer —
- * views react exactly as they do to manual stepping, and because
- * useModeledField prefetches the whole window when playback starts, every
- * tick is a cache hit (no loading flashes mid-animation). Any manual
- * interaction (date select, hour step) cancels playback.
- */
-const playing = ref(false)
-const playTargetIndex = ref<number | null>(null)
-let playTimer: ReturnType<typeof setInterval> | null = null
-export const PLAY_TICK_MS = 700
-
-function stopPlay() {
-  playing.value = false
-  playTargetIndex.value = null
-  if (playTimer) {
-    clearInterval(playTimer)
-    playTimer = null
-  }
-}
-
-function playNext24h() {
-  const i0 = selectedIndex.value
-  const f0 = frames.value[i0]
-  if (!f0) return
-  const limit = f0.time.getTime() + 24 * 3_600_000
-  let end = i0
-  for (let j = i0 + 1; j < frames.value.length; j++) {
-    if (frames.value[j].time.getTime() > limit) break
-    end = j
-  }
-  if (end <= i0) return
-  stopPlay()
-  playing.value = true
-  playTargetIndex.value = end
-  playTimer = setInterval(() => {
-    const target = playTargetIndex.value
-    if (target === null || selectedIndex.value >= target) {
-      stopPlay()
-      return
-    }
-    selectedIndex.value++
-    if (selectedIndex.value >= target) stopPlay()
-  }, PLAY_TICK_MS)
-}
+/** Re-exported: tests and views imported it from here before TERC-93. */
+export { PLAY_TICK_MS }
 
 async function ensureManifest() {
-  if (loaded.value || frames.value.length > 0) return
+  if (loaded.value || model.axis.frames.value.length > 0) return
   try {
     const manifest = await fetchModelManifest()
     // The two lists are identical in practice; fall back to flow if
@@ -159,21 +116,8 @@ async function ensureManifest() {
       manifestError.value = 'no forecast frames are currently published'
       return
     }
-    frames.value = forecastWindow(list, Date.now())
-    if (selectedIndex.value === -1 && frames.value.length > 0) {
-      // Default to the frame closest to "now".
-      const now = Date.now()
-      let best = 0
-      let bestDist = Number.POSITIVE_INFINITY
-      frames.value.forEach((f, i) => {
-        const d = Math.abs(f.time.getTime() - now)
-        if (d < bestDist) {
-          bestDist = d
-          best = i
-        }
-      })
-      selectedIndex.value = best
-    }
+    // Defaults to the frame closest to "now" (see createTimeAxis).
+    model.setFrames(forecastWindow(list, Date.now()))
     loaded.value = true
     manifestError.value = null
   } catch (e) {
@@ -183,53 +127,27 @@ async function ensureManifest() {
   }
 }
 
+/**
+ * The model's time axis — TERC's temperature/flow frames — shared by the
+ * temperature and currents views. Wave height has its own axis (useWaveTime,
+ * TERC-93). Module scope: one selection per page, kept across view switches.
+ */
 export function useModelTime() {
-  const selectedFrame = computed<ModelFrame | null>(
-    () => frames.value[selectedIndex.value] ?? null,
-  )
-  const dates = computed(() => [...new Set(frames.value.map((f) => f.date))])
   // Evaluated when the manifest loads (the shell loads it on mount). A tab
   // left open for days would not re-evaluate by itself, but it would not get
   // a new forecast either until reloaded, which re-runs this.
-  const staleness = computed(() => forecastStaleness(frames.value, Date.now()))
-
-  function selectDate(date: string) {
-    stopPlay() // manual interaction cancels playback
-    const current = selectedFrame.value
-    // Keep the hour if that date has it, else take the date's first frame.
-    const sameHour = frames.value.findIndex((f) => f.date === date && f.hour === current?.hour)
-    const idx = sameHour !== -1 ? sameHour : frames.value.findIndex((f) => f.date === date)
-    if (idx !== -1) selectedIndex.value = idx
-  }
-
-  function stepHour(delta: number) {
-    stopPlay() // manual interaction cancels playback
-    const next = selectedIndex.value + delta
-    if (next >= 0 && next < frames.value.length) selectedIndex.value = next
-  }
-
+  const staleness = computed(() => forecastStaleness(model.axis.frames.value, Date.now()))
   return {
-    frames,
-    selectedIndex,
-    selectedFrame,
-    dates,
+    ...model.axis,
     staleness,
     manifestError,
     ensureManifest,
-    selectDate,
-    stepHour,
-    playing,
-    playTargetIndex,
-    playNext24h,
-    stopPlay,
   }
 }
 
 /** Reset the module-scope singleton between tests. */
 export function resetModelTimeForTests(): void {
-  stopPlay()
-  frames.value = []
-  selectedIndex.value = -1
+  model.reset()
   manifestError.value = null
   loaded.value = false
 }

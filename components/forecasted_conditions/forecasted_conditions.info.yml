@@ -45,7 +45,7 @@ configuration:
     type: textarea
     title: 'Introduction'
     description: 'Shown under the block heading, above the view tabs. A blank line starts a new paragraph.'
-    default_value: 'Model-based forecasts of lake conditions, updated daily. Pick a date and hour — your selection follows you between views — or press “Next 24 h” to watch conditions evolve.'
+    default_value: 'Model-based forecasts of lake conditions, updated daily. Pick a date and hour, or press “Next 24 h” to watch conditions evolve. Water temperature and currents share one timeline; wave height follows the National Weather Service wind forecast, which often reaches further ahead.'
   waterTemperatureText:
     type: textarea
     title: 'Water Temperature description'

@@ -5,8 +5,6 @@ import {
   durationToHours,
   epochHour,
   fetchWindTimeline,
-  MAX_WIND_HOUR_OFFSET,
-  windForTime,
   type WindTimeline,
 } from '../noaa'
 
@@ -127,35 +125,6 @@ describe('fetchWindTimeline', () => {
     miscCache.delete('noaa-wind')
     fetchMock.mockResolvedValueOnce({ ok: false, status: 503 })
     await expect(fetchWindTimeline()).rejects.toThrow(/503/)
-  })
-})
-
-describe('windForTime', () => {
-  const h0 = epochHour(new Date('2026-09-02T12:00:00Z'))
-  const timeline: WindTimeline = {
-    byHour: new Map([[h0, { speedMs: 5, speedMph: 11.2, dirDeg: 270 }]]),
-    firstHour: h0,
-    lastHour: h0,
-    speedUom: 'wmoUnit:km_h-1',
-  }
-
-  it('returns the exact hour with no offset', () => {
-    const m = windForTime(timeline, new Date('2026-09-02T12:30:00Z'))
-    expect(m).toEqual({ wind: timeline.byHour.get(h0), offsetHours: 0 })
-  })
-
-  it('borrows a neighbouring hour within tolerance, reporting the offset', () => {
-    const m = windForTime(timeline, new Date('2026-09-02T14:00:00Z'))
-    expect(m?.offsetHours).toBe(-2)
-  })
-
-  it('returns null beyond tolerance rather than wind from an unrelated hour', () => {
-    // The model manifest reaches ~2 weeks back; NOAA does not. Those hours
-    // must render an honest empty state, not a wave field built from
-    // whatever wind happened to be nearest.
-    expect(windForTime(timeline, new Date('2026-09-01T12:00:00Z'))).toBeNull()
-    const justOutside = new Date((h0 + MAX_WIND_HOUR_OFFSET + 1) * 3_600_000)
-    expect(windForTime(timeline, justOutside)).toBeNull()
   })
 })
 
