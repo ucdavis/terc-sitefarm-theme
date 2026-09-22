@@ -31,6 +31,12 @@ export const S3_BASE = 'https://lake-tahoe-conditions.s3.us-west-2.amazonaws.com
  *  Keyless. Resolves to (-120.03, 39.05), Reno forecast office. */
 export const NOAA_GRIDPOINT = 'https://api.weather.gov/gridpoints/REV/33,87'
 
+/** The human-readable NWS forecast page for that same grid cell, linked from
+ *  the wave view's wind attribution (TERC-97). 39.065,-120.045 resolves to
+ *  REV/33,87 (checked against api.weather.gov/points), so a visitor who
+ *  follows the link reads the forecast the wind figure came from. */
+export const NOAA_FORECAST_PAGE = 'https://forecast.weather.gov/MapClick.php?lat=39.065&lon=-120.045'
+
 /** Phase 3 — NWS active watches/warnings/advisories (keyless).
  *
  *  Lake Tahoe spans TWO forecast zones (verified via /points for the west,

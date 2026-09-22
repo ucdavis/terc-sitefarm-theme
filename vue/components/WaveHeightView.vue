@@ -4,6 +4,7 @@ import FieldStage from './FieldStage.vue'
 import { useWaveField } from '../composables/useWaveField'
 import { WAVE_SCALE } from '../core/colorScale'
 import { compassName } from '../data/noaa'
+import { NOAA_FORECAST_PAGE } from '../config/endpoints'
 
 /**
  * Wave Height view (TERC-24). Unlike temperature and currents, waves
@@ -64,6 +65,12 @@ const caveats = computed(() => {
           <span v-if="caveats.length" class="wv-caveat"> ({{ caveats.join('; ') }})</span>
         </p>
       </div>
+      <!-- The wind figure is NOAA's, not TERC's (TERC-97): it selects one of
+           TERC's precomputed wave fields, but the number is the NWS forecast. -->
+      <p v-if="wind" class="wv-attribution">
+        Wind forecast:
+        <a :href="NOAA_FORECAST_PAGE">National Weather Service (NOAA)</a>
+      </p>
       <p v-if="isCalm" class="wv-calm" role="status">
         The wind forecast is calm, so the model shows no measurable waves
         anywhere on the lake — the whole surface is at the bottom of the
@@ -89,6 +96,22 @@ const caveats = computed(() => {
 }
 .wv-wind-text {
   margin: 0;
+}
+.wv-attribution {
+  margin: -4px 0 0;
+  /* Aligns under the wind text: arrow (1.5rem) + the row's 12px gap. */
+  padding-left: calc(1.5rem + 12px);
+  font-size: 0.875rem;
+  color: #5f6e77;
+}
+.wv-attribution a {
+  color: #1d5b68;
+  text-decoration: underline;
+}
+.wv-attribution a:focus-visible {
+  outline: 2px solid #1d5b68;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 .wv-caveat {
   color: #5f6e77;
