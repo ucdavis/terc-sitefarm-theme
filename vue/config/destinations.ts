@@ -16,6 +16,15 @@
  * Incline Village but are not in it; Tahoe City (9.3 km) and Cedar Point
  * (7.2 km) group under Homewood for the same reason. This mapping is
  * deliberately config, not code: change it here.
+ *
+ * SITE CONTENT IS AUTHORITATIVE and this file is only its outage fallback.
+ * Since TERC-96 the values here are prod's (tahoe.ucdavis.edu, 2026-09-22):
+ * editors placed Homewood and the two half-lake destinations by clicking
+ * the map, re-zoomed several, and added Tahoe City. Pull them again with
+ * `node scripts/registry-sync/pull.mjs --write`, then mirror the result
+ * here — destinationsFallback.test.ts fails until this file matches
+ * registry.data.json, and says what differs. Coordinates are rounded to
+ * five decimals (±0.4 m); the editors' clicks arrive with twelve.
  */
 
 export interface DestinationDef {
@@ -59,7 +68,7 @@ export const DESTINATIONS: DestinationDef[] = [
     name: 'Incline Village',
     lat: 39.23000,
     lng: -119.98000,
-    zoom: 12,
+    zoom: 13,
     // Nearest stations by the corrected coordinates: Sand Harbor (5.3 km,
     // east shore, dormant), Tahoe Vista (7.4 km), Dollar Point (10.2 km).
     stationIds: [2, 7, 8],
@@ -78,9 +87,10 @@ export const DESTINATIONS: DestinationDef[] = [
   {
     id: 'homewood',
     name: 'Homewood',
-    lat: 39.08600,
-    lng: -120.16000,
-    zoom: 13,
+    // Placed by an editor on prod (TERC-96).
+    lat: 39.08617,
+    lng: -120.15953,
+    zoom: 15,
     // id 4 = Homewood (1.6 km, live). Cedar Point (7.2 km) and Tahoe City
     // (9.3 km) are west/north-west shore stations with no nearer
     // destination — see the file header.
@@ -107,6 +117,17 @@ export const DESTINATIONS: DestinationDef[] = [
     // which is on Cascade Lake, not Tahoe) are both never-observed ids.
     stationIds: [1, 5, 6],
   },
+  {
+    id: 'tahoe-city',
+    name: 'Tahoe City',
+    // Added by an editor on prod (TERC-96), with Cedar Point (12) as its one
+    // station. Note that is not station 9, which is NAMED Tahoe City — the
+    // editor's choice, mirrored as-is; content wins either way.
+    lat: 39.16800,
+    lng: -120.14091,
+    zoom: 14,
+    stationIds: [12],
+  },
   // ---- Half-lake destinations: the lake split at ~39.09° N (its E–W ----
   // ---- midline). Membership is by station coordinate, recomputed in  ----
   // ---- TERC-79 from the corrected positions. Glenbrook (39.08830)    ----
@@ -114,9 +135,10 @@ export const DESTINATIONS: DestinationDef[] = [
   {
     id: 'north-lake-tahoe',
     name: 'North Lake Tahoe',
-    lat: 39.18500,
-    lng: -120.02000,
-    zoom: 11.25,
+    // Placed and zoomed by an editor on prod (TERC-96).
+    lat: 39.21390,
+    lng: -120.01431,
+    zoom: 13,
     stationIds: [2, 4, 7, 8, 9, 12],
     // All four NASA buoys sit at or north of the midline (39.11–39.16).
     buoyIds: [1, 2, 3, 4],
@@ -124,9 +146,10 @@ export const DESTINATIONS: DestinationDef[] = [
   {
     id: 'south-lake-tahoe',
     name: 'South Lake Tahoe',
-    lat: 38.99000,
-    lng: -120.04000,
-    zoom: 11.25,
+    // Placed and zoomed by an editor on prod (TERC-96).
+    lat: 38.94980,
+    lng: -120.02426,
+    zoom: 12.5,
     stationIds: [1, 3, 5, 6, 10, 11],
     includesHomewood: true,
   },

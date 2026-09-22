@@ -15,6 +15,15 @@
  *  - Names and coordinates only ever come from the curated file (and after
  *    handoff, from editors); the API's Station_Name is surfaced as a
  *    mismatch note, never written.
+ *  - Station status is CURATED when the file gives one (TERC-96): a
+ *    "status" key, pulled from the site by pull.mjs, is what editors set,
+ *    and it wins. Status: null means the site leaves it empty — nothing is
+ *    written. Only a station with no "status" key at all falls back to the
+ *    activity observed on the report API, which cannot tell a working
+ *    station from one that transmits barometric pressure out of the water.
+ *  - Coordinates count as equal within half a unit of the file's fifth
+ *    decimal, so values pulled from the site and rounded (pull.mjs) do not
+ *    re-write the site's own clicks on every run.
  *  - Fields the site doesn't have yet (e.g. field_station_status) are
  *    detected and skipped with a warning, so the script works before and
  *    after the content-model additions land.
@@ -169,6 +178,11 @@ function report(action, label, detail = '') {
   console.log(`${DRY ? '[dry-run] ' : ''}${action.padEnd(8)} ${label}${detail ? ' — ' + detail : ''}`)
 }
 
+/** Equal at the file's precision: within half a unit of the fifth decimal
+ *  (+/-0.55 m here). The site may hold an editor's twelve-decimal click that
+ *  pull.mjs rounded; that is the same place, not a change to write back. */
+const sameCoord = (a, b) => Math.abs(a - b) <= 5e-6 + 1e-12
+
 // ------------------------------------------------------------------ stations
 async function upsertStation(station, activity) {
   const filter =
@@ -191,9 +205,13 @@ async function upsertStation(station, activity) {
     field_station_type: station.family,
     field_location_geo_data: { lat: station.lat, lng: station.lng },
   }
-  if (hasStatus && activity && activity.status !== 'unobserved') {
-    attributes.field_station_status = activity.status
-  } else if (activity && activity.status !== 'unobserved' && !hasStatus) {
+  // Curated status wins (TERC-96); observed activity only fills a station the
+  // file says nothing about.
+  const curated = Object.hasOwn(station, 'status')
+  const wanted = curated ? station.status : activity && activity.status !== 'unobserved' ? activity.status : null
+  if (hasStatus && wanted) {
+    attributes.field_station_status = wanted
+  } else if (wanted && !hasStatus) {
     report('warn', name, 'field_station_status not on content type yet; status not written')
   }
 
@@ -218,7 +236,7 @@ async function upsertStation(station, activity) {
   if (cur.title !== attributes.title) changed.title = attributes.title
   if (cur.status !== true) changed.status = true
   const g = cur.field_location_geo_data
-  if (!g || Math.abs(g.lat - station.lat) > 1e-6 || Math.abs(g.lng - station.lng) > 1e-6) {
+  if (!g || !sameCoord(g.lat, station.lat) || !sameCoord(g.lng, station.lng)) {
     changed.field_location_geo_data = attributes.field_location_geo_data
   }
   if (attributes.field_station_status && cur.field_station_status !== attributes.field_station_status) {
@@ -282,7 +300,7 @@ async function upsertDestination(dest, stationUuids) {
   if (cur.title !== dest.name) changed.title = dest.name
   if (cur.status !== true) changed.status = true
   const g = cur.field_location_geo_data
-  if (!g || Math.abs(g.lat - dest.lat) > 1e-6 || Math.abs(g.lng - dest.lng) > 1e-6) {
+  if (!g || !sameCoord(g.lat, dest.lat) || !sameCoord(g.lng, dest.lng)) {
     changed.field_location_geo_data = attributes.field_location_geo_data
   }
   if (writeZoom && !sameZoom(cur.field_location_zoom, dest.zoom)) {
@@ -377,6 +395,11 @@ for (const station of BANDS_ONLY ? [] : data.stations) {
     console.log(`observe  ${key.padEnd(22)} ${activity.status}${activity.apiName ? ` (${activity.apiName})` : ''}`)
     if (activity.apiName && activity.apiName !== station.name) {
       report('note', station.name, `API reports name "${activity.apiName}" — keeping curated name`)
+    }
+    // A curated status is kept (TERC-96), but say when the API disagrees: it
+    // may be the file that is out of date.
+    if (station.status && activity.status !== 'unobserved' && activity.status !== station.status) {
+      report('note', station.name, `API activity looks "${activity.status}" — keeping curated status "${station.status}"`)
     }
   }
   try {
