@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { TEMPERATURE_SCALE, scaleColor, scaleGradientCss, type ColorScale } from '../colorScale'
+import {
+  FULL_SPECTRUM_STOPS,
+  TEMPERATURE_SCALE,
+  WAVE_SCALE,
+  scaleColor,
+  scaleGradientCss,
+  type ColorScale,
+} from '../colorScale'
 
 const SIMPLE: ColorScale = {
   name: 'Test',
@@ -36,5 +43,29 @@ describe('scaleColor', () => {
 describe('scaleGradientCss', () => {
   it('builds a gradient from the same stops the renderer uses', () => {
     expect(scaleGradientCss(SIMPLE)).toBe('linear-gradient(to top, #000000, #ffffff)')
+  })
+})
+
+// TERC-81: wave height uses the same full-spectrum gradation as temperature,
+// so both forecast maps read blue = low, red = high. Pinned so the two can
+// never quietly drift back into looking like different kinds of map.
+describe('full-spectrum forecast scales (TERC-81)', () => {
+  it('wave height and temperature share the full-spectrum stops', () => {
+    expect(WAVE_SCALE.stops).toEqual([...FULL_SPECTRUM_STOPS])
+    expect(TEMPERATURE_SCALE.stops).toEqual([...FULL_SPECTRUM_STOPS])
+  })
+
+  it('wave height runs navy at calm to red at the top of its range', () => {
+    const hex = (rgb: [number, number, number]) => '#' + rgb.map((c) => c.toString(16).padStart(2, '0')).join('')
+    expect(hex(scaleColor(WAVE_SCALE, 0))).toBe(FULL_SPECTRUM_STOPS[0])
+    expect(hex(scaleColor(WAVE_SCALE, 5))).toBe(FULL_SPECTRUM_STOPS[FULL_SPECTRUM_STOPS.length - 1])
+  })
+
+  it('keeps each scale its own copy, so mutating one cannot recolour the other', () => {
+    expect(WAVE_SCALE.stops).not.toBe(TEMPERATURE_SCALE.stops)
+  })
+
+  it('leaves the wave range unchanged at 0-5 ft', () => {
+    expect([WAVE_SCALE.min, WAVE_SCALE.max, WAVE_SCALE.unit]).toEqual([0, 5, 'ft'])
   })
 })

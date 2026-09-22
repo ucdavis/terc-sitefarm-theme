@@ -37,17 +37,26 @@ export function scaleGradientCss(scale: ColorScale, direction = 'to top'): strin
   return `linear-gradient(${direction}, ${scale.stops.join(', ')})`
 }
 
-/** Surface temperature, °F — 16 stops, cool → warm (TERC-23). */
+/**
+ * The full-spectrum gradation — navy, blue, cyan, green, yellow, orange, red
+ * — shared by every forecast field that should read "low → high" the same
+ * way (TERC-81). One array, not copies: temperature and wave height used to
+ * look like two different kinds of map, and copied stops would drift apart.
+ * Currents keeps its own scale.
+ */
+export const FULL_SPECTRUM_STOPS: readonly string[] = [
+  '#20214e', '#243b8f', '#2a5cbf', '#3180d4', '#3fa2dc', '#59bfdc',
+  '#7dd6d2', '#a8e4bc', '#cfe99f', '#e9e284', '#f7cd62', '#fbab45',
+  '#f5822f', '#e6571f', '#c93214', '#a3160e',
+]
+
+/** Surface temperature, °F — full spectrum, cool → warm (TERC-23). */
 export const TEMPERATURE_SCALE: ColorScale = {
   name: 'Surface temperature',
   unit: '°F',
   min: 40,
   max: 80,
-  stops: [
-    '#20214e', '#243b8f', '#2a5cbf', '#3180d4', '#3fa2dc', '#59bfdc',
-    '#7dd6d2', '#a8e4bc', '#cfe99f', '#e9e284', '#f7cd62', '#fbab45',
-    '#f5822f', '#e6571f', '#c93214', '#a3160e',
-  ],
+  stops: [...FULL_SPECTRUM_STOPS],
 }
 
 /** Current speed, ft/min (TERC-25). */
@@ -62,16 +71,22 @@ export const CURRENT_SCALE: ColorScale = {
   ],
 }
 
-/** Wave height, ft (TERC-24). The low end is deliberately a CLEAR light
- *  blue, not near-white: calm days put the whole lake in the bottom 2% of
- *  this scale, and it still has to read against the pale basemap. */
+/**
+ * Wave height, ft (TERC-24) — full spectrum since TERC-81, matching
+ * temperature, so both forecast maps read blue = low, red = high.
+ *
+ * It was a single-hue light-blue → navy ramp, carried over unchanged from
+ * the prototype; nobody had chosen it over the full spectrum. The prototype's
+ * one real concern was calm days, which put the whole lake in the bottom few
+ * percent of the scale: its low end had to stay a clear blue, not near-white,
+ * to read against the pale basemap. The full spectrum's low end is deep navy,
+ * which reads more strongly still — a calm lake is now unmistakably "low",
+ * not faint.
+ */
 export const WAVE_SCALE: ColorScale = {
   name: 'Wave height',
   unit: 'ft',
   min: 0,
   max: 5,
-  stops: [
-    '#c4e0f2', '#98c8e8', '#6fafdd', '#4b93d0', '#3477c1', '#2a5cae',
-    '#254295', '#212c77', '#1c1d58',
-  ],
+  stops: [...FULL_SPECTRUM_STOPS],
 }
