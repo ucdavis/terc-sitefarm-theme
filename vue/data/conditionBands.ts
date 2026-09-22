@@ -19,8 +19,8 @@
  *   field_band_tone       good | fair | caution | info
  *   field_band_sentence   one-line plain-language explanation
  *   field_band_brand_color  optional reference to an sf_branding term
- *                         (TERC-60; added by scripts/condition-bands/
- *                         add-brand-color-field.php). Only the brand
+ *                         (TERC-60; added by hand in the Field UI —
+ *                         docs/manual-site-setup.md §1). Only the brand
  *                         IDENTIFIER (`field_sf_brand_color`) is read —
  *                         never a hex from content.
  */
@@ -143,7 +143,7 @@ async function fetchBandsBody(): Promise<BandsBody> {
   if (!brandFieldMissingWarned) {
     brandFieldMissingWarned = true
     console.warn(
-      `[terc] this site has no ${BRAND_FIELD} on condition_bands yet (run scripts/condition-bands/add-brand-color-field.php); band chips use tone colors`,
+      `[terc] this site has no ${BRAND_FIELD} on condition_bands yet (add it in the Field UI: see docs/manual-site-setup.md in the terc theme); band chips use tone colors`,
     )
   }
   const plain = await tracedFetch(BANDS_PATH)
