@@ -21,7 +21,19 @@ $fieldDefs = \Drupal::service('entity_field.manager')->getFieldDefinitions('node
 $hasStatusField = isset($fieldDefs['field_station_status']);
 $allowedTypes = array_keys($fieldDefs['field_station_type']->getSetting('allowed_values') ?? []);
 
+// field_location_zoom (TERC-89): the destination's framing ceiling. Detected
+// from the bundle's field definitions, like field_station_status, so a site
+// that predates the field still applies — it just warns once.
+$locationDefs = \Drupal::service('entity_field.manager')->getFieldDefinitions('node', 'lake_locations');
+$hasZoomField = isset($locationDefs['field_location_zoom']);
+$zoomWarned = FALSE;
+
 $storage = \Drupal::entityTypeManager()->getStorage('node');
+// Stations a dry run WOULD create. They have no nid yet, but they will exist
+// by the time a real run reaches destinations — so their refs are not
+// "unresolved". Without this, a first dry run against an empty site flagged
+// every destination ref. Only ever consulted under --dry-run.
+$planned = [];
 $stationUuids = [];
 $skipped = 0;
 
@@ -76,6 +88,7 @@ foreach ($plan['stations'] as $s) {
     }
   }
   if ($node) { $stationUuids[$key] = $node->uuid(); $stationNids[$key] = $node->id(); }
+  elseif ($dry) { $planned[$key] = TRUE; }
 }
 
 if (!$hasStatusField) {
@@ -86,16 +99,25 @@ foreach ($plan['destinations'] as $d) {
   $refs = [];
   $missing = [];
   foreach ($d['stations'] as $key) {
-    isset($stationNids[$key]) ? $refs[] = ['target_id' => $stationNids[$key]] : $missing[] = $key;
+    if (isset($stationNids[$key])) { $refs[] = ['target_id' => $stationNids[$key]]; }
+    elseif (isset($planned[$key])) { $refs[] = ['target_id' => 0]; }  // dry run only: never saved
+    else { $missing[] = $key; }
   }
   if ($missing) { $say('warn', $d['slug'], 'unresolved station refs: ' . implode(', ', $missing)); }
+
+  $zoom = isset($d['zoom']) && is_numeric($d['zoom']) ? (float) $d['zoom'] : NULL;
+  $writeZoom = $zoom !== NULL && $hasZoomField;
+  if ($zoom !== NULL && !$hasZoomField && !$zoomWarned) {
+    $zoomWarned = TRUE;
+    $say('warn', 'lake_locations', 'field_location_zoom not on the type yet; zoom not written');
+  }
 
   $nids = \Drupal::entityQuery('node')->condition('type', 'lake_locations')
     ->condition('field_location_id', $d['slug'])->accessCheck(FALSE)->execute();
   $node = $nids ? Node::load(reset($nids)) : NULL;
 
   if (!$node) {
-    $say('create', $d['slug'], $d['name']);
+    $say('create', $d['slug'], $d['name'] . ($writeZoom ? " [zoom: {$zoom}]" : ''));
     if (!$dry) {
       Node::create([
         'type' => 'lake_locations',
@@ -104,7 +126,7 @@ foreach ($plan['destinations'] as $d) {
         'field_location_id' => $d['slug'],
         'field_location_geo_data' => ['lat' => $d['lat'], 'lng' => $d['lng']],
         'field_stations' => $refs,
-      ])->save();
+      ] + ($writeZoom ? ['field_location_zoom' => $zoom] : []))->save();
     }
     continue;
   }
@@ -120,6 +142,15 @@ foreach ($plan['destinations'] as $d) {
   $wanted = array_map(fn($r) => (int) $r['target_id'], $refs);
   sort($current); sort($wanted);
   if ($current !== $wanted) { $node->set('field_stations', $refs); $changed[] = 'field_stations'; }
+  if ($writeZoom) {
+    // The field stores a decimal STRING ("11.25", "13.00"); compare as numbers
+    // or every run reports a change. Empty counts as unset.
+    $cur = $node->get('field_location_zoom')->value;
+    if ($cur === NULL || $cur === '' || abs((float) $cur - $zoom) > 1e-6) {
+      $node->set('field_location_zoom', $zoom);
+      $changed[] = 'field_location_zoom (' . ($cur ?? 'null') . " -> {$zoom})";
+    }
+  }
   if ($changed) {
     $say('update', $d['slug'], implode(', ', $changed));
     if (!$dry) { $node->save(); }

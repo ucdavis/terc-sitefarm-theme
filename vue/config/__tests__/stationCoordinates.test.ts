@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { MET_STATION, NASA_BUOYS, NEARSHORE_STATIONS } from '../stations'
+import { HOMEWOOD_FALLBACK } from '../../composables/useLakeOverview'
 import shoreline from './lake-shoreline.fixture.json'
 import stationsSource from '../stations.ts?raw'
+import overviewSource from '../../composables/useLakeOverview.ts?raw'
+import registry from '../../../scripts/registry-sync/registry.data.json'
 
 /**
  * TERC-79. Two invariants about station coordinates, both checked by
@@ -84,6 +87,36 @@ describe('station coordinates', () => {
     expect(inLakeTahoe(39.1711, -120.147)).toBe(false)
     // Fannette Island, in Emerald Bay — inside the outer ring, but land.
     expect(inLakeTahoe(38.95394, -120.10077)).toBe(false)
+  })
+
+  // HOMEWOOD_FALLBACK lives in useLakeOverview.ts, not stations.ts, so it
+  // escaped every check above — and it had drifted once already (TERC-79: it
+  // held nearshore station 4's coordinate, a different instrument 1.1 km
+  // away). It is only drawn when the site's JSON:API is down.
+  it('the Homewood thermistor-chain fallback marker sits in open water', () => {
+    expect(inLakeTahoe(HOMEWOOD_FALLBACK.lat, HOMEWOOD_FALLBACK.lng)).toBe(true)
+  })
+
+  it('the Homewood fallback matches the curated registry, not nearshore station 4', () => {
+    const tc = registry.stations.find((s) => s.family === 'tc_homewood')!
+    expect([HOMEWOOD_FALLBACK.lat, HOMEWOOD_FALLBACK.lng]).toEqual([tc.lat, tc.lng])
+    const ns4 = NEARSHORE_STATIONS.find((s) => s.id === 4)!
+    expect([HOMEWOOD_FALLBACK.lat, HOMEWOOD_FALLBACK.lng]).not.toEqual([ns4.lat, ns4.lng])
+  })
+
+  it('writes the Homewood fallback with exactly five decimals', () => {
+    const block = overviewSource.slice(overviewSource.indexOf('HOMEWOOD_FALLBACK = {'))
+    const literals = [...block.slice(0, block.indexOf('}')).matchAll(/\b(?:lat|lng): (-?\d+\.(\d+))\b/g)]
+    expect(literals.length).toBe(2)
+    expect(literals.filter((m) => m[2].length !== 5).map((m) => m[1])).toEqual([])
+  })
+
+  // `verified` means a TERC staff member confirmed the COORDINATE. None has
+  // been, so none may claim it — a stale true (left over from when the flag
+  // meant "the name came from the API") would mislabel a guess as confirmed.
+  it('no static station claims a TERC-confirmed coordinate yet', () => {
+    expect(NEARSHORE_STATIONS.filter((s) => s.verified).map((s) => s.name)).toEqual([])
+    expect(registry.stations.filter((s) => s.verified).map((s) => s.name)).toEqual([])
   })
 
   it('writes every coordinate literal with exactly five decimals', () => {

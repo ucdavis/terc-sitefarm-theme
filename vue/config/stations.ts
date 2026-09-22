@@ -58,9 +58,14 @@
  * that sits 26 m off the shoreline. Mixed precision (2–4 decimals) was the
  * bug. Keep new coordinates at five decimals.
  *
- * `verified` still means "confirmed by TERC staff for this project" —
- * still none. The registry moves to the Lake Destinations / Lake Stations
- * content types via JSON:API (TERC-46); site content wins over this file.
+ * `verified` means "this COORDINATE was confirmed by TERC staff for this
+ * project" — so far, none, and every entry says false to match
+ * registry.data.json. (It once meant "the NAME came from the API's
+ * Station_Name"; nine entries still said true under that old meaning until
+ * TERC-79's review caught it. stationCoordinates.test.ts now pins it.)
+ * Nothing reads the flag today. The registry moves to the Lake Destinations /
+ * Lake Stations content types via JSON:API (TERC-46); site content wins over
+ * this file.
  */
 
 export interface StationDef {
@@ -78,22 +83,22 @@ export const NEARSHORE_STATIONS: StationDef[] = [
   { id: 1, name: 'Cascade', lat: 38.94058, lng: -120.09191, verified: false },
   // Legacy value, 83 m offshore. The production app says 39.1947,-120.089
   // — 542 m out, which does not square with the 2.0 m depth it reports.
-  { id: 2, name: 'Dollar Point', lat: 39.18400, lng: -120.09300, verified: true },
+  { id: 2, name: 'Dollar Point', lat: 39.18400, lng: -120.09300, verified: false },
   // Glenbrook: NV EAST shore. Was "NS Station 3" at 38.933,-120.025 —
   // 19 km away on the south-west shore.
-  { id: 3, name: 'Glenbrook', lat: 39.08830, lng: -119.94100, verified: true },
+  { id: 3, name: 'Glenbrook', lat: 39.08830, lng: -119.94100, verified: false },
   // Legacy value, 12 m offshore (2.0 m depth reported). The production app
   // says 39.1003,-120.161, 1.1 km north. Sits exactly on the 39.09 midline
   // the half-lake destinations split on — it counts as north.
-  { id: 4, name: 'Homewood', lat: 39.09000, lng: -120.16100, verified: true },
+  { id: 4, name: 'Homewood', lat: 39.09000, lng: -120.16100, verified: false },
   // Meeks: absent from TERC's production list; Meeks Bay, 72 m offshore,
   // geocoded. Best effort — needs TERC confirmation.
   { id: 5, name: 'Meeks', lat: 39.03762, lng: -120.12116, verified: false },
-  { id: 6, name: 'Rubicon', lat: 39.01032, lng: -120.11319, verified: true },
+  { id: 6, name: 'Rubicon', lat: 39.01032, lng: -120.11319, verified: false },
   // Sand Harbor: NV east shore. Removed for CONSTRUCTION at the site;
   // redeploy planned for the fall. Still transmitting, water fields null.
-  { id: 7, name: 'Sand Harbor', lat: 39.20060, lng: -119.93100, verified: true },
-  { id: 8, name: 'Tahoe Vista', lat: 39.23640, lng: -120.06500, verified: true },
+  { id: 7, name: 'Sand Harbor', lat: 39.20060, lng: -119.93100, verified: false },
+  { id: 8, name: 'Tahoe Vista', lat: 39.23640, lng: -120.06500, verified: false },
   // Tahoe City: NW shore. Damaged, awaiting a sensor from the manufacturer.
   // BOTH coordinate sources put this one on land, 2.1 km apart —
   // the app 479 m inland, the legacy table 248 m inland and 1.9 km from the
@@ -104,17 +109,17 @@ export const NEARSHORE_STATIONS: StationDef[] = [
   // Camp Richardson: south shore. Damaged/out of lake. Last reading
   // 2025-04-22 — NOT "never observed 2024-2026" as we had recorded.
   // Was "NS Station 10" at 38.99,-120.105, 880 m inland.
-  { id: 10, name: 'Camp Richardson', lat: 38.93940, lng: -120.03900, verified: true },
+  { id: 10, name: 'Camp Richardson', lat: 38.93940, lng: -120.03900, verified: false },
   // Timber Cove: South Lake Tahoe pier area. In-water sensors are OUT of the
   // water (damage) — transmits, but the water fields are null. Also drops for
   // a day or two when the cell network is busy, mostly holidays. The legacy
   // value is 77 m inland and the app's is 292 m out — far for a dock sensor —
   // so this is derived from the Timber Cove Lodge pier, 72 m offshore.
-  { id: 11, name: 'Timber Cove', lat: 38.94770, lng: -119.96813, verified: true },
+  { id: 11, name: 'Timber Cove', lat: 38.94770, lng: -119.96813, verified: false },
   // Cedar Point: WEST shore, between Tahoe City and Homewood. The old
   // placeholder put it at 39.225,-119.93 on the east shore, which is why it
   // had been grouped under the Glenbrook destination.
-  { id: 12, name: 'Cedar Point', lat: 39.15000, lng: -120.14224, verified: true },
+  { id: 12, name: 'Cedar Point', lat: 39.15000, lng: -120.14224, verified: false },
 ]
 
 export function stationById(id: number): StationDef | undefined {

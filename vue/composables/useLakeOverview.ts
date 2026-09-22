@@ -73,7 +73,7 @@ export interface OverviewMarker {
  * the nearshore sensor is on a dock 12 m out. Same name, same bay, not the
  * same thing.
  */
-const HOMEWOOD_FALLBACK = {
+export const HOMEWOOD_FALLBACK = {
   name: 'Homewood (tc)',
   lat: 39.08353,
   lng: -120.15092,
