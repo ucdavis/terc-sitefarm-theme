@@ -11,14 +11,17 @@ const flush = () => new Promise((r) => setTimeout(r, 0))
 
 /**
  * Three model frames, sorted by time:
- *   0  2026-08-20 13 — long before the wind forecast window
+ *   0  2026-09-01 13 — a day before the wind forecast window. (It was
+ *      2026-08-20, 13 days back — exactly the history TERC-80 now trims from
+ *      the picker, which silently shifted every index below. Moved inside
+ *      the three-day window; still outside the wind forecast.)
  *   1  2026-09-02 13 (20:00Z) — wind 18 km/h from 240° -> bucket ws5/wd240
  *   2  2026-09-02 14 (21:00Z) — wind 36 km/h from 90°  -> bucket ws10/wd90
  * Frame 2 deliberately resolves to a DIFFERENT bucket so stepping to it
  * exercises the uncached load path.
  */
 const MANIFEST = {
-  temperature: ['2026-08-20 13.npy', '2026-09-02 13.npy', '2026-09-02 14.npy'],
+  temperature: ['2026-09-01 13.npy', '2026-09-02 13.npy', '2026-09-02 14.npy'],
   flow: [],
 }
 const OUTSIDE = 0
