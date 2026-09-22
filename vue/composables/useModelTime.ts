@@ -10,6 +10,55 @@ import { fetchModelManifest, type ModelFrame } from '../data/modeledGrid'
  * live: both 205 entries, same names), so the selector is driven from the
  * temperature list and frames are looked up per-variable when fetching.
  */
+/**
+ * Calendar days of history the time picker keeps before "today" (TERC-80).
+ *
+ * TERC's manifest accumulates about two weeks of frames — each model run
+ * republishes roughly a week of hindcast alongside a forecast only ~12 h
+ * ahead — so the date picker used to open onto a fortnight of the past. This
+ * is a FORECAST page: keep a few days of context, and everything ahead.
+ */
+export const FORECAST_LOOKBACK_DAYS = 3
+
+/** "2026-09-17" shifted by whole calendar days; the label is date-only, so
+ *  UTC arithmetic here cannot slip across a timezone boundary. */
+function shiftDate(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
+}
+
+/**
+ * The frames the picker offers: every frame from `lookbackDays` calendar days
+ * before "today" onward — all future frames always kept, whole lake-time days
+ * so the first date in the dropdown is never a partial one.
+ *
+ * "Today" is the date of the frame CLOSEST TO NOW — the same frame the
+ * picker selects by default. That is deliberately not now's own calendar
+ * date: when the model is stale the closest frame is simply the latest one,
+ * so the window keeps the most recent days the model did produce. Stale is
+ * not hypothetical — in Sep 2026 the last run ended on the 17th while the
+ * calendar reached the 22nd, and a cutoff of "now minus three days" would
+ * have left the picker empty.
+ */
+export function forecastWindow(
+  list: readonly ModelFrame[],
+  now: number,
+  lookbackDays: number = FORECAST_LOOKBACK_DAYS,
+): ModelFrame[] {
+  if (list.length === 0) return []
+  let anchor = list[0]
+  let best = Number.POSITIVE_INFINITY
+  for (const f of list) {
+    const dist = Math.abs(f.time.getTime() - now)
+    if (dist < best) {
+      best = dist
+      anchor = f
+    }
+  }
+  const firstDate = shiftDate(anchor.date, -lookbackDays)
+  return list.filter((f) => f.date >= firstDate)
+}
+
 const frames = ref<ModelFrame[]>([])
 const selectedIndex = ref<number>(-1)
 const manifestError = ref<string | null>(null)
@@ -74,7 +123,7 @@ async function ensureManifest() {
       manifestError.value = 'no forecast frames are currently published'
       return
     }
-    frames.value = list
+    frames.value = forecastWindow(list, Date.now())
     if (selectedIndex.value === -1 && frames.value.length > 0) {
       // Default to the frame closest to "now".
       const now = Date.now()

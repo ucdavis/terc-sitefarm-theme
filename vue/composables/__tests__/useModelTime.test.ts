@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { miscCache } from '../../core/cache'
-import { PLAY_TICK_MS, resetModelTimeForTests, useModelTime } from '../useModelTime'
+import { parseFrameName, type ModelFrame } from '../../data/modeledGrid'
+import {
+  FORECAST_LOOKBACK_DAYS,
+  PLAY_TICK_MS,
+  forecastWindow,
+  resetModelTimeForTests,
+  useModelTime,
+} from '../useModelTime'
 
 /** contents.json fixture: 2-hour cadence across two lake-time days. */
 const NAMES = [
@@ -135,5 +142,70 @@ describe('useModelTime', () => {
     await t.ensureManifest()
     expect(t.manifestError.value).toBeNull()
     expect(t.frames.value).toHaveLength(NAMES.length)
+  })
+})
+
+// ---------------------------------------------------------------- TERC-80
+/** Frame names at a 2-hour cadence, first 00:00 through last 00:00. */
+function namesBetween(first: string, last: string): string[] {
+  const out: string[] = []
+  const d = new Date(`${first}T00:00:00Z`)
+  const end = new Date(`${last}T00:00:00Z`)
+  for (; d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    const day = d.toISOString().slice(0, 10)
+    for (let h = 0; h < 24; h += 2) {
+      if (day === last && h > 0) break
+      out.push(`${day} ${String(h).padStart(2, '0')}.npy`)
+    }
+  }
+  return out
+}
+const toFrames = (names: string[]) => names.map((n) => parseFrameName(n)).filter((f): f is ModelFrame => f !== null)
+const at = (name: string) => parseFrameName(name)!.time.getTime()
+const datesOf = (fs: ModelFrame[]) => [...new Set(fs.map((f) => f.date))]
+
+// The real September 2026 manifest shape: ~two weeks of frames, the last run
+// reaching only ~12 h past its own publish time.
+const SEPT = toFrames(namesBetween('2026-09-02', '2026-09-17'))
+
+describe('forecastWindow (TERC-80)', () => {
+  it('keeps three days of history and every future frame', () => {
+    const now = at('2026-09-16 12.npy')
+    const kept = forecastWindow(SEPT, now)
+    expect(FORECAST_LOOKBACK_DAYS).toBe(3)
+    expect(datesOf(kept)).toEqual(['2026-09-13', '2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17'])
+    // Nothing ahead of now is ever dropped.
+    expect(kept.filter((f) => f.time.getTime() > now)).toEqual(SEPT.filter((f) => f.time.getTime() > now))
+  })
+
+  it('anchors on the latest frame when the model is stale, instead of emptying the picker', () => {
+    // The actual situation on 2026-09-22: the last frame is the 17th. A window
+    // anchored on "now" alone would contain nothing.
+    const kept = forecastWindow(SEPT, new Date('2026-09-22T15:00:00Z').getTime())
+    expect(kept.length).toBeGreaterThan(0)
+    expect(datesOf(kept)).toEqual(['2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17'])
+    expect(kept[kept.length - 1]).toBe(SEPT[SEPT.length - 1])
+  })
+
+  it('keeps whole days, so the first date in the picker is never partial', () => {
+    const kept = forecastWindow(SEPT, at('2026-09-16 12.npy'))
+    const first = kept.filter((f) => f.date === kept[0].date)
+    expect(first).toHaveLength(12) // every 2-hour frame of that day
+  })
+
+  it('returns an empty list for an empty manifest', () => {
+    expect(forecastWindow([], Date.now())).toEqual([])
+  })
+
+  it('trims the picker in use: the stale September manifest offers four dates, on the latest frame', async () => {
+    vi.setSystemTime(new Date('2026-09-22T15:00:00Z'))
+    const names = namesBetween('2026-09-02', '2026-09-17')
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ temperature: names, flow: names }) })
+    miscCache.delete('model-manifest')
+    resetModelTimeForTests()
+    const t = useModelTime()
+    await t.ensureManifest()
+    expect(t.dates.value).toEqual(['2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17'])
+    expect(t.selectedFrame.value?.filename).toBe('2026-09-17 00.npy')
   })
 })
