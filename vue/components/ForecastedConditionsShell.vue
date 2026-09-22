@@ -169,7 +169,15 @@ onMounted(() => {
 // (lib/mount.ts), and useId only dedupes within one app — see lib/uniqueId.
 const idBase = uniqueId('fc')
 
-const { selectedFrame, manifestError, ensureManifest } = useModelTime()
+const { selectedFrame, manifestError, ensureManifest, staleness } = useModelTime()
+
+/** "5 days ago" / "14 hours ago" for the stale-forecast notice (TERC-92). */
+const staleAgo = computed(() => {
+  if (!staleness.value) return ''
+  const hours = Math.floor(staleness.value.behindMs / 3_600_000)
+  if (hours >= 48) return `${Math.floor(hours / 24)} days ago`
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+})
 // The shell loads the manifest itself rather than relying on whichever
 // view happens to be active: the date/hour selector is the shell's own
 // chrome and must never sit empty. Views join the same singleton, so this
@@ -215,6 +223,18 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
     <span class="fc-sr-only" aria-live="polite">{{ viewAnnouncement }}</span>
 
     <DateHourSelector class="fc-selector" />
+
+    <!-- TERC-92. Honest state: when the model has stopped publishing, say so
+         beside the picker, on every view, instead of letting days-old frames
+         pass for today's. role="status" because it appears once the forecast
+         index loads, after the page itself. -->
+    <p v-if="staleness" class="fc-stale" role="status">
+      <strong>This forecast is out of date.</strong>
+      The newest forecast available is for
+      {{ fmtLakeTime(staleness.latest.time) }} (lake time), {{ staleAgo }}.
+      TERC's forecast model hasn't published anything newer, so you're
+      seeing its most recent forecast, not one for today.
+    </p>
 
     <p v-if="manifestError" class="fc-error" role="alert">
       The forecast index could not be loaded right now ({{ manifestError }}).
@@ -335,6 +355,18 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
   font-size: 0.9375rem;
 }
 /* Same amber as Plan Your Day cold-water note, so the two pages agree. */
+/* Same amber family as .fc-safety below: a caution, not an error — the page
+   works, the data behind it is old. #8c4f17 on #fdf3e0 is 5.88:1 (computed). */
+.fc-stale {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #8c4f17;
+  background: #fdf3e0;
+  border: 1px solid #f0c77a;
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+}
 .fc-safety {
   margin: 0.85rem 0 0;
   font-size: 0.8125rem;

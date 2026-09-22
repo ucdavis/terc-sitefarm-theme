@@ -4,6 +4,8 @@ import { parseFrameName, type ModelFrame } from '../../data/modeledGrid'
 import {
   FORECAST_LOOKBACK_DAYS,
   PLAY_TICK_MS,
+  STALE_AFTER_HOURS,
+  forecastStaleness,
   forecastWindow,
   resetModelTimeForTests,
   useModelTime,
@@ -207,5 +209,40 @@ describe('forecastWindow (TERC-80)', () => {
     await t.ensureManifest()
     expect(t.dates.value).toEqual(['2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17'])
     expect(t.selectedFrame.value?.filename).toBe('2026-09-17 00.npy')
+  })
+})
+
+// ---------------------------------------------------------------- TERC-92
+describe('forecastStaleness (TERC-92)', () => {
+  const H = 3_600_000
+  const latest = SEPT[SEPT.length - 1] // 2026-09-17 00:00 lake time
+
+  it('is silent in normal operation, when the newest forecast is still ahead', () => {
+    expect(forecastStaleness(SEPT, latest.time.getTime() - 48 * H)).toBeNull()
+  })
+
+  it('tolerates a run landing a little late', () => {
+    expect(STALE_AFTER_HOURS).toBe(3)
+    expect(forecastStaleness(SEPT, latest.time.getTime() + 3 * H)).toBeNull()
+  })
+
+  it('flags the forecast once the newest frame is more than three hours behind', () => {
+    const s = forecastStaleness(SEPT, latest.time.getTime() + 3 * H + 1)
+    expect(s?.latest).toBe(latest)
+  })
+
+  it('reports the real September situation: newest frame Sep 17, today Sep 22', () => {
+    const s = forecastStaleness(SEPT, new Date('2026-09-22T15:49:00Z').getTime())
+    expect(s?.latest.filename).toBe('2026-09-17 00.npy')
+    expect(Math.floor(s!.behindMs / (24 * H))).toBe(5)
+  })
+
+  it('finds the newest frame even if the manifest is unsorted', () => {
+    const shuffled = [...SEPT].reverse()
+    expect(forecastStaleness(shuffled, Date.now() + 1e12)?.latest).toBe(latest)
+  })
+
+  it('says nothing for an empty manifest — that is a separate, reported error', () => {
+    expect(forecastStaleness([], Date.now())).toBeNull()
   })
 })
