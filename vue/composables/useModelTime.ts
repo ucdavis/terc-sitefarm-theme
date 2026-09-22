@@ -59,6 +59,42 @@ export function forecastWindow(
   return list.filter((f) => f.date >= firstDate)
 }
 
+/**
+ * How far the newest forecast may fall behind the present before the page
+ * says the forecast is out of date (TERC-92).
+ *
+ * In normal operation the model publishes daily and each run reaches about
+ * three days ahead, so the newest frame sits days in the FUTURE; a frame
+ * behind "now" at all means runs have been missed. Three hours — one 2-hour
+ * frame step plus slack — keeps the notice off in the edge case of a run
+ * landing a little late, and nothing else.
+ *
+ * Found the hard way: the model stopped after its Sep 16 2026 run, and the
+ * page kept opening on Sep 17 with no sign it was days old.
+ */
+export const STALE_AFTER_HOURS = 3
+
+export interface ForecastStaleness {
+  /** The newest frame the model has published. */
+  latest: ModelFrame
+  /** How far that frame is behind now, ms. */
+  behindMs: number
+}
+
+/** Non-null when the newest forecast is more than `staleAfterHours` behind
+ *  now — i.e. there is no forecast for the present, let alone the future. */
+export function forecastStaleness(
+  list: readonly ModelFrame[],
+  now: number,
+  staleAfterHours: number = STALE_AFTER_HOURS,
+): ForecastStaleness | null {
+  if (list.length === 0) return null
+  let latest = list[0]
+  for (const f of list) if (f.time.getTime() > latest.time.getTime()) latest = f
+  const behindMs = now - latest.time.getTime()
+  return behindMs > staleAfterHours * 3_600_000 ? { latest, behindMs } : null
+}
+
 const frames = ref<ModelFrame[]>([])
 const selectedIndex = ref<number>(-1)
 const manifestError = ref<string | null>(null)
@@ -152,6 +188,10 @@ export function useModelTime() {
     () => frames.value[selectedIndex.value] ?? null,
   )
   const dates = computed(() => [...new Set(frames.value.map((f) => f.date))])
+  // Evaluated when the manifest loads (the shell loads it on mount). A tab
+  // left open for days would not re-evaluate by itself, but it would not get
+  // a new forecast either until reloaded, which re-runs this.
+  const staleness = computed(() => forecastStaleness(frames.value, Date.now()))
 
   function selectDate(date: string) {
     stopPlay() // manual interaction cancels playback
@@ -173,6 +213,7 @@ export function useModelTime() {
     selectedIndex,
     selectedFrame,
     dates,
+    staleness,
     manifestError,
     ensureManifest,
     selectDate,

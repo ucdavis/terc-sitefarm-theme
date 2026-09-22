@@ -286,3 +286,50 @@ describe('ForecastedConditionsShell', () => {
     })
   })
 })
+
+// ---------------------------------------------------------------- TERC-92
+describe('stale forecast notice (TERC-92)', () => {
+  // A day of frames, Sep 16 12:00 -> Sep 17 00:00 lake time — the shape of
+  // the model's last run before it stopped publishing.
+  const LAST_RUN = ['2026-09-16 12.npy', '2026-09-16 18.npy', '2026-09-17 00.npy']
+  const serve = (names: string[]) =>
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ temperature: names, flow: names }) })
+
+  afterEach(() => vi.useRealTimers())
+
+  it('says the forecast is out of date, naming the newest time in lake time and how old it is', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-22T15:49:00Z')) // Sep 22, 8:49 AM lake time
+    serve(LAST_RUN)
+    const w = mountShell()
+    await flushPromises()
+    await flush()
+    const note = w.find('.fc-stale')
+    expect(note.exists()).toBe(true)
+    expect(note.attributes('role')).toBe('status')
+    expect(note.text()).toContain('This forecast is out of date.')
+    expect(note.text()).toContain('Sep 17')
+    expect(note.text()).toContain('(lake time)')
+    expect(note.text()).toContain('5 days ago')
+  })
+
+  it('shows nothing while the forecast is current', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-16T20:00:00Z')) // Sep 16, 1 PM lake time
+    serve(LAST_RUN)
+    const w = mountShell()
+    await flushPromises()
+    await flush()
+    expect(w.find('.fc-stale').exists()).toBe(false)
+  })
+
+  it('counts hours, not days, when the gap is under two days', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-17T21:00:00Z')) // Sep 17, 2 PM lake time
+    serve(LAST_RUN)
+    const w = mountShell()
+    await flushPromises()
+    await flush()
+    expect(w.find('.fc-stale').text()).toContain('14 hours ago')
+  })
+})
