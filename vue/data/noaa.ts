@@ -15,9 +15,9 @@
  * The unit is read from properties.windSpeed.uom (observed live:
  * "wmoUnit:km_h-1"), never assumed.
  *
- * WINDOW (measured 2026-09-02): roughly −13 h to +174 h from now, while the
- * model manifest reaches ~2 weeks back. Most past model hours therefore
- * have no wind forecast at all — see MAX_WIND_HOUR_OFFSET.
+ * WINDOW (measured 2026-09-02): roughly −13 h to +174 h from now. Since
+ * TERC-93 the wave view's time picker is built from exactly these hours
+ * (useWaveTime), so it never asks for an hour this timeline lacks.
  */
 import { NOAA_GRIDPOINT } from '../config/endpoints'
 import { tracedFetch } from '../core/requestLog'
@@ -45,15 +45,6 @@ interface NoaaValue {
   validTime: string
   value: number | null
 }
-
-/**
- * How far the wind may be borrowed from a neighbouring hour before the
- * answer stops being about the hour the visitor asked for. Small gaps
- * happen inside the window (speed and direction entries don't always
- * align); anything beyond this is outside the forecast entirely, and the
- * view says so rather than drawing waves from unrelated wind.
- */
-export const MAX_WIND_HOUR_OFFSET = 2
 
 /** Parse "PT1H", "PT3H", "P1DT6H" … into whole hours (minimum 1). */
 export function durationToHours(iso: string): number {
@@ -125,31 +116,6 @@ export async function fetchWindTimeline(): Promise<WindTimeline> {
     if (hours.length === 0) throw new Error('NOAA returned no overlapping wind hours')
     return { byHour, firstHour: hours[0], lastHour: hours[hours.length - 1], speedUom }
   })
-}
-
-export interface WindMatch {
-  wind: HourlyWind
-  /** Hours between the wind used and the hour asked for (0 = exact). */
-  offsetHours: number
-}
-
-/**
- * Wind for an instant. Returns null when the hour is outside the forecast
- * window by more than MAX_WIND_HOUR_OFFSET — callers must render an honest
- * "no wind forecast for this hour" state instead of drawing a wave field
- * from unrelated wind.
- */
-export function windForTime(timeline: WindTimeline, time: Date): WindMatch | null {
-  const h = epochHour(time)
-  const exact = timeline.byHour.get(h)
-  if (exact) return { wind: exact, offsetHours: 0 }
-  for (let d = 1; d <= MAX_WIND_HOUR_OFFSET; d++) {
-    for (const candidate of [h - d, h + d]) {
-      const w = timeline.byHour.get(candidate)
-      if (w) return { wind: w, offsetHours: candidate - h }
-    }
-  }
-  return null
 }
 
 const COMPASS = [

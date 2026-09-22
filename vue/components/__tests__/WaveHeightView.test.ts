@@ -9,7 +9,6 @@ import type { WaveBucket } from '../../data/waveHeight'
 
 const state = ref<RequestState<ScalarGrid>>(loading())
 const wind = ref<HourlyWind | null>(null)
-const windOffsetHours = ref(0)
 const bucket = ref<WaveBucket | null>(null)
 const substituted = ref(false)
 
@@ -17,7 +16,6 @@ vi.mock('../../composables/useWaveField', () => ({
   useWaveField: () => ({
     state,
     wind,
-    windOffsetHours,
     bucket,
     substituted,
     isCalm: computed(() => bucket.value?.ws === 0),
@@ -40,7 +38,6 @@ function grid(values: number[]): ScalarGrid {
 function reset() {
   state.value = loading()
   wind.value = null
-  windOffsetHours.value = 0
   bucket.value = null
   substituted.value = false
 }
@@ -74,17 +71,18 @@ describe('WaveHeightView', () => {
     expect(w.get('.wv-arrow').attributes('aria-hidden')).toBe('true')
   })
 
-  it('discloses when the wind came from a neighbouring hour or bucket', async () => {
+  it('discloses when a neighbouring wind solution stood in', async () => {
     reset()
     wind.value = { speedMs: 5, speedMph: 11.4, dirDeg: 240 }
     bucket.value = { ws: 5, wd: 240 }
-    windOffsetHours.value = -2
     substituted.value = true
     const w = mountView()
     await w.vm.$nextTick()
     const text = w.get('.wv-wind-text').text()
-    expect(text).toContain('2 hours earlier')
     expect(text).toContain('nearest available wind solution')
+    // Every hour on the wave axis is one of NOAA's own (TERC-93), so the old
+    // "wind borrowed from N hours earlier" caveat cannot arise any more.
+    expect(text).not.toMatch(/hours? (earlier|later)/)
   })
 
   it('explains a flat-calm lake instead of letting it look broken', async () => {

@@ -12,6 +12,7 @@ import ViewTabs, { type ViewTab } from './ViewTabs.vue'
 import WaterTemperatureView from './WaterTemperatureView.vue'
 import WaveHeightView from './WaveHeightView.vue'
 import { useModelTime } from '../composables/useModelTime'
+import { useWaveTime } from '../composables/useWaveTime'
 import { fmtLakeTime } from '../core/time'
 import { uniqueId } from '../lib/uniqueId'
 
@@ -66,7 +67,7 @@ const props = withDefaults(
     safetyText: '',
     mapWidth: 'third',
     introText:
-      'Model-based forecasts of lake conditions, updated daily. Pick a date and hour — your selection follows you between views — or press “Next 24 h” to watch conditions evolve.',
+      'Model-based forecasts of lake conditions, updated daily. Pick a date and hour, or press “Next 24 h” to watch conditions evolve. Water temperature and currents share one timeline; wave height follows the National Weather Service wind forecast, which often reaches further ahead.',
     waterTemperatureText:
       'Lake-wide forecasted surface temperature. The lake is not one temperature — cold upwellings can chill a shoreline overnight.\n\n' +
       'The lake is never one temperature — wind can pull deep, cold water to the surface overnight (an upwelling), chilling a shoreline that was comfortable the day before. Even on warm days, water below the surface layer stays dangerously cold — sudden immersion can cause cold-water shock. Enter gradually, stay close to shore, and wear a life vest on any craft.',
@@ -169,7 +170,21 @@ onMounted(() => {
 // (lib/mount.ts), and useId only dedupes within one app — see lib/uniqueId.
 const idBase = uniqueId('fc')
 
-const { selectedFrame, manifestError, ensureManifest, staleness } = useModelTime()
+const modelTime = useModelTime()
+const { manifestError, ensureManifest, staleness } = modelTime
+const waveTime = useWaveTime()
+
+/**
+ * Which clock the picker runs on (TERC-93). Wave height steps through the
+ * hours NOAA's wind forecast covers; temperature and currents through TERC's
+ * model frames. Waves never needed the model — sharing its picker only left
+ * them blank whenever the model stopped publishing while NOAA's forecast ran
+ * on. Each axis keeps its own selection across view switches.
+ */
+const WAVE_VIEW = 'wave-height'
+const onWaves = computed(() => activeKey.value === WAVE_VIEW)
+const activeAxis = computed(() => (onWaves.value ? waveTime : modelTime))
+const selectedFrame = computed(() => activeAxis.value.selectedFrame.value)
 
 /** "5 days ago" / "14 hours ago" for the stale-forecast notice (TERC-92). */
 const staleAgo = computed(() => {
@@ -222,13 +237,16 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
     />
     <span class="fc-sr-only" aria-live="polite">{{ viewAnnouncement }}</span>
 
-    <DateHourSelector class="fc-selector" />
+    <!-- Keyed so the picker re-binds when the axis changes with the view. -->
+    <DateHourSelector :key="onWaves ? 'wave' : 'model'" :axis="activeAxis" class="fc-selector" />
 
     <!-- TERC-92. Honest state: when the model has stopped publishing, say so
          beside the picker, on every view, instead of letting days-old frames
          pass for today's. role="status" because it appears once the forecast
          index loads, after the page itself. -->
-    <p v-if="staleness" class="fc-stale" role="status">
+    <!-- About TERC's model, so only on the views that use it: the wave view
+         runs on NOAA's current forecast (TERC-93). -->
+    <p v-if="staleness && !onWaves" class="fc-stale" role="status">
       <strong>This forecast is out of date.</strong>
       The newest forecast available is for
       {{ fmtLakeTime(staleness.latest.time) }} (lake time), {{ staleAgo }}.
@@ -236,7 +254,7 @@ const viewAnnouncement = computed(() => `${activeView.value.label} view selected
       seeing its most recent forecast, not one for today.
     </p>
 
-    <p v-if="manifestError" class="fc-error" role="alert">
+    <p v-if="manifestError && !onWaves" class="fc-error" role="alert">
       The forecast index could not be loaded right now ({{ manifestError }}).
       Selection and playback are unavailable until it loads — real-time
       conditions are unaffected.

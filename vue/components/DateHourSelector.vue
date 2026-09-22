@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useModelTime } from '../composables/useModelTime'
+import type { TimeAxis } from '../composables/timeAxis'
 import { fmtLakeDay, fmtLakeHour } from '../core/time'
 
 /**
@@ -15,6 +16,16 @@ import { fmtLakeDay, fmtLakeHour } from '../core/time'
  * land), playback state is a toggle (aria-pressed), and the whole group
  * supports ← / → scrubbing from one focus stop.
  */
+const props = defineProps<{
+  /**
+   * The time axis to drive (TERC-93). Omitted: TERC's model frames, as
+   * before. The shell passes the wave view's NOAA-hour axis when that view is
+   * active, and re-keys this component on the switch, so reading the prop
+   * once here is enough.
+   */
+  axis?: TimeAxis
+}>()
+
 const {
   frames,
   selectedIndex,
@@ -25,7 +36,7 @@ const {
   playing,
   playNext24h,
   stopPlay,
-} = useModelTime()
+} = props.axis ?? useModelTime()
 
 const canBack = computed(() => selectedIndex.value > 0)
 const canFwd = computed(() => selectedIndex.value < frames.value.length - 1)
