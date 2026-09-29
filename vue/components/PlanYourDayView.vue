@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import StationCard from './StationCard.vue'
+import ConditionLevels from './ConditionLevels.vue'
 import LoadingState from './LoadingState.vue'
 import { useConditionsState } from '../composables/useConditionsState'
 import { useDestinationData } from '../composables/useDestinationData'
@@ -21,7 +22,7 @@ import {
 import { fmtLakeTime } from '../core/time'
 import { TimeoutError, withTimeout } from '../core/timeout'
 import { isPlausible } from '../core/units'
-import { assessMetric, COLD_WATER_SHOCK_NOTE } from '../config/qualitative'
+import { assessMetric, COLD_WATER_SHOCK_NOTE, METRIC_META } from '../config/qualitative'
 
 /**
  * Plan Your Day view (TERC-58): at-a-glance station condition cards for the
@@ -99,6 +100,7 @@ interface CardMetric {
   key: keyof NearshoreRecord & keyof typeof METRIC_QUALITY
   unit: string
   digits: number
+  /** Behind the "Show more data" toggle (demo decision). */
   extra: boolean
 }
 const METRIC_QUALITY = {
@@ -110,14 +112,20 @@ const METRIC_QUALITY = {
   chlorophyll: 'chlorophyll',
 } as const
 /** Demo decision: temp / wave / turbidity by default; the rest behind the toggle. */
-const NEARSHORE_METRICS: CardMetric[] = [
-  { label: 'Water temperature', key: 'waterTemp', unit: '°F', digits: 1, extra: false },
-  { label: 'Wave height', key: 'waveHeight', unit: 'ft', digits: 2, extra: false },
-  { label: 'Turbidity', key: 'turbidity', unit: 'NTU', digits: 2, extra: false },
-  { label: 'Conductivity', key: 'conductivity', unit: 'mS/cm', digits: 3, extra: true },
-  { label: 'Dissolved oxygen', key: 'dissolvedOxygen', unit: '% sat', digits: 1, extra: true },
-  { label: 'Chlorophyll', key: 'chlorophyll', unit: 'µg/L', digits: 1, extra: true },
-]
+// Label, unit and digits come from METRIC_META (TERC-95), the one place
+// they are defined, so the cards and the levels matrix cannot disagree about
+// what a metric is called or how it is measured. Only the ordering and the
+// behind-the-toggle flag are local.
+const NEARSHORE_METRICS: CardMetric[] = (
+  [
+    ['waterTemp', false],
+    ['waveHeight', false],
+    ['turbidity', false],
+    ['conductivity', true],
+    ['dissolvedOxygen', true],
+    ['chlorophyll', true],
+  ] as const
+).map(([key, extra]) => ({ key, extra, ...METRIC_META[key] }))
 const visibleMetrics = computed(() =>
   NEARSHORE_METRICS.filter((m) => !m.extra || showMore.value),
 )
@@ -491,6 +499,9 @@ const metMessage = computed(() => {
         </p>
       </div>
     </template>
+    <!-- Reference material, so it sits after the readings it explains and
+         opens on request (TERC-95). -->
+    <ConditionLevels />
   </div>
 </template>
 

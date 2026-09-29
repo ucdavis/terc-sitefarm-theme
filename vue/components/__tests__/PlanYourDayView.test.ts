@@ -176,7 +176,12 @@ describe('PlanYourDayView', () => {
     // Decorative: the note text below carries the message for AT.
     expect(icon.attributes('aria-hidden')).toBe('true')
     expect(w.text()).toContain('possible sensor issue')
-    expect(w.text()).not.toContain('Supersaturated')
+    // Scoped to the card: the levels matrix (TERC-95) lists every band by
+    // design, "Supersaturated" included. What must not happen is this
+    // READING being given a band.
+    const doCard = w.findAll('.station-card').find((c) => c.text().includes('Dissolved oxygen'))!
+    expect(doCard.text()).not.toContain('Supersaturated')
+    expect(doCard.find('.assess').exists()).toBe(false)
   })
 
   it('reloads station data when the registry is replaced, so names follow editor renames', async () => {
