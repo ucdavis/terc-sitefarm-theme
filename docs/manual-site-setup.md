@@ -11,56 +11,58 @@ admin UI.
 
 ---
 
-## 1. Brand color on condition bands (TERC-60)
+## 1. Brand color on condition bands (TERC-60, TERC-77)
 
 Lets editors pick each interpretation band's chip color from the UC Davis
-palette. **Optional:** without it the block uses each tone's default color and
-logs one console warning. Needed **once per site**.
+palette, with SiteFarm's color-swatch picker. **Optional:** without it every
+band uses its tone's default color. Needed **once per site**.
+
+This re-uses SiteFarm's OWN field, `field_sf_brand_color` — the one on the
+Branding terms — rather than a new field of our own. That is what gives the
+swatch picker: `sitefarm_core` wraps any select whose field name contains
+`field_sf_brand` in the `<sf-brand-color-select>` web component. It also
+means the palette comes from SiteFarm's own allowed values, so every color
+is offered exactly once, whatever state a site's Branding vocabulary is in.
 
 **Check first.** *Structure → Taxonomy → Condition interpretation bands →
-Manage fields.* If **Brand color** (`field_band_brand_color`) is listed, skip
-this section.
-
-> Status, Sep 2026: **absent on prod** (tahoe.ucdavis.edu) — do this there.
-> The vocabulary itself, its Tone field, and Branding's own color field are
-> all present.
+Manage fields.* If **Brand Color** (`field_sf_brand_color`) is listed, skip
+this section. If a field named `field_band_brand_color` is listed — an
+earlier attempt that referenced a Branding term — delete it; nothing reads
+it any more.
 
 ### Add the field
 
 1. *Structure → Taxonomy → **Condition interpretation bands** → **Manage
-   fields** → **Create a new field**.*
-2. Field type: **Reference**, then **Taxonomy term**.
-3. Label: **`Brand color`**.
-   **Edit the machine name to `band_brand_color`** so it is saved as
-   `field_band_brand_color`. Drupal suggests `field_brand_color` from the
-   label, and the block will not find that name.
-4. **Allowed number of values:** Limited, **1**.
-5. **Help text:**
-   `Optional. The UC Davis brand color for this band’s chip, chosen from the site’s brand vocabulary. Leave unset to use the tone’s default color.`
-6. **Required:** unchecked.
-7. **Reference type:**
-   - Vocabularies: **Branding** only.
-   - Sort by **Name**, **Ascending**.
-   - *Create referenced entities if they don't already exist*: **unchecked**.
-8. **Save.**
+   fields***.
+2. **Re-use an existing field** (the button beside *Create a new field*).
+3. Pick **`field_sf_brand_color`** (Brand Color) from the list. It is there
+   because the Branding vocabulary already uses it; a field's storage is
+   shared across every bundle of the same entity type.
+4. Label: **`Brand Color`**.
+5. Help text:
+   `Optional. The UC Davis brand color for this band’s chip. Leave empty to use the tone’s default color.`
+6. **Required:** unchecked. **Save.**
 
 ### Place it
 
-9. **Manage form display:** set **Brand color**'s widget to **Select list**
-   and drag it directly **below Tone**, so the two color choices sit together.
-   Save.
-10. **Manage display:** drag **Brand color** into **Disabled**. The block
-    reads it; it should not print on term pages. Save.
+7. **Manage form display:** the widget is **Select list**; drag it directly
+   **below Tone**, so the two color choices sit together. Save.
+8. **Manage display:** drag **Brand Color** into **Disabled**. The block
+   reads it; it should not print on term pages. Save.
 
 ### Verify
 
-- Edit any band: a **Brand color** select appears under Tone, listing the
-  Branding terms.
-- On `/real-time-conditions`, the browser console no longer logs
-  `[terc] this site has no field_band_brand_color on condition_bands yet`.
-- Or directly:
-  `/jsonapi/taxonomy_term/condition_bands?include=field_band_brand_color`
-  now returns 200 instead of 400.
+- Edit any band: **Brand Color** appears under Tone as a dropdown of color
+  swatches (not plain text). Pick one and save.
+- On `/real-time-conditions`, that band's chip takes the brand color. Bands
+  left empty keep their tone color.
+- Or directly: `/jsonapi/taxonomy_term/condition_bands` now includes
+  `field_sf_brand_color` on each term.
+
+Only identifiers from the audited palette in `vue/config/brandPalette.ts`
+produce a chip; anything else logs a warning naming the band and falls back
+to the tone. Content names a color, it never defines one, so no hex from
+the site can reach a chip.
 
 ---
 

@@ -139,9 +139,9 @@ describe('site bands wired into assessMetric', () => {
   })
 })
 
-/** A minimal bands body with one term that references a brand term. */
-const TAHOE_UUID = 'aaaaaaaa-0000-4000-8000-000000000001'
-const bodyWithBrand = (brandRef: { id: string } | null, included: unknown[] = []) => ({
+/** A minimal bands body whose one band carries a brand color (TERC-77:
+ *  SiteFarm's own list field on the band, not a reference to a term). */
+const bodyWithBrand = (brand: string | null) => ({
   data: [
     {
       id: 'bbbbbbbb-0000-4000-8000-000000000001',
@@ -151,34 +151,33 @@ const bodyWithBrand = (brandRef: { id: string } | null, included: unknown[] = []
         field_band_max_value: null,
         field_band_tone: 'good',
         field_band_sentence: 'Comfortable swimming.',
+        ...(brand === null ? {} : { field_sf_brand_color: brand }),
       },
-      relationships: { field_band_brand_color: { data: brandRef ? { type: 'taxonomy_term--sf_branding', ...brandRef } : null } },
     },
   ],
-  included: included as never[],
 })
-const tahoeTerm = { type: 'taxonomy_term--sf_branding', id: TAHOE_UUID, attributes: { name: 'Tahoe', field_sf_brand_color: 'tahoe' } }
 
-describe('brand colors on bands (TERC-60)', () => {
-  it('reads the referenced brand term\'s identifier and carries it on the band', () => {
-    const bands = adaptConditionBands(bodyWithBrand({ id: TAHOE_UUID }, [tahoeTerm]))
+describe('brand colors on bands (TERC-60, TERC-77)', () => {
+  it("reads the band's own brand identifier and carries it through", () => {
+    const bands = adaptConditionBands(bodyWithBrand('tahoe'))
     expect(bands.waterTemp?.[0].brand).toBe('tahoe')
     applyConditionBands(bands)
     expect(assessMetric('waterTemp', 70)?.brand).toBe('tahoe')
   })
 
-  it('no reference = no brand (tone default), with no noise', () => {
+  it('no color = no brand (tone default), with no noise', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const bands = adaptConditionBands(bodyWithBrand(null))
-    expect(bands.waterTemp?.[0]).not.toHaveProperty('brand')
+    for (const empty of [null, '']) {
+      const bands = adaptConditionBands(bodyWithBrand(empty))
+      expect(bands.waterTemp?.[0]).not.toHaveProperty('brand')
+    }
     expect(warn).not.toHaveBeenCalled()
     warn.mockRestore()
   })
 
   it('warns, naming the band, and falls back when the identifier is not in the audited palette', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const offPalette = { ...tahoeTerm, attributes: { field_sf_brand_color: 'neon-lime' } }
-    const bands = adaptConditionBands(bodyWithBrand({ id: TAHOE_UUID }, [offPalette]))
+    const bands = adaptConditionBands(bodyWithBrand('neon-lime'))
     expect(bands.waterTemp?.[0].brand).toBeUndefined()
     expect(warn).toHaveBeenCalledTimes(1)
     expect(String(warn.mock.calls[0][0])).toContain('"Pleasant"')
@@ -186,43 +185,29 @@ describe('brand colors on bands (TERC-60)', () => {
     warn.mockRestore()
   })
 
-  it('warns and falls back when the referenced term did not come back in `included`', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const bands = adaptConditionBands(bodyWithBrand({ id: TAHOE_UUID }))
-    expect(bands.waterTemp?.[0].brand).toBeUndefined()
-    expect(warn).toHaveBeenCalledTimes(1)
-    warn.mockRestore()
-  })
-
   it('never takes a hex from content — only identifiers resolve', () => {
-    const hexTerm = { ...tahoeTerm, attributes: { field_sf_brand_color: '#ff0000' } }
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const bands = adaptConditionBands(bodyWithBrand({ id: TAHOE_UUID }, [hexTerm]))
+    const bands = adaptConditionBands(bodyWithBrand('#ff0000'))
     expect(bands.waterTemp?.[0].brand).toBeUndefined()
     expect(brandChipColors('#ff0000')).toBeNull()
     vi.restoreAllMocks()
   })
 
-  it('asks for the brand terms with the bands, and falls back to a plain request on a site without the field', async () => {
+  it('asks for the bands in ONE plain request — the color is an attribute, so there is nothing to include', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: false, status: 400 }) // include rejected: field not there yet
-      .mockResolvedValueOnce({ ok: true, json: async () => fixture })
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => fixture })
     vi.stubGlobal('fetch', fetchMock)
     await loadConditionBands()
     expect(bandsFromSite.value).toBe(true)
-    expect(String(fetchMock.mock.calls[0][0])).toContain('include=field_band_brand_color')
-    expect(String(fetchMock.mock.calls[1][0])).not.toContain('include=')
-    expect(warn).toHaveBeenCalledTimes(1)
-    // Points at the manual Field UI steps: SiteFarm rejects PHP in the theme,
-    // so there is no script to run any more (TERC-90).
-    expect(String(warn.mock.calls[0][0])).toContain('docs/manual-site-setup.md')
-    expect(String(warn.mock.calls[0][0])).not.toContain('.php')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(String(fetchMock.mock.calls[0][0])).not.toContain('include=')
+    // A site without the field is not a degraded state any more: the
+    // attribute is simply absent, so nothing is logged.
+    expect(warn).not.toHaveBeenCalled()
     warn.mockRestore()
   })
 
-  it('any other failure of the include request is a real failure, not a silent downgrade', async () => {
+  it('any other failure is a real failure, not a silent downgrade', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }))
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     await loadConditionBands()

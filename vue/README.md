@@ -319,12 +319,15 @@ prototype displayed every reading 7–8 h in the future. Date params
   fallback to `config/qualitative.ts`; a metric without an open-ended top
   band is rejected (it would silently mislabel extremes). Band ordering is
   derived from the values, never term weights.
-- **Brand colors on bands (TERC-60)** — `condition_bands` terms may reference
-  an `sf_branding` term (`field_band_brand_color`, added by hand in the
-  Field UI — `../docs/manual-site-setup.md` §1); the adapter reads
-  only the brand *identifier* and `config/brandPalette.ts` resolves it to a
-  contrast-audited chip treatment. A site without the field degrades to tone
-  colors with one console warning.
+- **Brand colors on bands (TERC-60, TERC-77)** — `condition_bands` terms may
+  carry `field_sf_brand_color`, SiteFarm's OWN list field, re-used on the
+  vocabulary by hand (`../docs/manual-site-setup.md` §1). Re-using it rather
+  than defining our own is what gives editors the color-swatch picker:
+  `sitefarm_core` wraps any select whose field name contains
+  `field_sf_brand`. The adapter reads only the brand *identifier* and
+  `config/brandPalette.ts` resolves it to a contrast-audited chip treatment;
+  an unknown identifier warns and falls back to the tone. A site without the
+  field just has no value there — one plain request either way.
 - The **seeder** for both lives in `../scripts/registry-sync/` (own README;
   not web-accessible).
 

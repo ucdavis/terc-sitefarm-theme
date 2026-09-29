@@ -189,9 +189,10 @@ drush warning — imported config expecting creds the local site lacks.
   the archive (`/alerts?zone=…&start=…`) keeps past advisories, which is
   where the sample fixture came from.
 - **JSON:API**: registry at `/jsonapi/node/lake_locations?include=field_stations`;
-  bands at `/jsonapi/taxonomy_term/condition_bands?include=field_band_brand_color`
-  (the include is the optional TERC-60 brand-color reference to an
-  `sf_branding` term, added by hand — `docs/manual-site-setup.md` §1). Decimal
+  bands at `/jsonapi/taxonomy_term/condition_bands` (one plain request; the
+  optional brand color rides along as `field_sf_brand_color` — SiteFarm's own
+  list field, re-used on the vocabulary by hand, which also gives editors the
+  color-swatch picker: `docs/manual-site-setup.md` §1, TERC-77). Decimal
   fields serialize as **strings** — always `Number()` before
   comparing/sorting.
   Taxonomy terms default published; nodes needed a published-by-default
