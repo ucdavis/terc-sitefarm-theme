@@ -283,6 +283,37 @@ export const STATIC_BANDS = {
 export type QualityMetric = keyof typeof STATIC_BANDS
 
 /**
+ * How each metric is named and measured for visitors (TERC-95). One place,
+ * so the levels matrix and the station cards cannot drift apart on a label
+ * or a unit. `digits` matches what the cards print.
+ */
+export interface MetricMeta {
+  label: string
+  unit: string
+  digits: number
+}
+
+export const METRIC_META: Record<QualityMetric, MetricMeta> = {
+  waterTemp: { label: 'Water temperature', unit: '°F', digits: 1 },
+  waveHeight: { label: 'Wave height', unit: 'ft', digits: 2 },
+  airTemp: { label: 'Air temperature', unit: '°F', digits: 1 },
+  windSpeed: { label: 'Wind', unit: 'mph', digits: 1 },
+  dissolvedOxygen: { label: 'Dissolved oxygen', unit: '% sat', digits: 1 },
+  turbidity: { label: 'Turbidity', unit: 'NTU', digits: 2 },
+  conductivity: { label: 'Conductivity', unit: 'mS/cm', digits: 3 },
+  chlorophyll: { label: 'Chlorophyll', unit: 'µg/L', digits: 1 },
+}
+
+/**
+ * Every band currently in force for a metric, lowest first — the same list
+ * assessMetric consults, so the matrix a visitor reads always describes the
+ * thresholds actually being applied, editor-owned or static (TERC-95).
+ */
+export function metricBands(metric: QualityMetric): Band[] {
+  return activeBands.value[metric] ?? []
+}
+
+/**
  * The bands assessMetric consults — static until site content arrives.
  * A ref so band swaps propagate through every computed using assessMetric.
  */
