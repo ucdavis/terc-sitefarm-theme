@@ -84,6 +84,16 @@ describe('ConditionLevels', () => {
     expect(waves.findAll('tbody tr')[0].text()).toContain('Calm')
   })
 
+  it('makes a table keyboard-scrollable only when it actually overflows', async () => {
+    const w = await open(mountPanel())
+    const box = w.find('.cl-scroll')
+    // happy-dom reports no layout, so nothing overflows: the containers must
+    // then stay OUT of the tab order rather than adding dead stops. The
+    // overflowing case is verified live (320px viewport, Playwright).
+    expect(box.attributes('tabindex')).toBeUndefined()
+    expect(box.attributes('role')).toBeUndefined()
+  })
+
   it('drops trailing zeros from thresholds — 0.50 is a number, "0.5" is a threshold', async () => {
     const w = await open(mountPanel())
     const waves = w.findAll('table').find((t) => t.find('caption').text() === 'Wave height')!

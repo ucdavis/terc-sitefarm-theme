@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { bandChipStyle } from '../config/brandPalette'
 import { METRIC_META, metricBands, type Band, type QualityMetric } from '../config/qualitative'
 
@@ -38,6 +38,51 @@ function range(bands: Band[], i: number, unit: string): string {
   return `${fmt(lower)}–${fmt(upper)} ${unit}`
 }
 
+/**
+ * Which tables actually overflow their box right now.
+ *
+ * A scroll container must be keyboard-reachable so it can be scrolled
+ * without a mouse (WCAG 2.1.1) — but only when there is something to
+ * scroll. Making all eight focusable unconditionally would add eight dead
+ * tab stops on a desktop, where every table fits. Measured, not guessed at
+ * from a breakpoint, because the width that matters is the container's.
+ */
+const overflowing = ref<Record<string, boolean>>({})
+const els = new Map<string, HTMLElement>()
+let observer: ResizeObserver | null = null
+
+function measure(metric: string) {
+  const el = els.get(metric)
+  if (el) overflowing.value[metric] = el.scrollWidth > el.clientWidth + 1
+}
+
+function registerScroller(metric: string, el: unknown) {
+  const node = el as HTMLElement | null
+  if (!node) {
+    els.delete(metric)
+    observer?.disconnect()
+    for (const e of els.values()) observer?.observe(e)
+    return
+  }
+  els.set(metric, node)
+  // ResizeObserver is in every browser this theme supports; without it the
+  // containers simply stay unfocusable rather than breaking.
+  if (typeof ResizeObserver !== 'undefined') {
+    observer ??= new ResizeObserver(() => {
+      for (const key of els.keys()) measure(key)
+    })
+    observer.observe(node)
+  }
+  measure(metric)
+}
+
+onBeforeUnmount(() => observer?.disconnect())
+
+// Opening the panel is when the tables first have a size to measure.
+watch(open, (isOpen) => {
+  if (isOpen) requestAnimationFrame(() => els.forEach((_, key) => measure(key)))
+})
+
 const tables = computed(() =>
   METRICS.map((metric) => {
     const bands = metricBands(metric)
@@ -67,27 +112,42 @@ const tables = computed(() =>
         Every reading is given a level. These are all the levels, from lowest
         to highest, and the range each one covers.
       </p>
-      <table v-for="t in tables" :key="t.metric" class="cl-table">
-        <caption>{{ t.meta.label }}</caption>
-        <thead>
-          <tr>
-            <th scope="col">Level</th>
-            <th scope="col">Range</th>
-            <th scope="col">What it means</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in t.rows" :key="row.band.label">
-            <td>
-              <!-- The label is inside the chip, so the level is never
-                   carried by color alone. -->
-              <span class="cl-chip" :style="bandChipStyle(row.band)">{{ row.band.label }}</span>
-            </td>
-            <td class="cl-range">{{ row.range }}</td>
-            <td>{{ row.band.sentence }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <!-- Each table scrolls on its own below ~400px rather than stretching
+           the page (WCAG 1.4.10 reflow): a data table is two-dimensional by
+           nature, so it may scroll sideways, but the PAGE may not. The
+           container is focusable and labelled so a keyboard user can scroll
+           it and a screen reader announces what it is (WCAG 2.1.1). -->
+      <div
+        v-for="t in tables"
+        :key="t.metric"
+        :ref="(el) => registerScroller(t.metric, el)"
+        class="cl-scroll"
+        :tabindex="overflowing[t.metric] ? 0 : undefined"
+        :role="overflowing[t.metric] ? 'group' : undefined"
+        :aria-label="overflowing[t.metric] ? `${t.meta.label} levels` : undefined"
+      >
+        <table class="cl-table">
+          <caption>{{ t.meta.label }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Level</th>
+              <th scope="col">Range</th>
+              <th scope="col">What it means</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in t.rows" :key="row.band.label">
+              <td>
+                <!-- The label is inside the chip, so the level is never
+                     carried by color alone. -->
+                <span class="cl-chip" :style="bandChipStyle(row.band)">{{ row.band.label }}</span>
+              </td>
+              <td class="cl-range">{{ row.range }}</td>
+              <td>{{ row.band.sentence }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </section>
 </template>
@@ -126,11 +186,23 @@ const tables = computed(() =>
   color: #4a5a64;
   max-width: 72ch;
 }
+.cl-scroll {
+  overflow-x: auto;
+  max-width: 62rem;
+}
+.cl-scroll:focus-visible {
+  outline: 3px solid #f0b323;
+  outline-offset: 2px;
+}
 .cl-table {
   border-collapse: collapse;
   width: 100%;
-  max-width: 62rem;
   font-size: .875rem;
+}
+/* Enough room for a sentence to read as one, without forcing the page
+   wider than the viewport. */
+.cl-table td:last-child {
+  min-width: 14rem;
 }
 .cl-table caption {
   text-align: left;
@@ -160,7 +232,6 @@ const tables = computed(() =>
   color: var(--band-fg);
 }
 .cl-range {
-  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 </style>
