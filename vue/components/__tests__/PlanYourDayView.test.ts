@@ -43,7 +43,7 @@ import {
   syncFromLocation,
   useConditionsState,
 } from '../../composables/useConditionsState'
-import { COLD_WATER_SHOCK_NOTE } from '../../config/qualitative'
+import { COLD_WATER_SHOCK_NOTE, METRIC_META } from '../../config/qualitative'
 
 function rec(over: Partial<NearshoreRecord> = {}): NearshoreRecord {
   return {
@@ -205,6 +205,25 @@ describe('PlanYourDayView', () => {
     expect(nearshore.mock.calls.length).toBeGreaterThan(callsBefore)
     vi.unstubAllGlobals()
     w.unmount()
+  })
+
+  it('takes every card’s label and unit from METRIC_META, cards outside the metric loop included', async () => {
+    // The met and buoy cards are written out individually rather than
+    // looped, so they are exactly where a label or unit would drift from the
+    // levels matrix that quotes the same catalogue (PR review finding).
+    metStation.mockResolvedValue([
+      { time: new Date(), airTemp: 75, waterTemp: null, windSpeed: 6, windGust: null, windDir: null, humidity: null, pressure: null },
+    ])
+    const w = mount(PlanYourDayView)
+    await flushPromises()
+    const cards = w.findAll('.station-card')
+    const byLabel = (label: string) => cards.find((c) => c.get('.card-label').text() === label)
+    for (const metric of ['airTemp', 'windSpeed'] as const) {
+      const meta = METRIC_META[metric]
+      const card = byLabel(meta.label)
+      expect(card, `no card labelled "${meta.label}"`).toBeTruthy()
+      expect(card!.get('.card-unit').text()).toBe(meta.unit)
+    }
   })
 
   it('shows lake weather from the met station, flagged when the request fails, with a retry', async () => {

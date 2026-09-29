@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { bandChipStyle } from '../config/brandPalette'
 import { METRIC_META, metricBands, type Band, type QualityMetric } from '../config/qualitative'
+import { uniqueId } from '../lib/uniqueId'
 
 /**
  * "What do these levels mean?" — the whole interpretation scale, not just
@@ -20,7 +21,10 @@ import { METRIC_META, metricBands, type Band, type QualityMetric } from '../conf
 const METRICS = Object.keys(METRIC_META) as QualityMetric[]
 
 const open = ref(false)
-const panelId = `cl-panel-${Math.random().toString(36).slice(2, 9)}`
+// Page-wide, not per-app: one Vue app per block placeholder means useId (or
+// a per-component counter) would cross-wire two blocks' aria-controls. See
+// lib/uniqueId.
+const panelId = uniqueId('cl-panel')
 
 /** Trailing zeros carry no meaning in a threshold: 0.50 -> "0.5", 50 -> "50". */
 const fmt = (n: number) => String(Number(n.toFixed(3)))

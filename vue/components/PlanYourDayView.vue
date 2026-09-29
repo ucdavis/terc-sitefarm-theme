@@ -22,7 +22,12 @@ import {
 import { fmtLakeTime } from '../core/time'
 import { TimeoutError, withTimeout } from '../core/timeout'
 import { isPlausible } from '../core/units'
-import { assessMetric, COLD_WATER_SHOCK_NOTE, METRIC_META } from '../config/qualitative'
+import {
+  assessMetric,
+  COLD_WATER_SHOCK_NOTE,
+  METRIC_META,
+  type QualityMetric,
+} from '../config/qualitative'
 
 /**
  * Plan Your Day view (TERC-58): at-a-glance station condition cards for the
@@ -129,6 +134,18 @@ const NEARSHORE_METRICS: CardMetric[] = (
 const visibleMetrics = computed(() =>
   NEARSHORE_METRICS.filter((m) => !m.extra || showMore.value),
 )
+
+/**
+ * Label, unit and digits for a card, from the one definition (TERC-95).
+ * The met and buoy cards are written out individually rather than looped,
+ * so without this they would drift from METRIC_META the moment a unit or a
+ * label changed — which is exactly what the shared catalogue exists to
+ * prevent (PR review finding).
+ */
+function cardMeta(metric: QualityMetric) {
+  const m = METRIC_META[metric]
+  return { label: m.label, unit: m.unit, digits: m.digits }
+}
 
 function suspectDO(rec: NearshoreRecord, key: string): boolean {
   return (
@@ -365,14 +382,13 @@ const metMessage = computed(() => {
       <h4 class="pyd-station-head">Lake weather <span class="pyd-met-src">USCG met station</span></h4>
       <div v-if="met" class="pyd-grid">
         <StationCard
-          label="Air temperature"
+          v-bind="cardMeta('airTemp')"
           :value="met.airTemp"
-          unit="°F"
           :timestamp="met.time"
           :suspect="met.airTemp !== null && !isPlausible('airTempC', ((met.airTemp - 32) * 5) / 9)"
           :assessment="assessMetric('airTemp', met.airTemp)"
         />
-        <StationCard label="Wind" :value="met.windSpeed" unit="mph"
+        <StationCard v-bind="cardMeta('windSpeed')" :value="met.windSpeed"
           :timestamp="met.time" :assessment="assessMetric('windSpeed', met.windSpeed)" />
       </div>
       <p
@@ -419,11 +435,11 @@ const metMessage = computed(() => {
       </div>
       <template v-else-if="focusedBuoyRec">
         <div class="pyd-grid">
-          <StationCard label="Water temperature" :value="focusedBuoyRec.waterTemp" unit="°F"
+          <StationCard v-bind="cardMeta('waterTemp')" :value="focusedBuoyRec.waterTemp"
             :timestamp="focusedBuoyRec.time" :assessment="assessMetric('waterTemp', focusedBuoyRec.waterTemp)" />
-          <StationCard label="Air temperature" :value="focusedBuoyRec.airTemp" unit="°F"
+          <StationCard v-bind="cardMeta('airTemp')" :value="focusedBuoyRec.airTemp"
             :timestamp="focusedBuoyRec.time" :assessment="assessMetric('airTemp', focusedBuoyRec.airTemp)" />
-          <StationCard label="Wind" :value="focusedBuoyRec.windSpeed" unit="mph"
+          <StationCard v-bind="cardMeta('windSpeed')" :value="focusedBuoyRec.windSpeed"
             :timestamp="focusedBuoyRec.time" :assessment="assessMetric('windSpeed', focusedBuoyRec.windSpeed)" />
         </div>
         <p v-if="showMore" class="pyd-note">
@@ -466,11 +482,11 @@ const metMessage = computed(() => {
         <template v-for="b in reportingBuoys" :key="b.name">
           <h4 class="pyd-station-head">{{ b.name }} <span class="pyd-buoy-tag">mid-lake buoy</span></h4>
           <div class="pyd-grid">
-            <StationCard label="Water temperature" :value="b.rec.waterTemp" unit="°F"
+            <StationCard v-bind="cardMeta('waterTemp')" :value="b.rec.waterTemp"
               :timestamp="b.rec.time" :assessment="assessMetric('waterTemp', b.rec.waterTemp)" />
-            <StationCard label="Air temperature" :value="b.rec.airTemp" unit="°F"
+            <StationCard v-bind="cardMeta('airTemp')" :value="b.rec.airTemp"
               :timestamp="b.rec.time" :assessment="assessMetric('airTemp', b.rec.airTemp)" />
-            <StationCard label="Wind" :value="b.rec.windSpeed" unit="mph"
+            <StationCard v-bind="cardMeta('windSpeed')" :value="b.rec.windSpeed"
               :timestamp="b.rec.time" :assessment="assessMetric('windSpeed', b.rec.windSpeed)" />
           </div>
         </template>
