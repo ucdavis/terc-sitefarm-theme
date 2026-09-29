@@ -85,6 +85,28 @@ describe('WaveHeightView', () => {
     expect(text).not.toMatch(/hours? (earlier|later)/)
   })
 
+  it('credits the wind forecast to the National Weather Service, linking the same grid cell', async () => {
+    reset()
+    wind.value = { speedMs: 5, speedMph: 11.4, dirDeg: 240 }
+    bucket.value = { ws: 5, wd: 240 }
+    const w = mountView()
+    await w.vm.$nextTick()
+    const credit = w.get('.wv-attribution')
+    expect(credit.text()).toBe('Wind forecast: National Weather Service (NOAA)')
+    const link = credit.get('a')
+    expect(link.text()).toBe('National Weather Service (NOAA)')
+    // The point page for 39.065,-120.045 resolves to REV/33,87 — the
+    // gridpoint the wind is fetched from (endpoints.ts).
+    expect(link.attributes('href')).toBe('https://forecast.weather.gov/MapClick.php?lat=39.065&lon=-120.045')
+  })
+
+  it('shows no attribution while there is no wind to attribute', async () => {
+    reset()
+    const w = mountView()
+    await w.vm.$nextTick()
+    expect(w.find('.wv-attribution').exists()).toBe(false)
+  })
+
   it('explains a flat-calm lake instead of letting it look broken', async () => {
     reset()
     wind.value = { speedMs: 0.2, speedMph: 0.4, dirDeg: 10 }
