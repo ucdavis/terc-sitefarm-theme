@@ -6,6 +6,7 @@ import { enableRequestLog } from '../core/requestLog'
 import ViewTabs from './ViewTabs.vue'
 import type { ViewId } from '../composables/useConditionsState'
 import { uniqueId } from '../lib/uniqueId'
+import ConditionLevels from './ConditionLevels.vue'
 import { mapWidthStyle } from '../config/mapWidth'
 import LakeMap from './LakeMap.vue'
 import PlanYourDayView from './PlanYourDayView.vue'
@@ -235,6 +236,12 @@ onMounted(() => {
           @select-destination="selectDestination"
           @select-station="onSelectStation"
         />
+        <!-- Directly under the map, inside the map's own column, so it fills
+             the space the tall map column leaves empty and travels with the
+             map as it sticks (TERC-95). As a separate grid cell it would sit
+             in row 2 — i.e. below the whole reading column, thousands of
+             pixels down the page. -->
+        <ConditionLevels class="cc-levels" />
       </div>
       <div class="cc-side">
       <aside
@@ -423,6 +430,12 @@ onMounted(() => {
   .cc-map-region {
     position: sticky;
     top: 1rem;
+  }
+  .cc-levels {
+    /* The sticky column holds map + panel; the panel keeps its own top
+       margin off the map. */
+    display: block;
+    margin-top: 0.75rem;
   }
 }
 .cc-location-desc {
