@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MET_STATION, NASA_BUOYS, NEARSHORE_STATIONS } from '../stations'
 import { HOMEWOOD_FALLBACK } from '../../composables/useLakeOverview'
-import shoreline from './lake-shoreline.fixture.json'
+import { LAKE_SHORELINE_RINGS } from '../lakeShoreline'
 import stationsSource from '../stations.ts?raw'
 import overviewSource from '../../composables/useLakeOverview.ts?raw'
 import registry from '../../../scripts/registry-sync/registry.data.json'
@@ -26,7 +26,7 @@ import registry from '../../../scripts/registry-sync/registry.data.json'
 
 const M_LAT = 110540
 const M_LON = 111320 * Math.cos((39.09 * Math.PI) / 180)
-const rings = shoreline.rings as [number, number][][]
+const rings = LAKE_SHORELINE_RINGS
 
 function inRing(lat: number, lng: number, ring: [number, number][]): boolean {
   const x = lng * M_LON
