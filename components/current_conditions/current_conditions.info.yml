@@ -34,6 +34,20 @@ configuration:
       half: 'One half'
       two-thirds: 'Two thirds'
     default_value: third
+  # Editor-owned copy (TERC-98). Plain text, not HTML; a blank line starts a
+  # new paragraph. Leaving a field empty restores the default text below.
+  # The "Destinations with reporting stations right now" line under this copy
+  # is generated from live station data and is not editable.
+  welcomeTitle:
+    type: textfield
+    title: 'Welcome heading'
+    description: 'Heading of the panel beside the map before a visitor picks a destination.'
+    default_value: 'Welcome to Lake Tahoe.'
+  welcomeText:
+    type: textarea
+    title: 'Welcome text'
+    description: 'Shown under the welcome heading, before a destination is chosen. A blank line starts a new paragraph.'
+    default_value: "Pick a destination above — or click any station badge on the map — to see current water conditions for where you're headed."
   showSources:
     type: checkbox
     title: 'Show data-source chips'

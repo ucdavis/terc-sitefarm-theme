@@ -8,6 +8,7 @@ import type { ViewId } from '../composables/useConditionsState'
 import { uniqueId } from '../lib/uniqueId'
 import ConditionLevels from './ConditionLevels.vue'
 import { mapWidthStyle } from '../config/mapWidth'
+import { paragraphs, textOrDefault } from '../core/text'
 import LakeMap from './LakeMap.vue'
 import PlanYourDayView from './PlanYourDayView.vue'
 import SourceBadge from './SourceBadge.vue'
@@ -31,6 +32,12 @@ import {
  * HelloLake): checkbox values arrive as 0/1 or '0'/'1'; absent means the
  * block predates the option, so each falls back to its form default.
  */
+/** The copy this block shipped with, and the block form's default values —
+ *  keep in step with components/current_conditions/current_conditions.info.yml. */
+const WELCOME_TITLE = 'Welcome to Lake Tahoe.'
+const WELCOME_TEXT =
+  "Pick a destination above — or click any station badge on the map — to see current water conditions for where you're headed."
+
 const props = withDefaults(
   defineProps<{
     showPhase?: boolean | number | string
@@ -44,6 +51,18 @@ const props = withDefaults(
     forecastPath?: string
     /** Share of the row the map takes on wide screens (TERC-74). */
     mapWidth?: string
+    /**
+     * Editor-owned welcome copy (TERC-98), shown in the reading column when
+     * nothing is selected — the whole-lake state a visitor lands on. Plain
+     * text; a blank line starts a new paragraph. Blank restores the default
+     * (core/text.ts), because an empty heading is never what "clear this
+     * field" means.
+     *
+     * The line naming which destinations are reporting is NOT editor copy:
+     * it is generated from live station data, and stays below this text.
+     */
+    welcomeTitle?: string
+    welcomeText?: string
   }>(),
   {
     showPhase: true,
@@ -53,7 +72,14 @@ const props = withDefaults(
     showForecastLink: true,
     forecastPath: '/forecasted-conditions',
     mapWidth: 'third',
+    welcomeTitle: WELCOME_TITLE,
+    welcomeText: WELCOME_TEXT,
   },
+)
+
+const welcomeTitle = computed(() => textOrDefault(props.welcomeTitle, WELCOME_TITLE))
+const welcomeParagraphs = computed(() =>
+  paragraphs(textOrDefault(props.welcomeText, WELCOME_TEXT)),
 )
 
 function asBool(v: boolean | number | string): boolean {
@@ -257,12 +283,9 @@ onMounted(() => {
       <!-- Whole lake, nothing selected: the welcome lives here, in the same
            slot the descriptions use, rather than down in the Plan Your Day
            panel (TERC-9 follow-up). -->
-      <aside v-else-if="asideMode === 'welcome'" class="cc-location-desc cc-welcome" aria-label="Welcome to Lake Tahoe">
-        <h3>Welcome to Lake Tahoe.</h3>
-        <p>
-          Pick a destination above — or click any station badge on the map — to
-          see current water conditions for where you're headed.
-        </p>
+      <aside v-else-if="asideMode === 'welcome'" class="cc-location-desc cc-welcome" :aria-label="welcomeTitle">
+        <h3>{{ welcomeTitle }}</h3>
+        <p v-for="(para, i) in welcomeParagraphs" :key="i">{{ para }}</p>
         <p v-if="reportingDestinationNames.length" class="cc-welcome-hint">
           Destinations with reporting stations right now:
           {{ reportingDestinationNames.join(', ') }}.

@@ -15,6 +15,7 @@ import { useModelTime } from '../composables/useModelTime'
 import { useWaveTime } from '../composables/useWaveTime'
 import { fmtLakeTime } from '../core/time'
 import { uniqueId } from '../lib/uniqueId'
+import { paragraphs } from '../core/text'
 
 /**
  * Forecasted Conditions shell (TERC-22): the wrapper for the Phase 2
@@ -80,13 +81,6 @@ const props = withDefaults(
   },
 )
 
-/** Plain text -> paragraphs: blank lines separate, stray whitespace dropped. */
-function paragraphs(text: string): string[] {
-  return text
-    .split(/\n\s*\n/)
-    .map((p) => p.replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-}
 const introParagraphs = computed(() => paragraphs(props.introText))
 const viewTexts = computed<Record<string, string[]>>(() => ({
   'water-temperature': paragraphs(props.waterTemperatureText),
