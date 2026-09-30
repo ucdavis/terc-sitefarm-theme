@@ -36,8 +36,9 @@ vi.mock('../../data/locations', async (importOriginal) => {
 import CurrentConditionsShell from '../CurrentConditionsShell.vue'
 import { syncFromLocation } from '../../composables/useConditionsState'
 
-const mountShell = () =>
+const mountShell = (props: Record<string, unknown> = {}) =>
   mount(CurrentConditionsShell, {
+    props,
     global: {
       stubs: { LakeMap: true, WaterQualityView: true, PlanYourDayView: true, CacheDiagnostics: true },
     },
@@ -57,11 +58,61 @@ describe('CurrentConditionsShell map aside (TERC-9)', () => {
     const w = mountShell()
     await flush()
     const aside = w.get('.cc-location-desc.cc-welcome')
-    expect(aside.attributes('aria-label')).toBe('Welcome to Lake Tahoe')
+    // The label follows the (editable) title rather than a second copy of
+    // it that could drift (TERC-98).
+    expect(aside.get('h3').text()).toBe('Welcome to Lake Tahoe.')
+    expect(aside.attributes('aria-label')).toBe('Welcome to Lake Tahoe.')
     expect(aside.text()).toContain('Pick a destination above')
     expect(w.get('.cc-map-row').classes()).toContain('cc-map-row--with-aside')
     // Nothing is reporting in this fixture, so no hint.
     expect(aside.find('.cc-welcome-hint').exists()).toBe(false)
+  })
+
+  // TERC-98: the welcome is editor-owned block copy, like the Forecasted
+  // block's intro and view texts.
+  describe('editable welcome copy (TERC-98)', () => {
+    it('renders the editor\'s title and text, with blank lines as paragraphs', async () => {
+      const w = mountShell({
+        welcomeTitle: 'Tahoe conditions, right now',
+        welcomeText: 'First paragraph from an editor.\n\nSecond one.',
+      })
+      await flush()
+      const aside = w.get('.cc-location-desc.cc-welcome')
+      expect(aside.get('h3').text()).toBe('Tahoe conditions, right now')
+      expect(aside.attributes('aria-label')).toBe('Tahoe conditions, right now')
+      const paras = aside.findAll('p:not(.cc-welcome-hint)')
+      expect(paras.map((p) => p.text())).toEqual([
+        'First paragraph from an editor.',
+        'Second one.',
+      ])
+      expect(aside.text()).not.toContain('Pick a destination above')
+    })
+
+    it('treats a field an editor emptied as "put it back", not "render nothing"', async () => {
+      const w = mountShell({ welcomeTitle: '   ', welcomeText: '' })
+      await flush()
+      const aside = w.get('.cc-location-desc.cc-welcome')
+      expect(aside.get('h3').text()).toBe('Welcome to Lake Tahoe.')
+      expect(aside.text()).toContain('Pick a destination above')
+    })
+
+    it('never renders editor text as markup', async () => {
+      const w = mountShell({ welcomeText: 'Careful <img src=x onerror=alert(1)> now' })
+      await flush()
+      const aside = w.get('.cc-location-desc.cc-welcome')
+      expect(aside.find('img').exists()).toBe(false)
+      expect(aside.text()).toContain('<img src=x onerror=alert(1)>')
+    })
+
+    it('keeps the live "reporting right now" line out of editor control', async () => {
+      markers.value = [
+        { key: 'nearshore:2', kind: 'nearshore', sourceId: 2, name: 'Dollar Point', lat: 39.2, lng: -120.1, status: 'reporting' } as OverviewMarker,
+      ]
+      const w = mountShell({ welcomeText: 'Editor copy only.' })
+      await flush()
+      const aside = w.get('.cc-location-desc.cc-welcome')
+      expect(aside.get('.cc-welcome-hint').text()).toContain('Incline Village')
+    })
   })
 
   it('lists the destinations reporting right now, derived from live markers', async () => {
