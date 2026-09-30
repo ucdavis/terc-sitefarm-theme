@@ -54,8 +54,10 @@ export const LAKE_DOMAIN = {
   rotationDeg: -1.85,
 } as const
 
-const M_PER_DEG_LAT = 110540
-const M_PER_DEG_LON = 111320 * Math.cos((LAKE_DOMAIN.centerLat * Math.PI) / 180)
+/** Flat-earth conversions at the lake's latitude, exported so the overlay
+ *  renderer projects with exactly the same numbers as these bounds. */
+export const M_PER_DEG_LAT = 110540
+export const M_PER_DEG_LON = 111320 * Math.cos((LAKE_DOMAIN.centerLat * Math.PI) / 180)
 
 /** Half-extent of the ROTATED domain's north-aligned bounding box, in metres. */
 function rotatedHalfExtent() {
