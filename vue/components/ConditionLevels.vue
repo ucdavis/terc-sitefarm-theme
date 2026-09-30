@@ -87,6 +87,18 @@ watch(open, (isOpen) => {
   if (isOpen) requestAnimationFrame(() => els.forEach((_, key) => measure(key)))
 })
 
+/**
+ * What the closed button promises (TERC-95 follow-up): a strip of the real
+ * chip colors, plus counts. "What do these levels mean?" alone does not say
+ * whether one level or thirty are behind it, or that they are color-coded.
+ * The swatches are the actual band colors, so the preview cannot claim a
+ * palette the panel does not show.
+ */
+const previewSwatches = computed(() =>
+  tables.value.flatMap((t) => t.rows.map((row) => bandChipStyle(row.band))).slice(0, 12),
+)
+const levelCount = computed(() => tables.value.reduce((n, t) => n + t.rows.length, 0))
+
 const tables = computed(() =>
   METRICS.map((metric) => {
     const bands = metricBands(metric)
@@ -109,8 +121,16 @@ const tables = computed(() =>
       :aria-controls="panelId"
       @click="open = !open"
     >
-      {{ open ? 'Hide what these levels mean' : 'What do these levels mean?' }}
+      <span>{{ open ? 'Hide what these levels mean' : 'What do these levels mean?' }}</span>
+      <!-- Decorative: the counts beside the button say the same thing in
+           words, so a screen reader is not read a row of empty swatches. -->
+      <span v-if="!open" class="cl-swatches" aria-hidden="true">
+        <span v-for="(style, i) in previewSwatches" :key="i" class="cl-swatch" :style="style" />
+      </span>
     </button>
+    <span v-if="!open" class="cl-hint">
+      {{ levelCount }} levels across {{ tables.length }} measurements, and what each one means.
+    </span>
     <div v-show="open" :id="panelId" class="cl-panel">
       <p class="cl-intro">
         Every reading is given a level. These are all the levels, from lowest
@@ -161,6 +181,9 @@ const tables = computed(() =>
   margin-top: 0.4rem;
 }
 .cl-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font: inherit;
   font-size: .8125rem;
   font-weight: 600;
@@ -178,6 +201,27 @@ const tables = computed(() =>
 .cl-toggle:focus-visible {
   outline: 3px solid #f0b323;
   outline-offset: 2px;
+}
+.cl-swatches {
+  display: inline-flex;
+  gap: 3px;
+}
+.cl-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  /* The chip's own background, with its text color as the rim so a pale
+     band still reads as a distinct dot. */
+  background: var(--band-bg);
+  border: 1px solid var(--band-fg);
+}
+.cl-hint {
+  /* Its own line: in the 480px map column it would otherwise wrap mid
+     sentence around the button. */
+  display: block;
+  margin-top: 6px;
+  font-size: .8125rem;
+  color: #4a5a64;
 }
 .cl-panel {
   margin-top: 0.8rem;

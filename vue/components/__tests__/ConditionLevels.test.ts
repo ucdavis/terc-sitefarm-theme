@@ -31,6 +31,23 @@ describe('ConditionLevels', () => {
     expect(w.find('.cl-panel').attributes('style') ?? '').not.toContain('display: none')
   })
 
+  it('previews what is inside: real chip colors plus the counts, in words too', async () => {
+    const w = mountPanel()
+    const swatches = w.findAll('.cl-swatch')
+    expect(swatches.length).toBeGreaterThan(0)
+    // The actual band colors, not a decorative palette of their own.
+    expect(swatches[0].attributes('style')).toContain('--band-bg')
+    // Decorative: the hint carries the same promise as text, so a screen
+    // reader is not read a row of empty swatches.
+    expect(w.get('.cl-swatches').attributes('aria-hidden')).toBe('true')
+    expect(w.get('.cl-hint').text()).toMatch(/\d+ levels across \d+ measurements/)
+
+    // Both disappear once the panel is open — the panel itself is the answer.
+    await open(w)
+    expect(w.find('.cl-swatches').exists()).toBe(false)
+    expect(w.find('.cl-hint').exists()).toBe(false)
+  })
+
   it('lists every metric, each band in order, with ranges that meet end to end', async () => {
     const w = await open(mountPanel())
     const captions = w.findAll('caption').map((c) => c.text())
