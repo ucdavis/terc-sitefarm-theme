@@ -26,11 +26,15 @@ export function cToF(c: number): number {
 export function mToFt(m: number): number {
   return m * 3.28084
 }
+/**
+ * 1 mph is 0.44704 m/s by definition. Both directions are derived from this
+ * one constant so a value converted out and back cannot drift — the current
+ * speed map shows mph with m/s in parentheses (TERC-100), and the two
+ * numbers in that label must describe the same speed.
+ */
+export const MS_PER_MPH = 0.44704
 export function msToMph(ms: number): number {
-  return ms * 2.236936
-}
-export function msToFtPerMin(ms: number): number {
-  return ms * 196.850394
+  return ms / MS_PER_MPH
 }
 export function kmhToMs(kmh: number): number {
   return kmh / 3.6

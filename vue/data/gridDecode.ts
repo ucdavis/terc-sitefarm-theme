@@ -8,7 +8,7 @@
  * knows or cares.
  *
  * Grids are returned NORMALIZED: temperature already in °F, flow already
- * reduced to speed in ft/min, waves already in feet. Cache hits (see
+ * reduced to speed in mph, waves already in feet. Cache hits (see
  * modeledGrid.ts) never re-parse bytes or re-convert units.
  */
 import {
@@ -18,7 +18,7 @@ import {
   WAVE_GRID_FLIP_VERTICAL,
 } from '../config/lakeGrid'
 import { parseNpy } from '../core/npy'
-import { cToF, mToFt, msToFtPerMin } from '../core/units'
+import { cToF, mToFt, msToMph } from '../core/units'
 
 export interface ScalarGrid {
   rows: number
@@ -62,7 +62,7 @@ export function decodeTemperatureGrid(buf: ArrayBuffer): ScalarGrid {
 
 let flowLayoutLogged = false
 
-/** Decode a flow .npy (m/s u/v components, 3D) into a ft/min speed grid. */
+/** Decode a flow .npy (m/s u/v components, 3D) into an mph speed grid. */
 export function decodeCurrentSpeedGrid(buf: ArrayBuffer): ScalarGrid {
   const arr = parseNpy(buf)
   if (arr.shape.length !== 3) {
@@ -101,13 +101,13 @@ export function decodeCurrentSpeedGrid(buf: ArrayBuffer): ScalarGrid {
   // Speed magnitude |v| = sqrt(u²+v²) is independent of which plane is u vs v.
   const values = new Float64Array(speedMs.length)
   for (let i = 0; i < speedMs.length; i++) {
-    values[i] = Number.isNaN(speedMs[i]) ? NaN : msToFtPerMin(speedMs[i])
+    values[i] = Number.isNaN(speedMs[i]) ? NaN : msToMph(speedMs[i])
   }
   return {
     rows,
     cols,
     values,
-    unit: 'ft/min',
+    unit: 'mph',
     flipVertical: GRID_FLIP_VERTICAL,
     flipHorizontal: GRID_FLIP_HORIZONTAL,
   }

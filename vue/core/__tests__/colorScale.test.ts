@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CURRENT_SCALE,
   FULL_SPECTRUM_STOPS,
   TEMPERATURE_SCALE,
   WAVE_SCALE,
+  formatScaleValue,
   scaleColor,
   scaleGradientCss,
   type ColorScale,
@@ -67,5 +69,46 @@ describe('full-spectrum forecast scales (TERC-81)', () => {
 
   it('leaves the wave range unchanged at 0-5 ft', () => {
     expect([WAVE_SCALE.min, WAVE_SCALE.max, WAVE_SCALE.unit]).toEqual([0, 5, 'ft'])
+  })
+})
+
+// TERC-100: the science team asked for current speed in mph with the model's
+// own m/s in parentheses. Both numbers come from this one scale, which is
+// what keeps the colorbar, the map and the spoken text alternative from ever
+// naming different units.
+describe('a scale with a second unit (TERC-100)', () => {
+  it('reads current speed in mph', () => {
+    expect(CURRENT_SCALE.unit).toBe('mph')
+    expect(CURRENT_SCALE.secondary?.unit).toBe('m/s')
+  })
+
+  it('tops out at 1.1 mph, above every speed the model has published', () => {
+    // Highest single cell across the published window was 0.82 mph
+    // (0.367 m/s, measured 2026-09-30); the legend must sit above it so the
+    // fastest water is a color on the bar and not a clipped maximum.
+    expect(CURRENT_SCALE.max).toBe(1.1)
+    expect(CURRENT_SCALE.min).toBe(0)
+  })
+
+  it('puts a tick on each 0.1 mph — a colorbar whose labels are exact', () => {
+    const step = (CURRENT_SCALE.max - CURRENT_SCALE.min) / (CURRENT_SCALE.stops.length - 1)
+    expect(step).toBeCloseTo(0.1, 10)
+  })
+
+  it('writes both units, the second in parentheses', () => {
+    expect(formatScaleValue(CURRENT_SCALE, 0.34, 2)).toBe('0.34 mph (0.15 m/s)')
+    expect(formatScaleValue(CURRENT_SCALE, 1.1, 1)).toBe('1.1 mph (0.49 m/s)')
+    expect(formatScaleValue(CURRENT_SCALE, 0, 2)).toBe('0.00 mph (0.00 m/s)')
+  })
+
+  it('converts to the unit the model actually publishes', () => {
+    // 0.5 mph is 0.22 m/s: the parenthesised number must be a conversion,
+    // not the same digits with a different label.
+    expect(formatScaleValue(CURRENT_SCALE, 0.5, 2)).toBe('0.50 mph (0.22 m/s)')
+  })
+
+  it('says nothing extra for the scales that have one unit', () => {
+    expect(formatScaleValue(TEMPERATURE_SCALE, 62.4, 0)).toBe('62 °F')
+    expect(formatScaleValue(WAVE_SCALE, 1.25, 1)).toBe('1.3 ft')
   })
 })

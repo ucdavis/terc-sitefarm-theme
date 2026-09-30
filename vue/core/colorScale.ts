@@ -2,6 +2,22 @@
  * Color scales shared by the field renderer AND the legends (TERC-23) — a
  * single definition drives both, so they can never disagree.
  */
+import { MS_PER_MPH } from './units'
+
+/**
+ * A second unit shown beside the primary one, in parentheses (TERC-100).
+ *
+ * A plain factor rather than a conversion function, because a scale is
+ * posted to the render worker and must stay structured-cloneable.
+ */
+export interface ScaleSecondaryUnit {
+  /** Label, e.g. 'm/s'. */
+  unit: string
+  /** How many of this unit make one of the primary. */
+  perPrimary: number
+  /** Decimals this unit needs across the scale's range. */
+  digits: number
+}
 
 export interface ColorScale {
   name: string
@@ -10,6 +26,23 @@ export interface ColorScale {
   max: number
   /** Hex stops, evenly spaced from min to max. */
   stops: string[]
+  /** Set to show every number in a second unit too (TERC-100). */
+  secondary?: ScaleSecondaryUnit
+}
+
+/**
+ * A value in the scale's units, with the second unit in parentheses when the
+ * scale carries one: "0.34 mph (0.15 m/s)".
+ *
+ * Every place a visitor reads a number off one of these maps goes through
+ * here — the colorbar ticks and the map's spoken text alternative — so the
+ * legend and the readout cannot end up in different units (TERC-100).
+ */
+export function formatScaleValue(scale: ColorScale, value: number, digits: number): string {
+  const primary = `${value.toFixed(digits)} ${scale.unit}`
+  if (!scale.secondary) return primary
+  const { unit, perPrimary, digits: secondDigits } = scale.secondary
+  return `${primary} (${(value * perPrimary).toFixed(secondDigits)} ${unit})`
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -59,12 +92,28 @@ export const TEMPERATURE_SCALE: ColorScale = {
   stops: [...FULL_SPECTRUM_STOPS],
 }
 
-/** Current speed, ft/min (TERC-25). */
+/**
+ * Current speed, mph with m/s in parentheses (TERC-100, at the science
+ * team's request; ft/min before that).
+ *
+ * Lake currents are slow, so the unit has to be read together with its
+ * precision. Measured over the whole published model window (13 flow frames
+ * spanning 2026-09-16 to 2026-10-03, 161,590 water cells): median
+ * 0.06 mph, 90th percentile 0.19 mph, 99th 0.34 mph, highest cell in any
+ * frame 0.82 mph. Two decimals therefore resolve the lake, and m/s — the
+ * unit the model itself publishes — rides along for anyone checking the
+ * numbers against the model.
+ *
+ * The top is 1.1 mph rather than the old 100 ft/min (1.14 mph): it is above
+ * every value measured above, and with 12 stops it puts a tick on each
+ * clean 0.1 mph — a colorbar whose labels are exact instead of rounded.
+ */
 export const CURRENT_SCALE: ColorScale = {
   name: 'Current speed',
-  unit: 'ft/min',
+  unit: 'mph',
   min: 0,
-  max: 100,
+  max: 1.1,
+  secondary: { unit: 'm/s', perPrimary: MS_PER_MPH, digits: 2 },
   stops: [
     '#0b1d40', '#173a6d', '#1f5d8f', '#2b83a4', '#41a8ab', '#69c8a4',
     '#a4df9a', '#e0ef9c', '#fddc7a', '#f9a75b', '#ec6b45', '#d13a3a',

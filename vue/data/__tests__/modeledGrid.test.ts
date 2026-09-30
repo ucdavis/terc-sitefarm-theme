@@ -154,15 +154,15 @@ describe('fetchGrid: temperature', () => {
 })
 
 describe('fetchGrid: flow', () => {
-  it('reduces components-first (2, rows, cols) planes to ft/min speed', async () => {
+  it('reduces components-first (2, rows, cols) planes to mph speed', async () => {
     const frame = uniqueFrame()
     // u-plane [3, NaN], v-plane [4, 1] -> speeds [5, NaN] m/s.
     fetchMock.mockResolvedValueOnce(npyResponse(buildNpy([2, 1, 2], [3, NaN, 4, 1])))
     const grid = await fetchCurrentSpeedGrid(frame)
-    expect(grid.unit).toBe('ft/min')
+    expect(grid.unit).toBe('mph')
     expect(grid.rows).toBe(1)
     expect(grid.cols).toBe(2)
-    expect(grid.values[0]).toBeCloseTo(5 * 196.850394)
+    expect(grid.values[0]).toBeCloseTo(5 / 0.44704)
     expect(Number.isNaN(grid.values[1])).toBe(true)
   })
 
@@ -171,7 +171,7 @@ describe('fetchGrid: flow', () => {
     // Cells (u,v): (3,4) and (0,0).
     fetchMock.mockResolvedValueOnce(npyResponse(buildNpy([1, 2, 2], [3, 4, 0, 0])))
     const grid = await fetchCurrentSpeedGrid(frame)
-    expect(grid.values[0]).toBeCloseTo(5 * 196.850394)
+    expect(grid.values[0]).toBeCloseTo(5 / 0.44704)
     expect(grid.values[1]).toBe(0)
   })
 

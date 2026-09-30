@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cToF, isPlausible, mToFt, msToMph, parseReading } from '../units'
+import { MS_PER_MPH, cToF, isPlausible, mToFt, msToMph, parseReading } from '../units'
 
 describe('unit conversions', () => {
   it('converts 20.44 °C -> 68.8 °F', () => {
@@ -10,6 +10,13 @@ describe('unit conversions', () => {
   })
   it('converts m/s to mph', () => {
     expect(msToMph(3.62)).toBeCloseTo(8.1, 1)
+  })
+  // The current speed map labels every number in both units (TERC-100), so
+  // the two directions must be exact inverses, not two rounded constants.
+  it('round-trips m/s through mph without drift', () => {
+    for (const ms of [0, 0.0134, 0.0279, 0.154, 0.367, 12.5]) {
+      expect(msToMph(ms) * MS_PER_MPH).toBeCloseTo(ms, 12)
+    }
   })
 })
 

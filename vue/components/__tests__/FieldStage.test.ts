@@ -4,7 +4,7 @@ import { mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import type { ScalarGrid } from '../../data/gridDecode'
 import { empty, failure, loading, success, type RequestState } from '../../core/requestState'
-import { CURRENT_SCALE, TEMPERATURE_SCALE } from '../../core/colorScale'
+import { CURRENT_SCALE, TEMPERATURE_SCALE, WAVE_SCALE } from '../../core/colorScale'
 import FieldStage from '../FieldStage.vue'
 
 /** 1x3 grid: index 0 is west, index 2 is east (unflipped columns). */
@@ -96,18 +96,30 @@ describe('FieldStage', () => {
   })
 
   it('formats spoken values with the scale unit and the requested precision', () => {
-    const speeds = mountStage(success(grid([12.4, 61.7])), {
-      scale: CURRENT_SCALE,
-      subject: 'Forecast current speed',
-    })
-    expect(speeds.get('.field-readout-text').text()).toContain('about 12 ft/min')
+    const temps = mountStage(success(grid([48.2, 71.8])))
+    expect(temps.get('.field-readout-text').text()).toContain('about 48 °F')
 
     const decimals = mountStage(success(grid([0.42, 2.68])), {
-      scale: CURRENT_SCALE,
+      scale: WAVE_SCALE,
       subject: 'Forecast wave height',
       digits: 1,
     })
-    expect(decimals.get('.field-readout-text').text()).toContain('about 0.4 ft/min')
+    expect(decimals.get('.field-readout-text').text()).toContain('about 0.4 ft')
+  })
+
+  // TERC-100: a scale carrying a second unit says both, everywhere a number
+  // is spoken — the map's text alternative included, so a screen reader user
+  // gets the same pair of numbers the colorbar shows.
+  it('speaks both units when the scale has a second one', () => {
+    const w = mountStage(success(grid([0.06, 0.34])), {
+      scale: CURRENT_SCALE,
+      subject: 'Forecast current speed',
+      digits: 2,
+    })
+    const text = w.get('.field-readout-text').text()
+    expect(text).toContain('about 0.06 mph (0.03 m/s)')
+    expect(text).toContain('about 0.34 mph (0.15 m/s)')
+    expect(mapLabelOf(w)).toContain('0.06 mph (0.03 m/s)')
   })
 
   it('renders the chrome slot for per-view extras', () => {
