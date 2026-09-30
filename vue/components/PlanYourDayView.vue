@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import StationCard from './StationCard.vue'
-import ConditionLevels from './ConditionLevels.vue'
 import LoadingState from './LoadingState.vue'
 import { useConditionsState } from '../composables/useConditionsState'
 import { useDestinationData } from '../composables/useDestinationData'
@@ -515,9 +514,6 @@ const metMessage = computed(() => {
         </p>
       </div>
     </template>
-    <!-- Reference material, so it sits after the readings it explains and
-         opens on request (TERC-95). -->
-    <ConditionLevels />
   </div>
 </template>
 
