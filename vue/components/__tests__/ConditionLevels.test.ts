@@ -158,12 +158,15 @@ describe('ConditionLevels follows the visible measurements (TERC-103)', () => {
     expect(captions).not.toContain('Chlorophyll')
   })
 
-  it('counts only those measurements on the closed button', async () => {
+  it('counts only those measurements on the closed button, and counts them in English', async () => {
     // The button promises "N levels across M measurements" — it would be
-    // lying if it counted bands the panel then declines to show.
+    // lying if it counted bands the panel then declines to show. One
+    // measurement is a real state: a focused mid-lake buoy charts only
+    // water temperature (Copilot review, PR #65).
     const w = mountUnderView(['waterTemp'])
     const hint = w.get('.cl-hint').text()
-    expect(hint).toContain('across 1 measurements')
+    expect(hint).toContain('across 1 measurement,')
+    expect(hint).not.toContain('1 measurements')
     const temp = (await open(w)).findAll('tbody tr').length
     expect(hint).toContain(`${temp} levels`)
   })

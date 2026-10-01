@@ -18,6 +18,15 @@ import { METRIC_META, type QualityMetric } from '../config/qualitative'
  * active view's content, so there is exactly one declarer at a time; the
  * token below makes the hand-over safe whichever order the outgoing view's
  * unmount and the incoming view's mount happen to run in.
+ *
+ * The limit that scope accepts, deliberately (Copilot review, PR #65): the
+ * mount layer does support the same block twice on one page, and "Show more
+ * data" is per view instance, so two Current Conditions blocks side by side
+ * would share one declaration and the first block's matrix would follow the
+ * second block's toggle. Scoping this per app (provide/inject) would fix it
+ * and costs a layer of indirection for a placement the site does not have —
+ * the block is bound to /real-time-conditions by request-path visibility.
+ * If a second placement ever appears, this is the thing to change.
  */
 
 /** Every metric that has an interpretation scale, in the canonical order. */

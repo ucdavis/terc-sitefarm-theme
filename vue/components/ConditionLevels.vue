@@ -103,6 +103,9 @@ const previewSwatches = computed(() =>
 )
 const levelCount = computed(() => tables.value.reduce((n, t) => n + t.rows.length, 0))
 
+/** "1 measurement", not "1 measurements" — a focused buoy charts one. */
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+
 const tables = computed(() =>
   metrics.value.map((metric) => {
     const bands = metricBands(metric)
@@ -133,7 +136,8 @@ const tables = computed(() =>
       </span>
     </button>
     <span v-if="!open" class="cl-hint">
-      {{ levelCount }} levels across {{ tables.length }} measurements, and what each one means.
+      {{ plural(levelCount, 'level') }} across {{ plural(tables.length, 'measurement') }},
+      and what each one means.
     </span>
     <div v-show="open" :id="panelId" class="cl-panel">
       <p class="cl-intro">
