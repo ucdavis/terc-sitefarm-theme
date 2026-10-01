@@ -24,6 +24,13 @@ import {
   syncFromLocation,
   useConditionsState,
 } from '../../composables/useConditionsState'
+import {
+  resetVisibleMetricsForTests,
+  useVisibleMetrics,
+} from '../../composables/useVisibleMetrics'
+
+/** What the view has told the levels matrix it is showing (TERC-103). */
+const declaredMetrics = () => [...useVisibleMetrics().value]
 
 /** Chart.js needs a real canvas; the stub exposes what the view feeds it. */
 const TimeSeriesChartStub = {
@@ -61,6 +68,7 @@ const buoyRec = (waterTemp: number | null) => ({
 })
 
 beforeEach(() => {
+  resetVisibleMetricsForTests()
   window.history.replaceState(null, '', '/lake-conditions?cc-view=water-quality')
   resetRegistryForTests()
   syncFromLocation()
@@ -180,6 +188,37 @@ describe('WaterQualityView (charts)', () => {
     await flushPromises()
     expect(chartTitles(w)).toEqual(['Water temperature'])
     expect(w.text()).toContain('Mid-lake buoys measure water temperature only')
+  })
+
+  // TERC-103: the levels matrix follows the charts. This view has no "show
+  // more" toggle and charts no air temperature or wind, so the matrix must
+  // not keep explaining Plan Your Day's set once the visitor switches here.
+  it('tells the levels matrix it is showing the six water parameters', async () => {
+    const w = mount()
+    await flushPromises()
+    expect(declaredMetrics()).toEqual([
+      'waterTemp',
+      'waveHeight',
+      'dissolvedOxygen',
+      'turbidity',
+      'conductivity',
+      'chlorophyll',
+    ])
+    expect(declaredMetrics()).not.toContain('airTemp')
+    expect(declaredMetrics()).not.toContain('windSpeed')
+    w.unmount()
+  })
+
+  it('narrows the levels matrix to temperature when a buoy is focused', async () => {
+    buoy.mockImplementation((id: number) => Promise.resolve(id === 2 ? [buoyRec(67)] : []))
+    const { focusStation } = useConditionsState()
+    focusStation({ kind: 'buoy', sourceId: 2, name: 'NASA Buoy TB2' })
+    const w = mount()
+    await flushPromises()
+    // A buoy carries one sensor, so one chart — and one set of levels.
+    expect(chartTitles(w)).toEqual(['Water temperature'])
+    expect(declaredMetrics()).toEqual(['waterTemp'])
+    w.unmount()
   })
 
   it('marks the active range for assistive technology', async () => {

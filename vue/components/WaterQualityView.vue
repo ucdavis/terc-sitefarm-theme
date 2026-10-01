@@ -4,6 +4,7 @@ import TimeSeriesChart, { type ChartSeries } from './TimeSeriesChart.vue'
 import LoadingState from './LoadingState.vue'
 import { bandChipStyle } from '../config/brandPalette'
 import { useConditionsState } from '../composables/useConditionsState'
+import { declareVisibleMetrics } from '../composables/useVisibleMetrics'
 import {
   assessMetric,
   COLD_WATER_SHOCK_NOTE,
@@ -264,6 +265,11 @@ const focusedIsBuoy = computed(() => focusedStation.value?.kind === 'buoy')
 const visibleCharts = computed(() =>
   focusedIsBuoy.value ? charts.value.filter((c) => c.qualityKey === 'waterTemp') : charts.value,
 )
+
+// The levels matrix under the map follows the charts actually drawn
+// (TERC-103) — six water parameters normally, water temperature alone when
+// a mid-lake buoy is focused, since that is all a buoy measures.
+declareVisibleMetrics(computed(() => visibleCharts.value.map((c) => c.qualityKey)))
 </script>
 
 <template>
