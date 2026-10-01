@@ -1,8 +1,13 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { defineComponent, h, ref } from 'vue'
 import ConditionLevels from '../ConditionLevels.vue'
-import { applyConditionBands, resetBandsForTests } from '../../config/qualitative'
+import { applyConditionBands, resetBandsForTests, type QualityMetric } from '../../config/qualitative'
+import {
+  declareVisibleMetrics,
+  resetVisibleMetricsForTests,
+} from '../../composables/useVisibleMetrics'
 
 /**
  * TERC-95. The panel answers "what do the other levels mean?", so what
@@ -16,7 +21,23 @@ async function open(w: ReturnType<typeof mountPanel>) {
   return w
 }
 
-afterEach(() => resetBandsForTests())
+afterEach(() => {
+  resetBandsForTests()
+  resetVisibleMetricsForTests()
+})
+
+/** The panel as a view renders it: inside something declaring what is shown. */
+function mountUnderView(metrics: QualityMetric[]) {
+  const declared = ref(metrics)
+  return mount(
+    defineComponent({
+      setup() {
+        declareVisibleMetrics(declared)
+        return () => h(ConditionLevels)
+      },
+    }),
+  )
+}
 
 describe('ConditionLevels', () => {
   it('starts collapsed and toggles, reporting its state to assistive tech', async () => {
@@ -115,5 +136,43 @@ describe('ConditionLevels', () => {
     const w = await open(mountPanel())
     const waves = w.findAll('table').find((t) => t.find('caption').text() === 'Wave height')!
     expect(waves.findAll('tbody tr')[0].findAll('td')[1].text()).toBe('Below 0.5 ft')
+  })
+})
+
+// TERC-103: the panel covers what the active view is showing. It is under
+// the map, outside the view panels, so it has no way to know on its own —
+// and explaining levels for measurements nobody can see is noise.
+describe('ConditionLevels follows the visible measurements (TERC-103)', () => {
+  it('covers only the metrics the view declared', async () => {
+    const w = await open(
+      mountUnderView(['airTemp', 'windSpeed', 'waterTemp', 'waveHeight', 'turbidity']),
+    )
+    const captions = w.findAll('caption').map((c) => c.text())
+    expect(captions).toEqual([
+      'Water temperature',
+      'Wave height',
+      'Air temperature',
+      'Wind',
+      'Turbidity',
+    ])
+    expect(captions).not.toContain('Chlorophyll')
+  })
+
+  it('counts only those measurements on the closed button, and counts them in English', async () => {
+    // The button promises "N levels across M measurements" — it would be
+    // lying if it counted bands the panel then declines to show. One
+    // measurement is a real state: a focused mid-lake buoy charts only
+    // water temperature (Copilot review, PR #65).
+    const w = mountUnderView(['waterTemp'])
+    const hint = w.get('.cl-hint').text()
+    expect(hint).toContain('across 1 measurement,')
+    expect(hint).not.toContain('1 measurements')
+    const temp = (await open(w)).findAll('tbody tr').length
+    expect(hint).toContain(`${temp} levels`)
+  })
+
+  it('describes everything when no view has declared anything', async () => {
+    const w = await open(mountPanel())
+    expect(w.findAll('caption')).toHaveLength(8)
   })
 })

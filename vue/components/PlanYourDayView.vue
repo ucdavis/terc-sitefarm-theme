@@ -5,6 +5,7 @@ import LoadingState from './LoadingState.vue'
 import { useConditionsState } from '../composables/useConditionsState'
 import { useDestinationData } from '../composables/useDestinationData'
 import type { DestinationDef } from '../config/destinations'
+import { declareVisibleMetrics } from '../composables/useVisibleMetrics'
 import { LAKE_CENTER, LAKE_DEFAULT_ZOOM } from '../config/lakeView'
 import { useFocusedStation } from '../composables/useFocusedStation'
 import {
@@ -132,6 +133,20 @@ const NEARSHORE_METRICS: CardMetric[] = (
 ).map(([key, extra]) => ({ key, extra, ...METRIC_META[key] }))
 const visibleMetrics = computed(() =>
   NEARSHORE_METRICS.filter((m) => !m.extra || showMore.value),
+)
+
+/**
+ * Tell the levels matrix under the map what is on screen (TERC-103): the
+ * lake-weather card's two metrics, which are always shown, plus whatever
+ * the toggle is currently revealing. Collapsed that is five measurements,
+ * expanded it is all eight.
+ */
+declareVisibleMetrics(
+  computed<QualityMetric[]>(() => [
+    'airTemp',
+    'windSpeed',
+    ...visibleMetrics.value.map((m) => METRIC_QUALITY[m.key]),
+  ]),
 )
 
 /**

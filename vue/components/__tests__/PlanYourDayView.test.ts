@@ -44,6 +44,13 @@ import {
   useConditionsState,
 } from '../../composables/useConditionsState'
 import { COLD_WATER_SHOCK_NOTE, METRIC_META } from '../../config/qualitative'
+import {
+  resetVisibleMetricsForTests,
+  useVisibleMetrics,
+} from '../../composables/useVisibleMetrics'
+
+/** What the view has told the levels matrix it is showing (TERC-103). */
+const declaredMetrics = () => [...useVisibleMetrics().value]
 
 function rec(over: Partial<NearshoreRecord> = {}): NearshoreRecord {
   return {
@@ -64,6 +71,7 @@ const series = (stationId: number, name: string | null, records: NearshoreRecord
 })
 
 beforeEach(() => {
+  resetVisibleMetricsForTests()
   if (overview.markersRef) overview.markersRef.value = []
   window.history.replaceState(null, '', '/lake-conditions')
   resetRegistryForTests()
@@ -136,6 +144,34 @@ describe('PlanYourDayView', () => {
     await flushPromises()
     expect(w2.find('.pyd-toggle').attributes('aria-expanded')).toBe('false')
     expect(cardLabels(w2)).toEqual(['Water temperature', 'Wave height', 'Turbidity'])
+  })
+
+  // TERC-103. The levels matrix sits under the map, outside this view, and
+  // used to explain all eight measurements whatever was on screen — three of
+  // them behind a toggle the visitor had not opened. It now follows the
+  // cards: the toggle moves both together or neither.
+  it('tells the levels matrix which measurements are on screen', async () => {
+    const w = mount(PlanYourDayView)
+    await flushPromises()
+    // Lake weather is always shown, so air temperature and wind come too.
+    expect(declaredMetrics()).toEqual([
+      'waterTemp',
+      'waveHeight',
+      'airTemp',
+      'windSpeed',
+      'turbidity',
+    ])
+
+    await w.find('.pyd-toggle').trigger('click')
+    expect(declaredMetrics()).toEqual(Object.keys(METRIC_META))
+
+    await w.find('.pyd-toggle').trigger('click')
+    expect(declaredMetrics()).toHaveLength(5)
+
+    // The declaration belongs to the mounted view: leaving the page releases
+    // it rather than leaving the panel describing a view nobody is on.
+    w.unmount()
+    expect(declaredMetrics()).toEqual(Object.keys(METRIC_META))
   })
 
   it('shows a focused buoy its three metrics, with the sensor note only when expanded', async () => {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { bandChipStyle } from '../config/brandPalette'
-import { METRIC_META, metricBands, type Band, type QualityMetric } from '../config/qualitative'
+import { METRIC_META, metricBands, type Band } from '../config/qualitative'
+import { useVisibleMetrics } from '../composables/useVisibleMetrics'
 import { uniqueId } from '../lib/uniqueId'
 
 /**
@@ -17,8 +18,11 @@ import { uniqueId } from '../lib/uniqueId'
  * what people come for. It reads whatever bands are in force — editor-owned
  * condition_bands when the site has them, the built-in fallback otherwise —
  * so it always describes the thresholds actually being applied.
+ *
+ * It covers the measurements the active view is actually showing, not all
+ * eight (TERC-103): the view declares them, this reads the declaration.
  */
-const METRICS = Object.keys(METRIC_META) as QualityMetric[]
+const metrics = useVisibleMetrics()
 
 const open = ref(false)
 // Page-wide, not per-app: one Vue app per block placeholder means useId (or
@@ -99,8 +103,11 @@ const previewSwatches = computed(() =>
 )
 const levelCount = computed(() => tables.value.reduce((n, t) => n + t.rows.length, 0))
 
+/** "1 measurement", not "1 measurements" — a focused buoy charts one. */
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+
 const tables = computed(() =>
-  METRICS.map((metric) => {
+  metrics.value.map((metric) => {
     const bands = metricBands(metric)
     const meta = METRIC_META[metric]
     return {
@@ -129,12 +136,14 @@ const tables = computed(() =>
       </span>
     </button>
     <span v-if="!open" class="cl-hint">
-      {{ levelCount }} levels across {{ tables.length }} measurements, and what each one means.
+      {{ plural(levelCount, 'level') }} across {{ plural(tables.length, 'measurement') }},
+      and what each one means.
     </span>
     <div v-show="open" :id="panelId" class="cl-panel">
       <p class="cl-intro">
-        Every reading is given a level. These are all the levels, from lowest
-        to highest, and the range each one covers.
+        Every reading is given a level. These are all the levels for the
+        measurements shown here, from lowest to highest, and the range each
+        one covers.
       </p>
       <!-- Each table scrolls on its own below ~400px rather than stretching
            the page (WCAG 1.4.10 reflow): a data table is two-dimensional by
