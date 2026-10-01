@@ -4,7 +4,7 @@ import FieldOverlay from './FieldOverlay.vue'
 import GradientLegend from './GradientLegend.vue'
 import LakeMap from './LakeMap.vue'
 import LoadingState from './LoadingState.vue'
-import type { ColorScale } from '../core/colorScale'
+import { formatScaleValue, type ColorScale } from '../core/colorScale'
 import type { RequestState } from '../core/requestState'
 import type { ScalarGrid } from '../data/gridDecode'
 import { describeFieldExtent } from '../map/fieldSummary'
@@ -30,7 +30,7 @@ const props = withDefaults(
     scale: ColorScale
     /** Sentence subject for the text alternative, e.g. "Forecast current speed". */
     subject: string
-    /** Decimals in spoken values — 0 for °F and ft/min, 1 for wave feet. */
+    /** Decimals in spoken values — 0 for °F, 1 for wave feet, 2 for mph. */
     digits?: number
     /** Leading clause of the map's accessible name. */
     mapDescription: string
@@ -44,10 +44,10 @@ const props = withDefaults(
 
 const summary = computed(() => {
   if (props.state.status !== 'success' || !props.state.data) return null
-  return describeFieldExtent(
-    props.state.data,
-    props.subject,
-    (v) => `${v.toFixed(props.digits)} ${props.scale.unit}`,
+  // The same formatter the colorbar ticks use, so the sentence and the
+  // legend always name the same units (TERC-100).
+  return describeFieldExtent(props.state.data, props.subject, (v) =>
+    formatScaleValue(props.scale, v, props.digits),
   )
 })
 

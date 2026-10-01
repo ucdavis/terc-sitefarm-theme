@@ -77,8 +77,8 @@ describe('describeFieldExtent', () => {
 
   it('describes a uniform field without a nonsensical "ranges from X to X"', () => {
     const g = grid({ values: new Float64Array(9).fill(55) })
-    expect(describeFieldExtent(g, 'Forecast current speed', (v) => `${v} ft/min`)).toBe(
-      'Forecast current speed is about 55 ft/min across the lake at this hour.',
+    expect(describeFieldExtent(g, 'Forecast current speed', (v) => `${v} mph`)).toBe(
+      'Forecast current speed is about 55 mph across the lake at this hour.',
     )
   })
 })

@@ -23,7 +23,7 @@ function grid(values: number[]): ScalarGrid {
     rows: 1,
     cols: values.length,
     values: new Float64Array(values),
-    unit: 'ft/min',
+    unit: 'mph',
     flipVertical: true,
     flipHorizontal: false,
   }
@@ -43,13 +43,16 @@ describe('CurrentsView', () => {
   })
 
 
-  it('speaks its summary as current speed in ft/min', async () => {
-    fieldState.value = success(grid([8.2, NaN, 74.9]))
+  // TERC-100: mph to two decimals, with the model's own m/s alongside.
+  // Lake currents run 0.03-0.12 mph, so whole numbers would flatten the
+  // whole lake to "0 mph" and one decimal to two indistinguishable steps.
+  it('speaks its summary in mph with m/s in parentheses', async () => {
+    fieldState.value = success(grid([0.06, NaN, 0.34]))
     const w = mountView()
     await w.vm.$nextTick()
     const text = w.get('.field-readout-text').text()
-    expect(text).toContain('Forecast current speed ranges from about 8 ft/min')
-    expect(text).toContain('to about 75 ft/min')
+    expect(text).toContain('Forecast current speed ranges from about 0.06 mph (0.03 m/s)')
+    expect(text).toContain('to about 0.34 mph (0.15 m/s)')
     expect(text).toMatch(/shore|end of the lake/)
   })
 })

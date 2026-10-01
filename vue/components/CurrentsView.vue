@@ -8,7 +8,7 @@ import { CURRENT_SCALE } from '../core/colorScale'
  * inside the Forecasted Conditions shell.
  *
  * The grids hold two velocity components; the decode step reduces them to
- * speed magnitude √(u² + v²) in ft/min (see data/gridDecode.ts), which is
+ * speed magnitude √(u² + v²) in mph (see data/gridDecode.ts), which is
  * independent of which stored plane is u and which is v. Direction is not
  * shown — the safety story here is "how fast is the water moving where",
  * and an arrow field at 200 m resolution would imply a precision the
@@ -24,6 +24,7 @@ const { state } = useModeledField('flow')
   <FieldStage
     :state="state"
     :scale="CURRENT_SCALE"
+    :digits="2"
     subject="Forecast current speed"
     map-description="Map of Lake Tahoe colored by forecast surface current speed."
     empty-message="No forecast current data is available for this hour."
